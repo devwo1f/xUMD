@@ -1,0 +1,47 @@
+import { create } from 'zustand';
+
+interface DemoSettings {
+  pushNotifications: boolean;
+  emailDigest: boolean;
+  locationSharing: boolean;
+  campusAlerts: boolean;
+}
+
+interface DemoAppState {
+  savedEventIds: string[];
+  joinedClubIds: string[];
+  settings: DemoSettings;
+  toggleSavedEvent: (eventId: string) => void;
+  toggleJoinedClub: (clubId: string) => void;
+  updateSetting: (key: keyof DemoSettings, value: boolean) => void;
+}
+
+export const useDemoAppStore = create<DemoAppState>((set) => ({
+  savedEventIds: ['evt-002', 'evt-003', 'evt-006'],
+  joinedClubIds: ['club-001', 'club-003', 'club-005', 'club-006'],
+  settings: {
+    pushNotifications: true,
+    emailDigest: false,
+    locationSharing: true,
+    campusAlerts: true,
+  },
+  toggleSavedEvent: (eventId) =>
+    set((state) => ({
+      savedEventIds: state.savedEventIds.includes(eventId)
+        ? state.savedEventIds.filter((id) => id !== eventId)
+        : [...state.savedEventIds, eventId],
+    })),
+  toggleJoinedClub: (clubId) =>
+    set((state) => ({
+      joinedClubIds: state.joinedClubIds.includes(clubId)
+        ? state.joinedClubIds.filter((id) => id !== clubId)
+        : [...state.joinedClubIds, clubId],
+    })),
+  updateSetting: (key, value) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        [key]: value,
+      },
+    })),
+}));

@@ -1,0 +1,9 @@
+Networking has been disabled
+Starting project at D:\Projects\xUMD
+Starting Metro Bundler
+
+ ERROR  An unknown error occurred while installing React Native DevTools. Details:
+
+spawn EPERM
+Waiting on http://localhost:8081
+Logs for your project will appear below.

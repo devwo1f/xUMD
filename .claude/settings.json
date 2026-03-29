@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx expo:*)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//d/Projects/xUMD/**)",
+      "Bash(done)"
+    ]
+  }
+}
