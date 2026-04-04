@@ -14,8 +14,9 @@ import { colors } from '../../../shared/theme/colors';
 import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { CommentWithReplies } from '../../../assets/data/mockFeed';
+import type { FeedStackParamList, ProfileStackParamList } from '../../../navigation/types';
 
-type Props = NativeStackScreenProps<{ PostDetail: { postId: string } }, 'PostDetail'>;
+type Props = NativeStackScreenProps<FeedStackParamList & ProfileStackParamList, 'PostDetail'>;
 
 function toggleCommentLike(comments: CommentWithReplies[], commentId: string): CommentWithReplies[] {
   return comments.map((comment) => {
@@ -42,6 +43,7 @@ export default function PostDetailScreen({ navigation, route }: Props) {
   const post = posts.find((item) => item.id === route.params.postId);
   const [draft, setDraft] = useState('');
   const [comments, setComments] = useState<CommentWithReplies[]>(() => getCommentsForPost(route.params.postId));
+  const openUserProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 
   const timestamp = useMemo(() => {
     if (!post) {
@@ -119,11 +121,13 @@ export default function PostDetailScreen({ navigation, route }: Props) {
     >
       <Card>
         <View style={styles.postHeader}>
-          <Avatar uri={post.author?.avatar_url} name={post.author?.display_name} size="md" />
-          <View style={styles.postHeaderCopy}>
-            <Text style={styles.authorName}>{post.author?.display_name ?? 'Unknown'}</Text>
-            <Text style={styles.authorMeta}>{timestamp}</Text>
-          </View>
+          <Pressable onPress={() => openUserProfile(post.author_id)} style={styles.authorLink}>
+            <Avatar uri={post.author?.avatar_url} name={post.author?.display_name} size="md" />
+            <View style={styles.postHeaderCopy}>
+              <Text style={styles.authorName}>{post.author?.display_name ?? 'Unknown'}</Text>
+              <Text style={styles.authorMeta}>{timestamp}</Text>
+            </View>
+          </Pressable>
         </View>
 
         <Text style={styles.postContent}>{post.content}</Text>
@@ -159,6 +163,7 @@ export default function PostDetailScreen({ navigation, route }: Props) {
             comment={comment}
             onReply={() => setDraft(`@${comment.author?.display_name ?? 'terp'} `)}
             onLike={(commentId) => setComments((current) => toggleCommentLike(current, commentId))}
+            onOpenAuthor={openUserProfile}
           />
         </Card>
       ))}
@@ -184,8 +189,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  postHeaderCopy: {
+  authorLink: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  postHeaderCopy: {
     marginLeft: spacing.sm,
   },
   authorName: {

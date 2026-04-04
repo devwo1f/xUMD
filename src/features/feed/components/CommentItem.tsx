@@ -19,6 +19,7 @@ interface CommentItemProps {
   comment: CommentWithReplies;
   onReply: (commentId: string) => void;
   onLike: (commentId: string) => void;
+  onOpenAuthor?: (authorId: string) => void;
   isReply?: boolean;
 }
 
@@ -26,6 +27,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   comment,
   onReply,
   onLike,
+  onOpenAuthor,
   isReply = false,
 }) => {
   const timeAgo = (() => {
@@ -43,12 +45,18 @@ const CommentItem: React.FC<CommentItemProps> = ({
           uri={comment.author?.avatar_url}
           name={comment.author?.display_name}
           size="sm"
+          onPress={comment.author_id ? () => onOpenAuthor?.(comment.author_id) : undefined}
         />
         <View style={styles.body}>
           <View style={styles.headerRow}>
-            <Text style={styles.authorName}>
-              {comment.author?.display_name ?? 'Unknown'}
-            </Text>
+            <Pressable
+              onPress={comment.author_id ? () => onOpenAuthor?.(comment.author_id) : undefined}
+              disabled={!comment.author_id || !onOpenAuthor}
+            >
+              <Text style={styles.authorName}>
+                {comment.author?.display_name ?? 'Unknown'}
+              </Text>
+            </Pressable>
             <Text style={styles.timestamp}>{timeAgo}</Text>
           </View>
           <Text style={styles.content}>{comment.content}</Text>
@@ -99,6 +107,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               comment={reply}
               onReply={onReply}
               onLike={onLike}
+              onOpenAuthor={onOpenAuthor}
               isReply
             />
           ))}

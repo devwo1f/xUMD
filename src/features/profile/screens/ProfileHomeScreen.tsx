@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,8 +18,10 @@ import { colors } from '../../../shared/theme/colors';
 import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { ProfileStackParamList } from '../../../navigation/types';
+import { isSupabaseConfigured } from '../../../services/supabase';
+import { fetchRemotePostsByUser } from '../../../services/social';
 import FollowButton from '../../social/components/FollowButton';
-import { useSocialGraph } from '../../social/hooks/useSocialGraph';
+import { useCampusSocialGraph } from '../../social/hooks/useCampusSocialGraph';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>;
 
@@ -29,17 +31,46 @@ export default function ProfileHomeScreen({ navigation }: Props) {
   const posts = useFeedStore((state) => state.posts);
   const { isWide } = useResponsive();
   const {
+    viewerUserId,
     followers,
     following,
     recommendations,
     isFollowingUser,
     toggleFollow,
-  } = useSocialGraph();
+    loading: loadingSocialGraph,
+  } = useCampusSocialGraph();
 
   const myPosts = useMemo(
-    () => posts.filter((post) => post.author_id === 'usr-current'),
-    [posts],
+    () => posts.filter((post) => post.author_id === viewerUserId),
+    [posts, viewerUserId],
   );
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!isSupabaseConfigured || !viewerUserId || viewerUserId === 'usr-current') {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const loadRemotePosts = async () => {
+      try {
+        const remotePosts = await fetchRemotePostsByUser(viewerUserId, 12);
+        if (isActive && remotePosts.length > 0) {
+          useFeedStore.getState().hydratePosts(remotePosts);
+        }
+      } catch (error) {
+        console.warn('Unable to sync profile posts.', error);
+      }
+    };
+
+    void loadRemotePosts();
+
+    return () => {
+      isActive = false;
+    };
+  }, [viewerUserId]);
 
   const joinedClubs = useMemo(
     () => mockClubs.filter((club) => joinedClubIds.includes(club.id)).slice(0, 4),
@@ -84,6 +115,7 @@ export default function ProfileHomeScreen({ navigation }: Props) {
   ];
 
   const suggestedPeople = recommendations.slice(0, 3);
+  const openUserProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 
   const openClubsTab = () => {
     navigation.getParent()?.navigate('Clubs' as never);
@@ -112,7 +144,7 @@ export default function ProfileHomeScreen({ navigation }: Props) {
   return (
     <ScreenLayout
       title="Profile"
-      subtitle="Your xUMD identity and shortcuts."
+      subtitle={loadingSocialGraph ? 'Syncing your campus network...' : 'Your xUMD identity and shortcuts.'}
       headerTopContent={<UMDBrandLockup />}
       headerMetaContent={
         <HeaderTag
@@ -202,21 +234,25 @@ export default function ProfileHomeScreen({ navigation }: Props) {
           <View style={[styles.recommendationList, isWide && styles.recommendationListWide]}>
             {suggestedPeople.map((entry) => (
               <View key={entry.profile.id} style={[styles.recommendationCard, isWide && styles.recommendationCardWide]}>
-                <View style={styles.recommendationTop}>
-                  <Avatar uri={entry.profile.avatarUrl} name={entry.profile.displayName} size="md" />
-                  <View style={styles.recommendationCopy}>
-                    <Text style={styles.recommendationName}>{entry.profile.displayName}</Text>
-                    <Text style={styles.recommendationHandle}>@{entry.profile.username}</Text>
+                <Pressable onPress={() => openUserProfile(entry.profile.id)} style={styles.recommendationLink}>
+                  <View style={styles.recommendationTop}>
+                    <Avatar uri={entry.profile.avatarUrl} name={entry.profile.displayName} size="md" />
+                    <View style={styles.recommendationCopy}>
+                      <Text style={styles.recommendationName}>{entry.profile.displayName}</Text>
+                      <Text style={styles.recommendationHandle}>@{entry.profile.username}</Text>
+                    </View>
                   </View>
-                </View>
-                <Text style={styles.recommendationReason}>{entry.reason.headline}</Text>
-                <Text style={styles.recommendationBio} numberOfLines={2}>
-                  {entry.profile.bio}
-                </Text>
-                <FollowButton
-                  isFollowing={isFollowingUser(entry.profile.id)}
-                  onPress={() => toggleFollow(entry.profile.id)}
-                />
+                  <Text style={styles.recommendationReason}>{entry.reason.headline}</Text>
+                  <Text style={styles.recommendationBio} numberOfLines={2}>
+                    {entry.profile.bio}
+                  </Text>
+                </Pressable>
+                {entry.profile.id !== viewerUserId ? (
+                  <FollowButton
+                    isFollowing={isFollowingUser(entry.profile.id)}
+                    onPress={() => void toggleFollow(entry.profile.id)}
+                  />
+                ) : null}
               </View>
             ))}
           </View>
@@ -489,6 +525,9 @@ const styles = StyleSheet.create({
   recommendationCardWide: {
     flex: 1,
   },
+  recommendationLink: {
+    gap: spacing.sm,
+  },
   recommendationTop: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -566,3 +605,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 });
+

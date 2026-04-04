@@ -5,9 +5,9 @@
  * Provides mock data, optimistic like/unlike, and feed type filtering.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { create } from 'zustand';
-import type { Post, Comment, UserProfile, PostMediaItem } from '../../../shared/types';
+import type { Post, UserProfile, PostMediaItem } from '../../../shared/types';
 import {
   mockPosts,
   mockComments,
@@ -17,9 +17,19 @@ import {
 } from '../../../assets/data/mockFeed';
 import { useSocialGraph } from '../../social/hooks/useSocialGraph';
 
-// ── Feed Types ──────────────────────────────────────────────
-
 export type FeedTab = 'For You' | 'Following' | 'Trending';
+
+function mergePosts(existing: Post[], incoming: Post[]) {
+  const existingById = new Map(existing.map((post) => [post.id, post]));
+  const mergedIncoming = incoming.map((post) => ({
+    ...(existingById.get(post.id) ?? {}),
+    ...post,
+  }));
+  const incomingIds = new Set(incoming.map((post) => post.id));
+  const remainder = existing.filter((post) => !incomingIds.has(post.id));
+
+  return [...mergedIncoming, ...remainder];
+}
 
 interface FeedState {
   posts: Post[];
@@ -39,11 +49,10 @@ interface FeedState {
     mediaItems?: PostMediaItem[];
     type?: string;
     isPinned?: boolean;
-  }) => void;
+  }) => Post;
+  hydratePosts: (posts: Post[]) => void;
   refresh: () => void;
 }
-
-// ── Zustand Store ───────────────────────────────────────────
 
 export const useFeedStore = create<FeedState>((set, get) => ({
   posts: mockPosts,
@@ -71,16 +80,20 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     })),
 
   toggleLike: (postId) => {
-    const post = get().posts.find((p) => p.id === postId);
-    if (!post) return;
+    const post = get().posts.find((item) => item.id === postId);
+    if (!post) {
+      return;
+    }
+
     if (post.is_liked) {
       get().unlikePost(postId);
-    } else {
-      get().likePost(postId);
+      return;
     }
+
+    get().likePost(postId);
   },
 
-  addComment: (postId, content) =>
+  addComment: (postId) =>
     set((state) => ({
       posts: state.posts.map((post) =>
         post.id === postId
@@ -98,28 +111,36 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     mediaItems = [],
     type = 'club_update',
     isPinned = false,
-  }) =>
+  }) => {
+    const nextPost: Post = {
+      id: `post-${Date.now()}`,
+      author_id: authorId,
+      author,
+      club_id: clubId,
+      club: undefined,
+      type,
+      content: content.trim(),
+      media_urls: mediaUrls,
+      media_items: mediaItems,
+      like_count: 0,
+      comment_count: 0,
+      share_count: 0,
+      is_pinned: isPinned,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_liked: false,
+    };
+
     set((state) => ({
-      posts: [
-        {
-          id: `post-${Date.now()}`,
-          author_id: authorId,
-          author,
-          club_id: clubId,
-          club: undefined,
-          type,
-          content: content.trim(),
-          media_urls: mediaUrls,
-          media_items: mediaItems,
-          like_count: 0,
-          comment_count: 0,
-          is_pinned: isPinned,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_liked: false,
-        },
-        ...state.posts,
-      ],
+      posts: [nextPost, ...state.posts],
+    }));
+
+    return nextPost;
+  },
+
+  hydratePosts: (posts) =>
+    set((state) => ({
+      posts: mergePosts(state.posts, posts),
     })),
 
   refresh: () => {
@@ -129,8 +150,6 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     }, 800);
   },
 }));
-
-// ── Convenience Hook ────────────────────────────────────────
 
 export function useFeed() {
   const store = useFeedStore();
@@ -143,8 +162,7 @@ export function useFeed() {
       case 'Following':
         return store.posts.filter((post) => followingIds.includes(post.author_id));
       case 'Trending':
-        // Mock: sort by like count descending
-        return [...store.posts].sort((a, b) => b.like_count - a.like_count);
+        return [...store.posts].sort((left, right) => right.like_count - left.like_count);
       default:
         return store.posts;
     }
@@ -158,11 +176,10 @@ export function useFeed() {
     toggleLike: store.toggleLike,
     addComment: store.addComment,
     createPost: store.createPost,
+    hydratePosts: store.hydratePosts,
     refresh: store.refresh,
   };
 }
-
-// ── Comment Helpers ─────────────────────────────────────────
 
 export function getCommentsForPost(postId: string): CommentWithReplies[] {
   return mockComments[postId] ?? [];

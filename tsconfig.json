@@ -3,5 +3,5 @@
   "compilerOptions": {
     "strict": true
   },
-  "exclude": ["dist", ".expo", "node_modules"]
+  "exclude": ["dist", ".expo", "node_modules", "supabase"]
 }

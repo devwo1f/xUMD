@@ -1,4 +1,4 @@
-export type AuthStackParamList = {
+﻿export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
@@ -26,6 +26,7 @@ export type MapStackParamList = {
 export type FeedStackParamList = {
   FeedHome: undefined;
   PostDetail: { postId: string };
+  UserProfile: { userId: string };
 };
 
 export type ClubsStackParamList = {
@@ -61,4 +62,6 @@ export type ProfileStackParamList = {
   ClubDetail: { clubId: string };
   EventDetail: { eventId: string };
   PostDetail: { postId: string };
+  UserProfile: { userId: string };
 };
+

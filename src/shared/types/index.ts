@@ -5,9 +5,9 @@
  * and UI components. Mirrors the Supabase database schema.
  */
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 //  Enums
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 
 export enum ClubCategory {
   Academic = 'academic',
@@ -44,9 +44,9 @@ export enum MemberStatus {
   Rejected = 'rejected',
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 //  Utility Types
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 
 /** Standard paginated response wrapper */
 export interface PaginatedResponse<T> {
@@ -62,11 +62,11 @@ export type ServiceResult<T> =
   | { data: T; error: null }
   | { data: null; error: string };
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 //  Database Entities
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 
-// ── User ──────────────────────────────────────────────────────
+// -- User ------------------------------------------------------
 
 export interface NotificationPrefs {
   push_enabled: boolean;
@@ -79,11 +79,16 @@ export interface NotificationPrefs {
 export interface User {
   id: string;
   email: string;
+  username?: string;
   display_name: string;
   avatar_url: string | null;
   major: string | null;
   graduation_year: number | null;
   bio: string | null;
+  clubs?: string[];
+  courses?: string[];
+  follower_count?: number;
+  following_count?: number;
   notification_prefs?: NotificationPrefs;
   push_token?: string | null;
   created_at: string;
@@ -100,7 +105,7 @@ export type UserUpdate = Partial<
 export type UserProfile = User;
 export type UserProfileUpdate = UserUpdate;
 
-// ── Club ──────────────────────────────────────────────────────
+// -- Club ------------------------------------------------------
 
 export interface SocialLinks {
   instagram?: string;
@@ -150,7 +155,7 @@ export interface ClubFilters {
   sort?: 'name' | 'member_count' | 'created_at';
 }
 
-// ── Club Member ───────────────────────────────────────────────
+// -- Club Member -----------------------------------------------
 
 export interface ClubMember {
   club_id: string;
@@ -160,7 +165,7 @@ export interface ClubMember {
   joined_at: string;
 }
 
-// ── Event ─────────────────────────────────────────────────────
+// -- Event -----------------------------------------------------
 
 export interface Event {
   id: string;
@@ -204,7 +209,7 @@ export interface EventFilters {
   clubId?: string;
 }
 
-// ── Event RSVP ────────────────────────────────────────────────
+// -- Event RSVP ------------------------------------------------
 
 export interface EventRSVP {
   event_id: string;
@@ -212,7 +217,7 @@ export interface EventRSVP {
   created_at: string;
 }
 
-// ── Post ──────────────────────────────────────────────────────
+// -- Post ------------------------------------------------------
 
 export interface Post {
   id: string;
@@ -224,12 +229,16 @@ export interface Post {
   content: string;
   media_urls: string[];
   media_items?: PostMediaItem[];
+  hashtags?: string[];
   like_count: number;
   comment_count: number;
+  share_count?: number;
   is_pinned: boolean;
   created_at: string;
   updated_at?: string;
   is_liked?: boolean;
+  suggested_reason?: string | null;
+  score?: number;
 }
 
 export type PostCreate = Pick<Post, 'club_id' | 'content' | 'media_urls'>;
@@ -239,13 +248,15 @@ export interface PostMediaItem {
   uri: string;
   type: 'image' | 'video';
   mime_type?: string | null;
+  file_name?: string | null;
   width?: number;
   height?: number;
   file_size?: number;
   duration_ms?: number | null;
+  base64_data?: string | null;
 }
 
-// ── Comment ───────────────────────────────────────────────────
+// -- Comment ---------------------------------------------------
 
 export interface Comment {
   id: string;
@@ -259,7 +270,7 @@ export interface Comment {
   like_count?: number;
 }
 
-// ── Dining Location ───────────────────────────────────────────
+// -- Dining Location -------------------------------------------
 
 export interface DiningHours {
   open: string;
@@ -278,7 +289,7 @@ export interface DiningLocation {
   is_open: boolean;
 }
 
-// ── Safety Contact ────────────────────────────────────────────
+// -- Safety Contact --------------------------------------------
 
 export interface SafetyContact {
   id: string;
@@ -289,7 +300,7 @@ export interface SafetyContact {
   display_order: number;
 }
 
-// ── Campus Building ───────────────────────────────────────────
+// -- Campus Building -------------------------------------------
 
 export interface CampusBuilding {
   id: string;
@@ -303,7 +314,7 @@ export interface CampusBuilding {
   building_type: string;
 }
 
-// ── Marketplace Listing ───────────────────────────────────────
+// -- Marketplace Listing ---------------------------------------
 
 export type ListingCondition = 'new' | 'like_new' | 'good' | 'fair' | 'poor';
 export type ListingStatus = 'active' | 'sold' | 'reserved' | 'removed';
@@ -321,7 +332,7 @@ export interface MarketplaceListing {
   created_at: string;
 }
 
-// ── Study Spot ────────────────────────────────────────────────
+// -- Study Spot ------------------------------------------------
 
 export type NoiseLevel = 'silent' | 'quiet' | 'moderate' | 'loud';
 
@@ -339,9 +350,9 @@ export interface StudySpot {
   image_url: string | null;
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 //  Joined / Derived Types (commonly used in UI)
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 
 /** Post with the author record attached */
 export interface PostWithAuthor extends Post {
@@ -365,9 +376,9 @@ export interface ClubMemberWithUser extends ClubMember {
   user: User;
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 //  Notifications
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 
 export type NotificationType =
   | 'event_reminder'
@@ -389,9 +400,9 @@ export interface AppNotification {
   created_at: string;
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 //  Content Reports
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 
 export type ReportType = 'post' | 'comment' | 'user' | 'club';
 
@@ -404,60 +415,9 @@ export interface ContentReport {
   created_at: string;
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 //  Navigation Param Lists
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 
-export type RootTabParamList = {
-  Explore: undefined;
-  Feed: undefined;
-  Clubs: undefined;
-  Campus: undefined;
-  Profile: undefined;
-};
-
-export type ExploreStackParamList = {
-  ExploreHome: undefined;
-  EventDetail: { eventId: string };
-  ClubDetail: { clubId: string };
-  SearchResults: { query: string };
-};
-
-export type FeedStackParamList = {
-  FeedHome: undefined;
-  PostDetail: { postId: string };
-  CreatePost: { clubId?: string };
-  UserProfile: { userId: string };
-};
-
-export type ClubsStackParamList = {
-  ClubsList: { category?: ClubCategory };
-  ClubDetail: { clubId: string };
-  ClubSettings: { clubId: string };
-  ClubMembers: { clubId: string };
-  CreateClub: undefined;
-  EventDetail: { eventId: string };
-};
-
-export type CampusStackParamList = {
-  CampusHome: undefined;
-  DiningDetail: { locationId: string };
-  BuildingDetail: { buildingId: string };
-  StudySpots: undefined;
-  StudySpotDetail: { spotId: string };
-  SafetyHome: undefined;
-  Marketplace: undefined;
-  MarketplaceDetail: { listingId: string };
-  CreateListing: undefined;
-  MapView: { buildingId?: string; latitude?: number; longitude?: number };
-};
-
-export type ProfileStackParamList = {
-  ProfileHome: undefined;
-  EditProfile: undefined;
-  MyClubs: undefined;
-  MyEvents: undefined;
-  MyListings: undefined;
-  Settings: undefined;
-  NotificationSettings: undefined;
-};
+// Navigation param types live in src/navigation/types.ts so the active app shell
+// has a single source of truth for routes.

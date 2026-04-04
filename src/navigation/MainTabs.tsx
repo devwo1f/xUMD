@@ -18,6 +18,7 @@ import SettingsScreen from '../features/profile/screens/SettingsScreen';
 import SavedEventsScreen from '../features/profile/screens/SavedEventsScreen';
 import MyPostsScreen from '../features/profile/screens/MyPostsScreen';
 import ConnectionsScreen from '../features/profile/screens/ConnectionsScreen';
+import UserProfileScreen from '../features/social/screens/UserProfileScreen';
 import { colors } from '../shared/theme/colors';
 import { spacing } from '../shared/theme/spacing';
 import { typography } from '../shared/theme/typography';
@@ -62,6 +63,7 @@ function FeedNavigator() {
     <FeedStack.Navigator screenOptions={{ headerShown: false }}>
       <FeedStack.Screen name="FeedHome" component={FeedHomeScreen} />
       <FeedStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <FeedStack.Screen name="UserProfile" component={UserProfileScreen} />
     </FeedStack.Navigator>
   );
 }
@@ -99,6 +101,7 @@ function ProfileNavigator() {
       <ProfileStack.Screen name="ClubDetail" component={ClubDetailScreen} />
       <ProfileStack.Screen name="EventDetail" component={EventDetailScreen} />
       <ProfileStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <ProfileStack.Screen name="UserProfile" component={UserProfileScreen} />
     </ProfileStack.Navigator>
   );
 }

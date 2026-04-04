@@ -1,4 +1,4 @@
-import { mockClubs } from '../../../assets/data/mockClubs';
+﻿import { mockClubs } from '../../../assets/data/mockClubs';
 
 export interface SocialProfile {
   id: string;
@@ -6,6 +6,7 @@ export interface SocialProfile {
   username: string;
   avatarUrl: string | null;
   bio: string;
+  pronouns?: string | null;
   major: string | null;
   classYear: number | null;
   clubIds: string[];
@@ -30,6 +31,7 @@ export const socialProfiles: Record<string, SocialProfile> = {
     username: 'alexj_terp',
     avatarUrl: 'https://i.pravatar.cc/200?u=alexj_terp',
     bio: 'Building things at UMD. Coffee enthusiast and late-night coder.',
+    pronouns: 'they/them',
     major: 'Computer Science',
     classYear: 2026,
     clubIds: ['club-001', 'club-003', 'club-005'],
@@ -41,6 +43,7 @@ export const socialProfiles: Record<string, SocialProfile> = {
     username: 'fearTheTurtle',
     avatarUrl: 'https://i.pravatar.cc/200?u=testudo',
     bio: 'Official campus mascot and good-luck dispenser.',
+    pronouns: null,
     major: null,
     classYear: null,
     clubIds: ['club-004'],
@@ -53,6 +56,7 @@ export const socialProfiles: Record<string, SocialProfile> = {
     username: 'umd_sga',
     avatarUrl: 'https://i.pravatar.cc/200?u=umd_sga',
     bio: 'Student Government Association at UMD.',
+    pronouns: null,
     major: null,
     classYear: null,
     clubIds: ['club-004'],
@@ -65,6 +69,7 @@ export const socialProfiles: Record<string, SocialProfile> = {
     username: 'sarah_j',
     avatarUrl: 'https://i.pravatar.cc/200?u=sarah_j',
     bio: 'CS major, class of 2027. Usually somewhere near Iribe.',
+    pronouns: 'she/her',
     major: 'Computer Science',
     classYear: 2027,
     clubIds: ['club-001'],
@@ -76,6 +81,7 @@ export const socialProfiles: Record<string, SocialProfile> = {
     username: 'marcus_t',
     avatarUrl: 'https://i.pravatar.cc/200?u=marcus_t',
     bio: 'Mechanical Engineering and Terps basketball superfan.',
+    pronouns: 'he/him',
     major: 'Mechanical Engineering',
     classYear: 2026,
     clubIds: ['club-002'],
@@ -87,6 +93,7 @@ export const socialProfiles: Record<string, SocialProfile> = {
     username: 'priya_k',
     avatarUrl: 'https://i.pravatar.cc/200?u=priya_k',
     bio: 'Biology + pre-med. Loves campus sunsets and quiet corners.',
+    pronouns: 'she/her',
     major: 'Biology',
     classYear: 2026,
     clubIds: ['club-003'],
@@ -98,6 +105,7 @@ export const socialProfiles: Record<string, SocialProfile> = {
     username: 'terps_esports',
     avatarUrl: 'https://i.pravatar.cc/200?u=terps_esports',
     bio: 'Official UMD esports club. Scrims, streams, and campus LAN nights.',
+    pronouns: null,
     major: null,
     classYear: null,
     clubIds: ['club-001'],
@@ -110,6 +118,7 @@ export const socialProfiles: Record<string, SocialProfile> = {
     username: 'nia_builds',
     avatarUrl: 'https://i.pravatar.cc/200?u=nia_builds',
     bio: 'Infosci + product design. Always down for a prototype sprint.',
+    pronouns: 'she/her',
     major: 'Information Science',
     classYear: 2027,
     clubIds: ['club-001', 'club-004'],
@@ -121,6 +130,7 @@ export const socialProfiles: Record<string, SocialProfile> = {
     username: 'danielpark',
     avatarUrl: 'https://i.pravatar.cc/200?u=danielpark',
     bio: 'CS, photography, and way too many side projects.',
+    pronouns: 'he/him',
     major: 'Computer Science',
     classYear: 2025,
     clubIds: ['club-001', 'club-006'],
@@ -132,6 +142,7 @@ export const socialProfiles: Record<string, SocialProfile> = {
     username: 'avareynolds',
     avatarUrl: 'https://i.pravatar.cc/200?u=avareynolds',
     bio: 'Architecture student. Best study rooms and best playlists.',
+    pronouns: 'she/her',
     major: 'Architecture',
     classYear: 2026,
     clubIds: ['club-003', 'club-005'],
@@ -143,6 +154,7 @@ export const socialProfiles: Record<string, SocialProfile> = {
     username: 'malikmoves',
     avatarUrl: 'https://i.pravatar.cc/200?u=malikmoves',
     bio: 'Kinesiology, intramurals, and anything happening tonight.',
+    pronouns: 'he/him',
     major: 'Kinesiology',
     classYear: 2027,
     clubIds: ['club-002'],

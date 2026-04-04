@@ -12,7 +12,7 @@ import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { ProfileStackParamList } from '../../../navigation/types';
 import FollowButton from '../../social/components/FollowButton';
-import { useSocialGraph } from '../../social/hooks/useSocialGraph';
+import { useCampusSocialGraph } from '../../social/hooks/useCampusSocialGraph';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'Connections'>;
 
@@ -65,12 +65,14 @@ export default function ConnectionsScreen({ navigation, route }: Props) {
     following,
     mutualConnections,
     recommendations,
+    viewerUserId,
     isFollowingUser,
     toggleFollow,
     getMutualCount,
-  } = useSocialGraph();
+  } = useCampusSocialGraph();
 
   const copy = copyByMode[mode];
+  const openUserProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 
   const rows =
     mode === 'followers'
@@ -125,24 +127,28 @@ export default function ConnectionsScreen({ navigation, route }: Props) {
         rows.map(({ key, profile, badge, supporting }) => (
           <Card key={key} style={styles.personCard}>
             <View style={styles.personRow}>
-              <Avatar uri={profile.avatarUrl} name={profile.displayName} size="md" />
-              <View style={styles.personCopy}>
-                <Text style={styles.personName}>{profile.displayName}</Text>
-                <Text style={styles.personHandle}>@{profile.username}</Text>
-                <Text style={styles.personBio} numberOfLines={2}>
-                  {supporting}
-                </Text>
-                {badge ? (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{badge}</Text>
-                  </View>
-                ) : null}
-              </View>
-              <FollowButton
-                compact
-                isFollowing={isFollowingUser(profile.id)}
-                onPress={() => toggleFollow(profile.id)}
-              />
+              <Pressable onPress={() => openUserProfile(profile.id)} style={styles.personLink}>
+                <Avatar uri={profile.avatarUrl} name={profile.displayName} size="md" />
+                <View style={styles.personCopy}>
+                  <Text style={styles.personName}>{profile.displayName}</Text>
+                  <Text style={styles.personHandle}>@{profile.username}</Text>
+                  <Text style={styles.personBio} numberOfLines={2}>
+                    {supporting}
+                  </Text>
+                  {badge ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{badge}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </Pressable>
+              {profile.id !== viewerUserId ? (
+                <FollowButton
+                  compact
+                  isFollowing={isFollowingUser(profile.id)}
+                  onPress={() => void toggleFollow(profile.id)}
+                />
+              ) : null}
             </View>
           </Card>
         ))
@@ -181,6 +187,12 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   personRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  personLink: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.md,
@@ -228,3 +240,4 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
 });
+

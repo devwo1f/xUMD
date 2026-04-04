@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -13,11 +13,20 @@ import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { PostMediaItem, UserProfile } from '../../../shared/types';
 import type { ProfileStackParamList } from '../../../navigation/types';
+import { isSupabaseConfigured } from '../../../services/supabase';
+import {
+  fetchCurrentRemoteUserId,
+  fetchRemotePostsByUser,
+  submitRemotePost,
+} from '../../../services/social';
 import { useFeedStore } from '../../feed/hooks/useFeed';
+import PostMediaGallery from '../../feed/components/PostMediaGallery';
+import {
+  pickPostMedia,
+  preparePostMediaForUpload,
+} from '../../feed/utils/mediaComposer';
 import { useProfile } from '../hooks/useProfile';
 import { CURRENT_SOCIAL_USER_ID } from '../../social/data/mockSocialGraph';
-import PostMediaGallery from '../../feed/components/PostMediaGallery';
-import { pickPostMedia } from '../../feed/utils/mediaComposer';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'MyPosts'>;
 
@@ -33,18 +42,62 @@ export default function MyPostsScreen({ navigation }: Props) {
   const { user } = useProfile();
   const posts = useFeedStore((state) => state.posts);
   const createPost = useFeedStore((state) => state.createPost);
+  const hydratePosts = useFeedStore((state) => state.hydratePosts);
   const [draft, setDraft] = useState('');
   const [selectedMedia, setSelectedMedia] = useState<PostMediaItem[]>([]);
+  const [currentAuthorId, setCurrentAuthorId] = useState(CURRENT_SOCIAL_USER_ID);
+  const [submitting, setSubmitting] = useState(false);
+  const [loadingRemotePosts, setLoadingRemotePosts] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!isSupabaseConfigured) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const loadRemotePosts = async () => {
+      setLoadingRemotePosts(true);
+
+      try {
+        const remoteUserId = await fetchCurrentRemoteUserId();
+        if (!isActive || !remoteUserId) {
+          return;
+        }
+
+        setCurrentAuthorId(remoteUserId);
+        const remotePosts = await fetchRemotePostsByUser(remoteUserId);
+        if (isActive && remotePosts.length > 0) {
+          hydratePosts(remotePosts);
+        }
+      } catch (error) {
+        console.warn('Unable to sync remote posts for My Posts.', error);
+      } finally {
+        if (isActive) {
+          setLoadingRemotePosts(false);
+        }
+      }
+    };
+
+    void loadRemotePosts();
+
+    return () => {
+      isActive = false;
+    };
+  }, [hydratePosts]);
 
   const myPosts = useMemo(
-    () => posts.filter((post) => post.author_id === CURRENT_SOCIAL_USER_ID),
-    [posts],
+    () => posts.filter((post) => post.author_id === currentAuthorId),
+    [currentAuthorId, posts],
   );
 
   const currentAuthor = useMemo<UserProfile>(
     () => ({
-      id: CURRENT_SOCIAL_USER_ID,
+      id: currentAuthorId,
       email: user.email,
+      username: user.username,
       display_name: user.displayName,
       avatar_url: user.avatar,
       bio: user.bio,
@@ -54,30 +107,84 @@ export default function MyPostsScreen({ navigation }: Props) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }),
-    [user],
+    [currentAuthorId, user],
   );
 
-  const handleCreatePost = () => {
+  const handleCreatePost = async () => {
     const trimmed = draft.trim();
     if (!trimmed && selectedMedia.length === 0) {
       return;
     }
 
-    createPost({
-      authorId: CURRENT_SOCIAL_USER_ID,
-      author: currentAuthor,
-      clubId: null,
-      content: trimmed,
-      mediaUrls: selectedMedia.map((item) => item.uri),
-      mediaItems: selectedMedia,
-      type: selectedMedia.some((item) => item.type === 'video')
-        ? 'video'
-        : selectedMedia.length > 0
-          ? 'image'
-          : 'text',
-    });
-    setDraft('');
-    setSelectedMedia([]);
+    setSubmitting(true);
+
+    try {
+      if (isSupabaseConfigured) {
+        const remoteUserId =
+          currentAuthorId !== CURRENT_SOCIAL_USER_ID
+            ? currentAuthorId
+            : await fetchCurrentRemoteUserId();
+
+        if (!remoteUserId) {
+          throw new Error('Sign in again to publish with the live campus feed.');
+        }
+
+        if (remoteUserId !== currentAuthorId) {
+          setCurrentAuthorId(remoteUserId);
+        }
+
+        const uploads = await preparePostMediaForUpload(selectedMedia);
+        const result = await submitRemotePost({
+          contentText: trimmed,
+          mediaItems: uploads,
+        });
+
+        if (result.post) {
+          hydratePosts([result.post]);
+        } else {
+          const refreshedPosts = await fetchRemotePostsByUser(remoteUserId, 12);
+          hydratePosts(refreshedPosts);
+        }
+
+        if (result.moderationStatus === 'pending') {
+          Alert.alert(
+            'Post submitted',
+            'Your post is already on your profile and is waiting on moderation before broader campus discovery.',
+          );
+        }
+
+        if (result.moderationStatus === 'rejected') {
+          Alert.alert(
+            'Post needs edits',
+            'We saved the post to your profile, but it could not be published more broadly in its current form.',
+          );
+        }
+      } else {
+        createPost({
+          authorId: currentAuthorId,
+          author: currentAuthor,
+          clubId: null,
+          content: trimmed,
+          mediaUrls: selectedMedia.map((item) => item.uri),
+          mediaItems: selectedMedia,
+          type: selectedMedia.some((item) => item.type === 'video')
+            ? 'video'
+            : selectedMedia.length > 0
+              ? 'image'
+              : 'text',
+        });
+      }
+
+      setDraft('');
+      setSelectedMedia([]);
+    } catch (error) {
+      Alert.alert(
+        'Unable to publish post',
+        error instanceof Error ? error.message : 'Please try again in a moment.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handlePickMedia = async () => {
@@ -151,15 +258,16 @@ export default function MyPostsScreen({ navigation }: Props) {
               <Text style={styles.mediaButtonText}>Photo / Video</Text>
             </Pressable>
             {selectedMedia.length > 0 ? (
-              <Text style={styles.helperText}>Optimized for speed before posting.</Text>
+              <Text style={styles.helperText}>Prepared for upload with image compression and lightweight media packaging.</Text>
             ) : (
-              <Text style={styles.helperText}>Images are compressed before posting to keep the app fast.</Text>
+              <Text style={styles.helperText}>Images are compressed before upload so posting stays fast on campus Wi-Fi and mobile data.</Text>
             )}
           </View>
           <Button
             title="Post"
-            onPress={handleCreatePost}
-            disabled={!draft.trim() && selectedMedia.length === 0}
+            onPress={() => void handleCreatePost()}
+            disabled={(!draft.trim() && selectedMedia.length === 0) || submitting}
+            loading={submitting}
             icon={<Ionicons name="send" size={16} color={colors.brand.white} />}
           />
         </View>
@@ -183,6 +291,12 @@ export default function MyPostsScreen({ navigation }: Props) {
             </View>
           </Card>
         ))
+      ) : loadingRemotePosts ? (
+        <Card style={styles.emptyCard}>
+          <Ionicons name="cloud-download-outline" size={28} color={colors.primary.main} />
+          <Text style={styles.emptyTitle}>Loading your posts...</Text>
+          <Text style={styles.emptyBody}>Pulling in your latest posts from the live social graph.</Text>
+        </Card>
       ) : (
         <Card style={styles.emptyCard}>
           <Ionicons name="chatbox-ellipses-outline" size={28} color={colors.primary.main} />
