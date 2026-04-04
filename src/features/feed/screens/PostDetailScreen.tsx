@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { formatDistanceToNow } from 'date-fns';
@@ -8,6 +8,7 @@ import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import CommentItem from '../components/CommentItem';
+import PostMediaGallery from '../components/PostMediaGallery';
 import { getCommentsForPost, mockAuthors, useFeedStore } from '../hooks/useFeed';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, spacing } from '../../../shared/theme/spacing';
@@ -126,7 +127,7 @@ export default function PostDetailScreen({ navigation, route }: Props) {
         </View>
 
         <Text style={styles.postContent}>{post.content}</Text>
-        {post.media_urls[0] ? <Image source={{ uri: post.media_urls[0] }} style={styles.postImage} /> : null}
+        <PostMediaGallery post={post} mode="detail" />
 
         <View style={styles.postStats}>
           <Text style={styles.statText}>{post.like_count} likes</Text>
@@ -201,12 +202,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     lineHeight: 24,
     color: colors.text.primary,
-    marginTop: spacing.md,
-  },
-  postImage: {
-    width: '100%',
-    height: 240,
-    borderRadius: borderRadius.lg,
     marginTop: spacing.md,
   },
   postStats: {

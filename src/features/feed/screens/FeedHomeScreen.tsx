@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,11 +14,16 @@ import { colors } from '../../../shared/theme/colors';
 import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { FeedStackParamList } from '../../../navigation/types';
+import FollowButton from '../../social/components/FollowButton';
+import { useSocialGraph } from '../../social/hooks/useSocialGraph';
+import PostMediaGallery from '../components/PostMediaGallery';
 
 type Props = NativeStackScreenProps<FeedStackParamList, 'FeedHome'>;
 
 export default function FeedHomeScreen({ navigation }: Props) {
   const { posts, activeTab, setActiveTab, toggleLike } = useFeed();
+  const { recommendations, isFollowingUser, toggleFollow } = useSocialGraph();
+  const topSuggestions = recommendations.slice(0, 4);
 
   return (
     <ScreenLayout
@@ -37,6 +42,50 @@ export default function FeedHomeScreen({ navigation }: Props) {
     >
       <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
+      {topSuggestions.length > 0 ? (
+        <Card style={styles.suggestionsCard}>
+          <View style={styles.suggestionsHeader}>
+            <View>
+              <Text style={styles.suggestionsTitle}>People you may know</Text>
+              <Text style={styles.suggestionsBody}>Built from mutuals, clubs, and who is shaping campus talk.</Text>
+            </View>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionsRow}>
+            {topSuggestions.map((entry) => (
+              <View key={entry.profile.id} style={styles.suggestionPill}>
+                <Avatar
+                  uri={entry.profile.avatarUrl}
+                  name={entry.profile.displayName}
+                  size="md"
+                />
+                <View style={styles.suggestionCopy}>
+                  <Text style={styles.suggestionName} numberOfLines={1}>
+                    {entry.profile.displayName}
+                  </Text>
+                  <Text style={styles.suggestionReason} numberOfLines={2}>
+                    {entry.reason.headline}
+                  </Text>
+                </View>
+                <FollowButton
+                  compact
+                  isFollowing={isFollowingUser(entry.profile.id)}
+                  onPress={() => toggleFollow(entry.profile.id)}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        </Card>
+      ) : null}
+
+      {activeTab === 'Following' && posts.length === 0 ? (
+        <Card>
+          <Text style={styles.emptyTitle}>Your Following feed is waiting on a few more people.</Text>
+          <Text style={styles.emptyBody}>
+            Follow clubs, creators, and campus accounts to turn this lane into your daily UMD timeline.
+          </Text>
+        </Card>
+      ) : null}
+
       {posts.map((post) => {
         const timestamp = (() => {
           try {
@@ -54,12 +103,20 @@ export default function FeedHomeScreen({ navigation }: Props) {
                 <Text style={styles.authorName}>{post.author?.display_name ?? 'Unknown'}</Text>
                 <Text style={styles.authorMeta}>{timestamp}</Text>
               </View>
-              <Ionicons name="ellipsis-horizontal" size={18} color={colors.text.tertiary} />
+              {post.author_id !== 'usr-current' ? (
+                <FollowButton
+                  compact
+                  isFollowing={isFollowingUser(post.author_id)}
+                  onPress={() => toggleFollow(post.author_id)}
+                />
+              ) : (
+                <Ionicons name="ellipsis-horizontal" size={18} color={colors.text.tertiary} />
+              )}
             </View>
 
             <Text style={styles.postContent}>{post.content}</Text>
 
-            {post.media_urls[0] ? <Image source={{ uri: post.media_urls[0] }} style={styles.postImage} /> : null}
+            <PostMediaGallery post={post} mode="feed" />
 
             <View style={styles.actionRow}>
               <Pressable style={styles.actionButton} onPress={() => toggleLike(post.id)}>
@@ -103,6 +160,49 @@ const styles = StyleSheet.create({
     borderColor: colors.status.infoLight,
     backgroundColor: '#FCFEFF',
   },
+  suggestionsCard: {
+    gap: spacing.md,
+  },
+  suggestionsHeader: {
+    gap: spacing.xs,
+  },
+  suggestionsTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  suggestionsBody: {
+    marginTop: spacing.xs,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    lineHeight: 20,
+  },
+  suggestionsRow: {
+    gap: spacing.sm,
+    paddingRight: spacing.xs,
+  },
+  suggestionPill: {
+    width: 230,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    padding: spacing.sm + 2,
+    gap: spacing.sm,
+  },
+  suggestionCopy: {
+    gap: spacing.xs,
+  },
+  suggestionName: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  suggestionReason: {
+    fontSize: typography.fontSize.xs,
+    lineHeight: 18,
+    color: colors.text.secondary,
+  },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -127,12 +227,6 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginTop: spacing.md,
   },
-  postImage: {
-    width: '100%',
-    height: 220,
-    borderRadius: borderRadius.lg,
-    marginTop: spacing.md,
-  },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -151,5 +245,16 @@ const styles = StyleSheet.create({
   actionTextActive: {
     color: colors.primary.main,
     fontWeight: typography.fontWeight.semiBold,
+  },
+  emptyTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  emptyBody: {
+    marginTop: spacing.sm,
+    fontSize: typography.fontSize.sm,
+    lineHeight: 20,
+    color: colors.text.secondary,
   },
 });

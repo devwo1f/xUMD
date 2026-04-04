@@ -7,7 +7,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { create } from 'zustand';
-import type { Post, Comment, UserProfile } from '../../../shared/types';
+import type { Post, Comment, UserProfile, PostMediaItem } from '../../../shared/types';
 import {
   mockPosts,
   mockComments,
@@ -15,6 +15,7 @@ import {
   authorHandles,
   type CommentWithReplies,
 } from '../../../assets/data/mockFeed';
+import { useSocialGraph } from '../../social/hooks/useSocialGraph';
 
 // ── Feed Types ──────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ interface FeedState {
     clubId: string | null;
     content: string;
     mediaUrls?: string[];
+    mediaItems?: PostMediaItem[];
     type?: string;
     isPinned?: boolean;
   }) => void;
@@ -87,7 +89,16 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       ),
     })),
 
-  createPost: ({ authorId, author, clubId, content, mediaUrls = [], type = 'club_update', isPinned = false }) =>
+  createPost: ({
+    authorId,
+    author,
+    clubId,
+    content,
+    mediaUrls = [],
+    mediaItems = [],
+    type = 'club_update',
+    isPinned = false,
+  }) =>
     set((state) => ({
       posts: [
         {
@@ -99,6 +110,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
           type,
           content: content.trim(),
           media_urls: mediaUrls,
+          media_items: mediaItems,
           like_count: 0,
           comment_count: 0,
           is_pinned: isPinned,
@@ -122,23 +134,21 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 
 export function useFeed() {
   const store = useFeedStore();
+  const { followingIds } = useSocialGraph();
 
   const filteredPosts = useMemo(() => {
     switch (store.activeTab) {
       case 'For You':
         return store.posts;
       case 'Following':
-        // Mock: show posts from authors the user "follows"
-        return store.posts.filter(
-          (p) => p.author_id === 'usr-003' || p.author_id === 'usr-004',
-        );
+        return store.posts.filter((post) => followingIds.includes(post.author_id));
       case 'Trending':
         // Mock: sort by like count descending
         return [...store.posts].sort((a, b) => b.like_count - a.like_count);
       default:
         return store.posts;
     }
-  }, [store.posts, store.activeTab]);
+  }, [followingIds, store.posts, store.activeTab]);
 
   return {
     posts: filteredPosts,

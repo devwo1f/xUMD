@@ -1,21 +1,32 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../../../shared/theme/colors';
 import { typography } from '../../../shared/theme/typography';
-import { spacing } from '../../../shared/theme/spacing';
+import { borderRadius, spacing } from '../../../shared/theme/spacing';
 
 interface StatItemProps {
   count: string | number;
   label: string;
+  onPress?: () => void;
 }
 
-const StatItem: React.FC<StatItemProps> = ({ count, label }) => {
-  return (
-    <View style={styles.container}>
+const StatItem: React.FC<StatItemProps> = ({ count, label, onPress }) => {
+  const content = (
+    <>
       <Text style={styles.count}>{count}</Text>
       <Text style={styles.label}>{label}</Text>
-    </View>
+    </>
   );
+
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={[styles.container, styles.pressableContainer]}>
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={styles.container}>{content}</View>;
 };
 
 const styles = StyleSheet.create({
@@ -24,6 +35,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
+  },
+  pressableContainer: {
+    borderRadius: borderRadius.md,
   },
   count: {
     fontSize: typography.fontSize.xl,

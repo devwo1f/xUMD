@@ -18,6 +18,8 @@ import { colors } from '../../../shared/theme/colors';
 import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { ProfileStackParamList } from '../../../navigation/types';
+import FollowButton from '../../social/components/FollowButton';
+import { useSocialGraph } from '../../social/hooks/useSocialGraph';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>;
 
@@ -26,6 +28,13 @@ export default function ProfileHomeScreen({ navigation }: Props) {
   const { joinedClubIds, savedEventIds } = useDemoAppStore();
   const posts = useFeedStore((state) => state.posts);
   const { isWide } = useResponsive();
+  const {
+    followers,
+    following,
+    recommendations,
+    isFollowingUser,
+    toggleFollow,
+  } = useSocialGraph();
 
   const myPosts = useMemo(
     () => posts.filter((post) => post.author_id === 'usr-current'),
@@ -57,10 +66,24 @@ export default function ProfileHomeScreen({ navigation }: Props) {
   ];
 
   const stats = [
-    { label: 'Posts', value: myPosts.length },
-    { label: 'Clubs', value: joinedClubIds.length },
-    { label: 'Events', value: savedEventIds.length },
+    {
+      label: 'Posts',
+      value: myPosts.length,
+      onPress: () => navigation.navigate('MyPosts'),
+    },
+    {
+      label: 'Followers',
+      value: followers.length,
+      onPress: () => navigation.navigate('Connections', { mode: 'followers' }),
+    },
+    {
+      label: 'Following',
+      value: following.length,
+      onPress: () => navigation.navigate('Connections', { mode: 'following' }),
+    },
   ];
+
+  const suggestedPeople = recommendations.slice(0, 3);
 
   const openClubsTab = () => {
     navigation.getParent()?.navigate('Clubs' as never);
@@ -136,7 +159,7 @@ export default function ProfileHomeScreen({ navigation }: Props) {
         <View style={styles.statsRow}>
           {stats.map((stat, index) => (
             <React.Fragment key={stat.label}>
-              <StatItem count={stat.value} label={stat.label} />
+              <StatItem count={stat.value} label={stat.label} onPress={stat.onPress} />
               {index < stats.length - 1 ? <View style={styles.statDivider} /> : null}
             </React.Fragment>
           ))}
@@ -167,6 +190,38 @@ export default function ProfileHomeScreen({ navigation }: Props) {
           </Pressable>
         )}
       </Card>
+
+      {suggestedPeople.length > 0 ? (
+        <Card style={styles.sectionSurface}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>People You May Know</Text>
+            <Pressable onPress={() => navigation.navigate('Connections', { mode: 'discover' })}>
+              <Text style={styles.sectionAction}>See all</Text>
+            </Pressable>
+          </View>
+          <View style={[styles.recommendationList, isWide && styles.recommendationListWide]}>
+            {suggestedPeople.map((entry) => (
+              <View key={entry.profile.id} style={[styles.recommendationCard, isWide && styles.recommendationCardWide]}>
+                <View style={styles.recommendationTop}>
+                  <Avatar uri={entry.profile.avatarUrl} name={entry.profile.displayName} size="md" />
+                  <View style={styles.recommendationCopy}>
+                    <Text style={styles.recommendationName}>{entry.profile.displayName}</Text>
+                    <Text style={styles.recommendationHandle}>@{entry.profile.username}</Text>
+                  </View>
+                </View>
+                <Text style={styles.recommendationReason}>{entry.reason.headline}</Text>
+                <Text style={styles.recommendationBio} numberOfLines={2}>
+                  {entry.profile.bio}
+                </Text>
+                <FollowButton
+                  isFollowing={isFollowingUser(entry.profile.id)}
+                  onPress={() => toggleFollow(entry.profile.id)}
+                />
+              </View>
+            ))}
+          </View>
+        </Card>
+      ) : null}
 
       <Card style={styles.sectionSurface}>
         <View style={styles.sectionHeader}>
@@ -412,6 +467,52 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
   emptyBody: {
+    fontSize: typography.fontSize.sm,
+    lineHeight: 20,
+    color: colors.text.secondary,
+  },
+  recommendationList: {
+    width: '100%',
+    gap: spacing.md,
+  },
+  recommendationListWide: {
+    flexDirection: 'row',
+  },
+  recommendationCard: {
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  recommendationCardWide: {
+    flex: 1,
+  },
+  recommendationTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  recommendationCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  recommendationName: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  recommendationHandle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  recommendationReason: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary.main,
+  },
+  recommendationBio: {
     fontSize: typography.fontSize.sm,
     lineHeight: 20,
     color: colors.text.secondary,

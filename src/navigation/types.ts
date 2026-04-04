@@ -57,6 +57,7 @@ export type ProfileStackParamList = {
   Settings: undefined;
   SavedEvents: undefined;
   MyPosts: undefined;
+  Connections: { mode: 'followers' | 'following' | 'mutuals' | 'discover' };
   ClubDetail: { clubId: string };
   EventDetail: { eventId: string };
   PostDetail: { postId: string };

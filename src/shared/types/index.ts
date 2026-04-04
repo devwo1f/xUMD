@@ -223,6 +223,7 @@ export interface Post {
   type?: string;
   content: string;
   media_urls: string[];
+  media_items?: PostMediaItem[];
   like_count: number;
   comment_count: number;
   is_pinned: boolean;
@@ -232,6 +233,17 @@ export interface Post {
 }
 
 export type PostCreate = Pick<Post, 'club_id' | 'content' | 'media_urls'>;
+
+export interface PostMediaItem {
+  id: string;
+  uri: string;
+  type: 'image' | 'video';
+  mime_type?: string | null;
+  width?: number;
+  height?: number;
+  file_size?: number;
+  duration_ms?: number | null;
+}
 
 // ── Comment ───────────────────────────────────────────────────
 

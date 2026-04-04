@@ -17,6 +17,7 @@ import EditProfileScreen from '../features/profile/screens/EditProfileScreen';
 import SettingsScreen from '../features/profile/screens/SettingsScreen';
 import SavedEventsScreen from '../features/profile/screens/SavedEventsScreen';
 import MyPostsScreen from '../features/profile/screens/MyPostsScreen';
+import ConnectionsScreen from '../features/profile/screens/ConnectionsScreen';
 import { colors } from '../shared/theme/colors';
 import { spacing } from '../shared/theme/spacing';
 import { typography } from '../shared/theme/typography';
@@ -94,6 +95,7 @@ function ProfileNavigator() {
       <ProfileStack.Screen name="Settings" component={SettingsScreen} />
       <ProfileStack.Screen name="SavedEvents" component={SavedEventsScreen} />
       <ProfileStack.Screen name="MyPosts" component={MyPostsScreen} />
+      <ProfileStack.Screen name="Connections" component={ConnectionsScreen} />
       <ProfileStack.Screen name="ClubDetail" component={ClubDetailScreen} />
       <ProfileStack.Screen name="EventDetail" component={EventDetailScreen} />
       <ProfileStack.Screen name="PostDetail" component={PostDetailScreen} />
