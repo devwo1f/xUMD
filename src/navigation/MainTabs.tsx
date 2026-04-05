@@ -1,5 +1,9 @@
-﻿import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import React from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import {
+  BottomTabBarButtonProps,
+  createBottomTabNavigator,
+} from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import ExploreHomeScreen from '../features/explore/screens/ExploreHomeScreen';
@@ -9,6 +13,7 @@ import FeedHomeScreen from '../features/feed/screens/FeedHomeScreen';
 import PostDetailScreen from '../features/feed/screens/PostDetailScreen';
 import ClubsHomeScreen from '../features/clubs/screens/ClubsHomeScreen';
 import ClubDetailScreen from '../features/clubs/screens/ClubDetailScreen';
+import SearchHomeScreen from '../features/search/screens/SearchHomeScreen';
 import CampusHomeScreen from '../features/campus/screens/CampusHomeScreen';
 import { CampusFeatureScreen, CampusQuickLinkScreen } from '../features/campus/screens/CampusFeatureScreen';
 import LibrariesDirectoryScreen, { LibraryProfileScreen } from '../features/campus/screens/LibrariesScreen';
@@ -20,7 +25,7 @@ import MyPostsScreen from '../features/profile/screens/MyPostsScreen';
 import ConnectionsScreen from '../features/profile/screens/ConnectionsScreen';
 import UserProfileScreen from '../features/social/screens/UserProfileScreen';
 import { colors } from '../shared/theme/colors';
-import { spacing } from '../shared/theme/spacing';
+import { borderRadius, shadows, spacing } from '../shared/theme/spacing';
 import { typography } from '../shared/theme/typography';
 import type {
   CampusStackParamList,
@@ -30,12 +35,14 @@ import type {
   MapStackParamList,
   ProfileStackParamList,
   RootTabParamList,
+  SearchStackParamList,
 } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const ExploreStack = createNativeStackNavigator<ExploreStackParamList>();
 const MapStack = createNativeStackNavigator<MapStackParamList>();
 const FeedStack = createNativeStackNavigator<FeedStackParamList>();
+const SearchStack = createNativeStackNavigator<SearchStackParamList>();
 const ClubsStack = createNativeStackNavigator<ClubsStackParamList>();
 const CampusStack = createNativeStackNavigator<CampusStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
@@ -65,6 +72,17 @@ function FeedNavigator() {
       <FeedStack.Screen name="PostDetail" component={PostDetailScreen} />
       <FeedStack.Screen name="UserProfile" component={UserProfileScreen} />
     </FeedStack.Navigator>
+  );
+}
+
+function SearchNavigator() {
+  return (
+    <SearchStack.Navigator screenOptions={{ headerShown: false }}>
+      <SearchStack.Screen name="SearchHome" component={SearchHomeScreen} />
+      <SearchStack.Screen name="EventDetail" component={EventDetailScreen} />
+      <SearchStack.Screen name="ClubDetail" component={ClubDetailScreen} />
+      <SearchStack.Screen name="UserProfile" component={UserProfileScreen} />
+    </SearchStack.Navigator>
   );
 }
 
@@ -108,6 +126,24 @@ function ProfileNavigator() {
   );
 }
 
+function SearchTabButton({ onPress, accessibilityState, accessibilityLabel }: BottomTabBarButtonProps) {
+  const focused = accessibilityState?.selected ?? false;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={accessibilityState}
+      accessibilityLabel={accessibilityLabel}
+      style={styles.searchButtonOuter}
+    >
+      <View style={[styles.searchButtonInner, focused && styles.searchButtonInnerFocused]}>
+        <Ionicons name="search" size={24} color={colors.brand.white} />
+      </View>
+    </Pressable>
+  );
+}
+
 function getTabIcon(routeName: keyof RootTabParamList, focused: boolean) {
   switch (routeName) {
     case 'Explore':
@@ -116,6 +152,8 @@ function getTabIcon(routeName: keyof RootTabParamList, focused: boolean) {
       return focused ? 'map' : 'map-outline';
     case 'Feed':
       return focused ? 'grid' : 'grid-outline';
+    case 'Search':
+      return 'search';
     case 'Clubs':
       return focused ? 'people' : 'people-outline';
     case 'Campus':
@@ -130,36 +168,73 @@ function getTabIcon(routeName: keyof RootTabParamList, focused: boolean) {
 export default function MainTabs() {
   return (
     <Tab.Navigator
+      initialRouteName="Map"
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: colors.primary.main,
         tabBarInactiveTintColor: colors.text.tertiary,
         tabBarStyle: {
-          height: 74,
+          height: 82,
           paddingTop: spacing.xs,
           paddingBottom: spacing.sm,
+          paddingHorizontal: spacing.xs,
           backgroundColor: colors.brand.white,
           borderTopColor: colors.border.light,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: typography.fontWeight.semiBold,
         },
-        tabBarIcon: ({ color, size, focused }) => (
-          <Ionicons
-            name={getTabIcon(route.name as keyof RootTabParamList, focused)}
-            size={size ?? 20}
-            color={color}
-          />
-        ),
+        tabBarIcon: ({ color, size, focused }) =>
+          route.name === 'Search' ? null : (
+            <Ionicons
+              name={getTabIcon(route.name as keyof RootTabParamList, focused)}
+              size={size ?? 20}
+              color={color}
+            />
+          ),
       })}
     >
       <Tab.Screen name="Explore" component={ExploreNavigator} />
       <Tab.Screen name="Map" component={MapNavigator} />
       <Tab.Screen name="Feed" component={FeedNavigator} />
+      <Tab.Screen
+        name="Search"
+        component={SearchNavigator}
+        options={{
+          tabBarLabel: '',
+          tabBarButton: (props) => <SearchTabButton {...props} accessibilityLabel="Search" />,
+        }}
+      />
       <Tab.Screen name="Clubs" component={ClubsNavigator} />
       <Tab.Screen name="Campus" component={CampusNavigator} />
       <Tab.Screen name="Profile" component={ProfileNavigator} />
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  searchButtonOuter: {
+    top: -22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchButtonInner: {
+    width: 66,
+    height: 66,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary.main,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 6,
+    borderColor: colors.brand.white,
+    ...shadows.lg,
+  },
+  searchButtonInnerFocused: {
+    backgroundColor: colors.primary.dark,
+    transform: [{ scale: 1.02 }],
+  },
+});
+
+

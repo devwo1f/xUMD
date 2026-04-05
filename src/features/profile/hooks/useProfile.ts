@@ -1,5 +1,9 @@
+import { useCallback, useMemo } from 'react';
 import { create } from 'zustand';
 import { profile as mockProfile } from '../../../experience/content';
+import { isSupabaseConfigured } from '../../../services/supabase';
+import { clearAvatarForUser, type AvatarUploadAsset, uploadAvatarAsset } from '../../../services/profileMedia';
+import { useAuth } from '../../auth/hooks/useAuth';
 
 export interface ProfileData {
   id: string;
@@ -35,7 +39,8 @@ interface ProfileStore {
       Pick<ProfileData, 'displayName' | 'username' | 'bio' | 'major' | 'classYear'>
     >,
   ) => Promise<void>;
-  uploadAvatar: (uri: string) => Promise<void>;
+  uploadAvatar: (asset: AvatarUploadAsset | null) => Promise<void>;
+  reset: () => void;
 }
 
 export const useProfileStore = create<ProfileStore>((set) => ({
@@ -43,22 +48,93 @@ export const useProfileStore = create<ProfileStore>((set) => ({
   loading: false,
   updateProfile: async (updates) => {
     set({ loading: true });
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     set((state) => ({
       user: { ...state.user, ...updates },
       loading: false,
     }));
   },
-  uploadAvatar: async (uri) => {
+  uploadAvatar: async (asset) => {
     set({ loading: true });
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     set((state) => ({
-      user: { ...state.user, avatar: uri },
+      user: { ...state.user, avatar: asset?.uri ?? '' },
       loading: false,
     }));
   },
+  reset: () => set({ user: initialProfile, loading: false }),
 }));
 
+function buildProfileFromAuth(user: ReturnType<typeof useAuth>['user']): ProfileData | null {
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.display_name,
+    username: user.username ?? user.email.split('@')[0],
+    avatar: user.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(user.display_name)}`,
+    major: user.major ?? 'UMD Student',
+    classYear: user.graduation_year ?? new Date().getFullYear() + 4,
+    bio: user.bio ?? 'Building your Maryland story.',
+    stats: [
+      { label: 'Posts', value: '0' },
+      { label: 'Followers', value: String(user.follower_count ?? 0) },
+      { label: 'Following', value: String(user.following_count ?? 0) },
+    ],
+    clubs: user.clubs ?? [],
+  };
+}
+
 export function useProfile() {
-  return useProfileStore();
+  const auth = useAuth();
+  const demo = useProfileStore();
+
+  const authProfile = useMemo(() => buildProfileFromAuth(auth.user), [auth.user]);
+
+  const updateProfile = useCallback<ProfileStore['updateProfile']>(
+    async (updates) => {
+      if (isSupabaseConfigured && auth.user) {
+        await auth.updateProfile({
+          display_name: updates.displayName,
+          username: updates.username?.replace(/^@/, ''),
+          bio: updates.bio,
+          major: updates.major,
+          graduation_year: updates.classYear,
+        });
+        return;
+      }
+
+      await demo.updateProfile(updates);
+    },
+    [auth, demo],
+  );
+
+  const uploadAvatar = useCallback<ProfileStore['uploadAvatar']>(
+    async (asset) => {
+      if (isSupabaseConfigured && auth.user) {
+        if (!asset) {
+          await clearAvatarForUser(auth.user.id);
+          await auth.updateProfile({ avatar_url: null });
+          return;
+        }
+
+        const avatarUrl = await uploadAvatarAsset(auth.user.id, asset);
+        await auth.updateProfile({ avatar_url: avatarUrl });
+        return;
+      }
+
+      await demo.uploadAvatar(asset);
+    },
+    [auth, demo],
+  );
+
+  return {
+    user: authProfile ?? demo.user,
+    loading: isSupabaseConfigured && auth.user ? auth.loading : demo.loading,
+    updateProfile,
+    uploadAvatar,
+  };
 }

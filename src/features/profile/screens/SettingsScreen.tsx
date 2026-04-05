@@ -8,7 +8,6 @@ import ScreenLayout from '../../../shared/components/ScreenLayout';
 import SettingsRow from '../components/SettingsRow';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import { useAuth } from '../../auth/hooks/useAuth';
-import { isSupabaseConfigured } from '../../../services/supabase';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
@@ -64,15 +63,11 @@ export default function SettingsScreen({ navigation }: Props) {
       <Card>
         <Text style={styles.sectionTitle}>Backend status</Text>
         <Text style={styles.sectionBody}>
-          {isSupabaseConfigured
-            ? 'Supabase is configured. Auth will use the live backend.'
-            : 'Supabase is not configured yet, so the app is running in a polished demo mode with local state.'}
+          Auth and onboarding are connected to your active app environment, and you can sign out from here any time.
         </Text>
       </Card>
 
-      {isSupabaseConfigured ? (
-        <Button title="Sign Out" onPress={() => void signOut()} loading={loading} variant="secondary" fullWidth />
-      ) : null}
+      <Button title="Sign Out" onPress={() => void signOut()} loading={loading} variant="secondary" fullWidth />
     </ScreenLayout>
   );
 }

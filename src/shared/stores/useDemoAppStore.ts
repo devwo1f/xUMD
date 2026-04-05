@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 
 interface DemoSettings {
   pushNotifications: boolean;
@@ -17,9 +17,10 @@ interface DemoAppState {
   setEventRsvpStatus: (eventId: string, status: 'going' | 'interested' | null) => void;
   toggleJoinedClub: (clubId: string) => void;
   updateSetting: (key: keyof DemoSettings, value: boolean) => void;
+  reset: () => void;
 }
 
-export const useDemoAppStore = create<DemoAppState>((set) => ({
+const initialState = {
   savedEventIds: ['evt-002', 'evt-003', 'evt-006'],
   goingEventIds: ['evt-001', 'evt-004', 'evt-009'],
   joinedClubIds: ['club-001', 'club-003', 'club-005', 'club-006'],
@@ -29,6 +30,10 @@ export const useDemoAppStore = create<DemoAppState>((set) => ({
     locationSharing: true,
     campusAlerts: true,
   },
+};
+
+export const useDemoAppStore = create<DemoAppState>((set) => ({
+  ...initialState,
   toggleSavedEvent: (eventId) =>
     set((state) => ({
       savedEventIds: state.savedEventIds.includes(eventId)
@@ -65,4 +70,5 @@ export const useDemoAppStore = create<DemoAppState>((set) => ({
         [key]: value,
       },
     })),
+  reset: () => set(initialState),
 }));

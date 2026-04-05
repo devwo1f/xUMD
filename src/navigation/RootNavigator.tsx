@@ -1,7 +1,8 @@
-import React from 'react';
+﻿import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import MainTabs from './MainTabs';
 import AuthNavigator from './AuthNavigator';
+import OnboardingNavigator from './OnboardingNavigator';
 import { useAuth, useInitializeAuth } from '../features/auth/hooks/useAuth';
 import { isSupabaseConfigured } from '../services/supabase';
 import { colors } from '../shared/theme/colors';
@@ -20,17 +21,25 @@ function BootScreen() {
 
 export default function RootNavigator() {
   useInitializeAuth();
-  const { loading, session } = useAuth();
+  const { loading, initialized, session, needsProfileCompletion } = useAuth();
 
-  if (isSupabaseConfigured && loading) {
+  if (isSupabaseConfigured && (!initialized || loading)) {
     return <BootScreen />;
   }
 
-  if (!isSupabaseConfigured || session) {
+  if (!isSupabaseConfigured) {
     return <MainTabs />;
   }
 
-  return <AuthNavigator />;
+  if (!session) {
+    return <AuthNavigator />;
+  }
+
+  if (needsProfileCompletion) {
+    return <OnboardingNavigator />;
+  }
+
+  return <MainTabs />;
 }
 
 const styles = StyleSheet.create({

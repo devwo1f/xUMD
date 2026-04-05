@@ -1,13 +1,6 @@
-/**
+﻿/**
  * xUMD Shared Type Definitions
- *
- * Central type definitions used across all service layers
- * and UI components. Mirrors the Supabase database schema.
  */
-
-// ---------------------------------------------------------------
-//  Enums
-// ---------------------------------------------------------------
 
 export enum ClubCategory {
   Academic = 'academic',
@@ -47,11 +40,8 @@ export enum MemberStatus {
   Rejected = 'rejected',
 }
 
-// ---------------------------------------------------------------
-//  Utility Types
-// ---------------------------------------------------------------
+export type DegreeType = 'bs' | 'ba' | 'ms' | 'phd' | 'mba' | 'other';
 
-/** Standard paginated response wrapper */
 export interface PaginatedResponse<T> {
   data: T[];
   count: number;
@@ -60,16 +50,9 @@ export interface PaginatedResponse<T> {
   hasMore: boolean;
 }
 
-/** Generic service result for operations that may fail */
 export type ServiceResult<T> =
   | { data: T; error: null }
   | { data: null; error: string };
-
-// ---------------------------------------------------------------
-//  Database Entities
-// ---------------------------------------------------------------
-
-// -- User ------------------------------------------------------
 
 export interface NotificationPrefs {
   push_enabled: boolean;
@@ -87,11 +70,17 @@ export interface User {
   avatar_url: string | null;
   major: string | null;
   graduation_year: number | null;
+  degree_type?: DegreeType | null;
+  minor?: string | null;
   bio: string | null;
+  pronouns?: string | null;
   clubs?: string[];
   courses?: string[];
+  interests?: string[];
   follower_count?: number;
   following_count?: number;
+  profile_completed?: boolean;
+  onboarding_step?: number;
   notification_prefs?: NotificationPrefs;
   push_token?: string | null;
   created_at: string;
@@ -101,14 +90,25 @@ export interface User {
 export type UserUpdate = Partial<
   Pick<
     User,
-    'display_name' | 'avatar_url' | 'bio' | 'major' | 'graduation_year'
+    | 'display_name'
+    | 'username'
+    | 'avatar_url'
+    | 'bio'
+    | 'major'
+    | 'graduation_year'
+    | 'degree_type'
+    | 'minor'
+    | 'pronouns'
+    | 'courses'
+    | 'clubs'
+    | 'interests'
+    | 'profile_completed'
+    | 'onboarding_step'
   > & { notification_prefs: Partial<NotificationPrefs> }
 >;
 
 export type UserProfile = User;
 export type UserProfileUpdate = UserUpdate;
-
-// -- Club ------------------------------------------------------
 
 export interface SocialLinks {
   instagram?: string;
@@ -158,8 +158,6 @@ export interface ClubFilters {
   sort?: 'name' | 'member_count' | 'created_at';
 }
 
-// -- Club Member -----------------------------------------------
-
 export interface ClubMember {
   club_id: string;
   user_id: string;
@@ -168,7 +166,9 @@ export interface ClubMember {
   joined_at: string;
 }
 
-// -- Event -----------------------------------------------------
+export interface ClubMemberWithUser extends ClubMember {
+  user: User;
+}
 
 export interface Event {
   id: string;
@@ -198,6 +198,10 @@ export interface Event {
   updated_at?: string;
 }
 
+export interface EventWithClub extends Event {
+  club?: Pick<Club, 'id' | 'name' | 'logo_url'> | null;
+}
+
 export type EventCreate = Pick<
   Event,
   | 'title'
@@ -218,8 +222,6 @@ export interface EventFilters {
   dateRange?: { start: string; end: string };
   clubId?: string;
 }
-
-// -- Event RSVP ------------------------------------------------
 
 export interface EventRSVP {
   event_id: string;
@@ -283,14 +285,12 @@ export interface EventSearchResult {
   event_ids: string[];
 }
 
-// -- Post ------------------------------------------------------
-
 export interface Post {
   id: string;
   author_id: string;
   club_id: string | null;
-  author?: User;
-  club?: Club;
+  author?: User | null;
+  club?: Club | Pick<Club, 'id' | 'name' | 'logo_url'> | null;
   type?: string;
   content: string;
   media_urls: string[];
@@ -307,6 +307,11 @@ export interface Post {
   score?: number;
 }
 
+export interface PostWithAuthor extends Post {
+  author: User | null;
+  club?: Pick<Club, 'id' | 'name' | 'logo_url'> | null;
+}
+
 export type PostCreate = Pick<Post, 'club_id' | 'content' | 'media_urls'>;
 
 export interface PostMediaItem {
@@ -315,175 +320,59 @@ export interface PostMediaItem {
   type: 'image' | 'video';
   mime_type?: string | null;
   file_name?: string | null;
-  width?: number;
-  height?: number;
-  file_size?: number;
+  width?: number | null;
+  height?: number | null;
+  file_size?: number | null;
   duration_ms?: number | null;
+  caption?: string | null;
   base64_data?: string | null;
 }
-
-// -- Comment ---------------------------------------------------
 
 export interface Comment {
   id: string;
   post_id: string;
   author_id: string;
-  author?: User;
+  author?: User | null;
   content: string;
-  parent_id: string | null;
+  like_count: number;
+  parent_id?: string | null;
   created_at: string;
   updated_at?: string;
-  like_count?: number;
 }
 
-// -- Dining Location -------------------------------------------
-
-export interface DiningHours {
-  open: string;
-  close: string;
+export interface CommentWithAuthor extends Comment {
+  author: User | null;
 }
 
-export interface DiningLocation {
+export type ReportType = 'post' | 'comment' | 'event' | 'club' | 'user';
+
+export interface ContentReport {
   id: string;
-  name: string;
-  description: string | null;
-  latitude: number;
-  longitude: number;
-  hours: Record<string, DiningHours>;
-  accepts_meal_plan: boolean;
-  image_url: string | null;
-  is_open: boolean;
-}
-
-// -- Safety Contact --------------------------------------------
-
-export interface SafetyContact {
-  id: string;
-  name: string;
-  description: string | null;
-  phone_number: string;
-  is_emergency: boolean;
-  display_order: number;
-}
-
-// -- Campus Building -------------------------------------------
-
-export interface CampusBuilding {
-  id: string;
-  name: string;
-  abbreviation: string | null;
-  description: string | null;
-  latitude: number;
-  longitude: number;
-  address: string | null;
-  image_url: string | null;
-  building_type: string;
-}
-
-// -- Marketplace Listing ---------------------------------------
-
-export type ListingCondition = 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-export type ListingStatus = 'active' | 'sold' | 'reserved' | 'removed';
-
-export interface MarketplaceListing {
-  id: string;
-  seller_id: string;
-  title: string;
-  description: string;
-  price: number;
-  condition: ListingCondition;
-  category: string;
-  image_urls: string[];
-  status: ListingStatus;
+  type: ReportType;
+  target_id: string;
+  reason: string;
+  details?: string | null;
+  reported_by: string;
   created_at: string;
 }
 
-// -- Study Spot ------------------------------------------------
-
-export type NoiseLevel = 'silent' | 'quiet' | 'moderate' | 'loud';
-
-export interface StudySpot {
-  id: string;
-  name: string;
-  building_id: string | null;
-  description: string | null;
-  latitude: number;
-  longitude: number;
-  noise_level: NoiseLevel;
-  has_outlets: boolean;
-  has_wifi: boolean;
-  capacity: number | null;
-  image_url: string | null;
-}
-
-// ---------------------------------------------------------------
-//  Joined / Derived Types (commonly used in UI)
-// ---------------------------------------------------------------
-
-/** Post with the author record attached */
-export interface PostWithAuthor extends Post {
-  author: User;
-  /** Whether the current user has liked this post (populated client-side) */
-  is_liked?: boolean;
-}
-
-/** Comment with the author record attached */
-export interface CommentWithAuthor extends Comment {
-  author: User;
-}
-
-/** Event with optional club info */
-export interface EventWithClub extends Event {
-  club?: Pick<Club, 'id' | 'name' | 'logo_url'>;
-}
-
-/** Club membership enriched with the user profile */
-export interface ClubMemberWithUser extends ClubMember {
-  user: User;
-}
-
-// ---------------------------------------------------------------
-//  Notifications
-// ---------------------------------------------------------------
-
-export type NotificationType =
-  | 'event_reminder'
-  | 'club_update'
-  | 'join_request'
-  | 'join_approved'
-  | 'new_comment'
-  | 'post_like'
-  | 'general';
-
-export interface AppNotification {
+export interface Notification {
   id: string;
   user_id: string;
-  type: NotificationType;
+  type:
+    | 'club_post'
+    | 'event_reminder'
+    | 'post_like'
+    | 'post_comment'
+    | 'follow'
+    | 'mention';
   title: string;
   body: string;
-  data: Record<string, string>;
+  data: Record<string, unknown>;
   is_read: boolean;
   created_at: string;
 }
 
-// ---------------------------------------------------------------
-//  Content Reports
-// ---------------------------------------------------------------
 
-export type ReportType = 'post' | 'comment' | 'user' | 'club';
 
-export interface ContentReport {
-  id: string;
-  reporter_id: string;
-  content_type: ReportType;
-  content_id: string;
-  reason: string;
-  created_at: string;
-}
 
-// ---------------------------------------------------------------
-//  Navigation Param Lists
-// ---------------------------------------------------------------
-
-// Navigation param types live in src/navigation/types.ts so the active app shell
-// has a single source of truth for routes.

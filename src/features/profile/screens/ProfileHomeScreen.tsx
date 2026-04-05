@@ -22,11 +22,13 @@ import { isSupabaseConfigured } from '../../../services/supabase';
 import { fetchRemotePostsByUser } from '../../../services/social';
 import FollowButton from '../../social/components/FollowButton';
 import { useCampusSocialGraph } from '../../social/hooks/useCampusSocialGraph';
+import { useAuth } from '../../auth/hooks/useAuth';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>;
 
 export default function ProfileHomeScreen({ navigation }: Props) {
   const { user } = useProfile();
+  const { signOut, loading: authLoading } = useAuth();
   const { joinedClubIds, savedEventIds } = useDemoAppStore();
   const posts = useFeedStore((state) => state.posts);
   const { isWide } = useResponsive();
@@ -281,6 +283,22 @@ export default function ProfileHomeScreen({ navigation }: Props) {
             </Pressable>
           ))}
         </View>
+      </Card>
+
+      <Card style={styles.logoutCard}>
+        <View style={styles.logoutCopy}>
+          <Text style={styles.logoutTitle}>Log out of xUMD</Text>
+          <Text style={styles.logoutBody}>
+            Sign out of this device and return to the UMD verification flow whenever you are ready.
+          </Text>
+        </View>
+        <Button
+          title="Log Out"
+          onPress={() => void signOut()}
+          loading={authLoading}
+          variant="danger"
+          fullWidth
+        />
       </Card>
     </ScreenLayout>
   );
@@ -603,6 +621,26 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
     marginTop: spacing.xs,
+  },
+  logoutCard: {
+    width: '100%',
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.status.errorLight,
+    backgroundColor: colors.brand.white,
+  },
+  logoutCopy: {
+    gap: spacing.xs,
+  },
+  logoutTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  logoutBody: {
+    fontSize: typography.fontSize.sm,
+    lineHeight: 20,
+    color: colors.text.secondary,
   },
 });
 

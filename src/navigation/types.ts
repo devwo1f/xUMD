@@ -4,10 +4,15 @@
   ForgotPassword: undefined;
 };
 
+export type OnboardingStackParamList = {
+  ProfileCompletion: undefined;
+};
+
 export type RootTabParamList = {
   Explore: undefined;
   Map: undefined;
   Feed: undefined;
+  Search: undefined;
   Clubs: undefined;
   Campus: undefined;
   Profile: undefined;
@@ -26,6 +31,13 @@ export type MapStackParamList = {
 export type FeedStackParamList = {
   FeedHome: undefined;
   PostDetail: { postId: string };
+  UserProfile: { userId: string };
+};
+
+export type SearchStackParamList = {
+  SearchHome: undefined;
+  EventDetail: { eventId: string };
+  ClubDetail: { clubId: string };
   UserProfile: { userId: string };
 };
 

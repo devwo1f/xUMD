@@ -1,4 +1,4 @@
-ï»¿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -23,6 +23,7 @@ import HeaderTag from '../../../shared/components/HeaderTag';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import UMDBrandLockup from '../../../shared/components/UMDBrandLockup';
 import { buildings, type Building } from '../../../assets/data/buildings';
+import { useCrossTabNavStore } from '../../../shared/stores/useCrossTabNavStore';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
@@ -227,6 +228,8 @@ export default function MapHomeScreen({ navigation }: Props) {
     onlyFriendsAttending,
   });
   const { savedEventIds, goingEventIds, setEventRsvpStatus } = useDemoAppStore();
+  const pendingMapFocus = useCrossTabNavStore((state) => state.pendingMapFocus);
+  const clearPendingMapFocus = useCrossTabNavStore((state) => state.clearPendingMapFocus);
 
   const [showBuildings, setShowBuildings] = useState(true);
   const [showWalkingRoutes, setShowWalkingRoutes] = useState(true);
@@ -399,6 +402,50 @@ export default function MapHomeScreen({ navigation }: Props) {
     setSelectedEventId(null);
     setShowListView(false);
   };
+
+  useEffect(() => {
+    if (!pendingMapFocus) {
+      return;
+    }
+
+    if (pendingMapFocus.type === 'event') {
+      const event = eventById.get(pendingMapFocus.eventId);
+      if (event) {
+        focusEvent(event);
+      } else {
+        clearSelections();
+        setShowListView(false);
+        setDetailEventId(pendingMapFocus.eventId);
+        setFocusRequest(
+          buildFocusRequestForCoordinate(
+            `event-${pendingMapFocus.eventId}`,
+            [pendingMapFocus.longitude, pendingMapFocus.latitude],
+            16.65,
+          ),
+        );
+      }
+
+      clearPendingMapFocus();
+      return;
+    }
+
+    const building =
+      buildings.find((candidate) => candidate.id === pendingMapFocus.locationId) ??
+      buildings.find((candidate) => candidate.name === pendingMapFocus.label) ??
+      null;
+
+    clearSelections();
+    setShowListView(false);
+    setSelectedBuildingId(building?.id ?? null);
+    setFocusRequest(
+      buildFocusRequestForCoordinate(
+        `location-${pendingMapFocus.locationId}`,
+        [pendingMapFocus.longitude, pendingMapFocus.latitude],
+        16.45,
+      ),
+    );
+    clearPendingMapFocus();
+  }, [clearPendingMapFocus, eventById, pendingMapFocus]);
 
   const handleRouteToEvent = async (event: Event) => {
     if (event.latitude === null || event.longitude === null) {
@@ -886,7 +933,7 @@ export default function MapHomeScreen({ navigation }: Props) {
           <Pressable onPress={handleJumpToLive} style={styles.liveCounterPill}>
             <View style={styles.liveCounterDot} />
             <Text style={styles.liveCounterText}>
-              {liveCounter.liveCount} live Â· {liveCounter.nextTwoHoursCount} in next 2hrs
+              {liveCounter.liveCount} live · {liveCounter.nextTwoHoursCount} in next 2hrs
             </Text>
           </Pressable>
 
@@ -961,7 +1008,7 @@ export default function MapHomeScreen({ navigation }: Props) {
           <View style={styles.sheetBlock}>
             <Text style={styles.sheetTitle}>{selectedGroup.locationName}</Text>
             <Text style={styles.sheetSubtitle}>
-              {selectedGroup.eventCount} events here Â· {selectedGroup.densityLabel}
+              {selectedGroup.eventCount} events here · {selectedGroup.densityLabel}
             </Text>
 
             <ScrollView
@@ -1153,7 +1200,7 @@ export default function MapHomeScreen({ navigation }: Props) {
                 <Text style={styles.infoText}>
                   {detailEventQuery.data.campus_location.name}
                   {detailEventQuery.data.campus_location.address
-                    ? ` Â· ${detailEventQuery.data.campus_location.address}`
+                    ? ` · ${detailEventQuery.data.campus_location.address}`
                     : ''}
                 </Text>
               </Card>
@@ -1292,7 +1339,7 @@ export default function MapHomeScreen({ navigation }: Props) {
           </Text>
           <Text style={styles.sheetSubtitle}>
             {wayfindingJourney
-              ? `${wayfindingJourney.durationLabel} Â· ${wayfindingJourney.distanceLabel}`
+              ? `${wayfindingJourney.durationLabel} · ${wayfindingJourney.distanceLabel}`
               : selectedRoute?.description ?? 'Campus walking route'}
           </Text>
           <Text style={styles.sheetDescription}>
@@ -1489,7 +1536,7 @@ export default function MapHomeScreen({ navigation }: Props) {
               <Text style={styles.cardHeading}>Nearest campus location</Text>
               {nearestCreateLocation ? (
                 <Text style={styles.infoText}>
-                  {nearestCreateLocation.building.name} Â·{' '}
+                  {nearestCreateLocation.building.name} ·{' '}
                   {Math.round(nearestCreateLocation.distance)}m away
                 </Text>
               ) : (
@@ -1621,7 +1668,7 @@ export default function MapHomeScreen({ navigation }: Props) {
             </View>
 
             <Button
-              title={isSubmittingEvent ? 'Publishingâ€¦' : 'Publish Event'}
+              title={isSubmittingEvent ? 'Publishing…' : 'Publish Event'}
               onPress={() => void handleSubmitCreateEvent()}
               fullWidth
             />
@@ -2159,4 +2206,5 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
 });
+
 

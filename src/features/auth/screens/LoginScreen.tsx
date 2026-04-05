@@ -1,142 +1,268 @@
-/**
- * LoginScreen
- *
- * Responsive auth screen: centered card on desktop, full screen on mobile.
- * Uses shared Input and Button components, useAuth hook for sign-in.
- */
-
-import React, { useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Input, Button } from '../../../shared/components';
+import Button from '../../../shared/components/Button';
+import Card from '../../../shared/components/Card';
 import { useResponsive } from '../../../shared/hooks/useResponsive';
 import { colors } from '../../../shared/theme/colors';
+import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
-import { spacing, borderRadius, shadows } from '../../../shared/theme/spacing';
-import { useAuth } from '../hooks/useAuth';
 import type { AuthStackParamList } from '../../../navigation/types';
+import OtpInput from '../components/OtpInput';
+import { OTP_COOLDOWN_SECONDS, useAuth, validateUmdEmail } from '../hooks/useAuth';
+import { useAuthFlowStore } from '../stores/authStore';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
-export default function LoginScreen({ navigation }: Props) {
-  const { signIn, loading, error, clearError } = useAuth();
+export default function LoginScreen(_props: Props) {
   const { isMobile } = useResponsive();
+  const { requestOtp, verifyOtp, loading } = useAuth();
+  const { step, email, error, setEmail, setError, setStep, startCooldown, otpCooldownEnd, reset } = useAuthFlowStore();
+  const [emailDraft, setEmailDraft] = useState(email);
+  const [otpValue, setOtpValue] = useState('');
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  useEffect(() => {
+    setEmailDraft(email);
+  }, [email]);
 
-  const handleSignIn = async () => {
-    clearError();
-    await signIn(email.trim(), password);
+  useEffect(() => {
+    if (!otpCooldownEnd) {
+      setSecondsRemaining(0);
+      return;
+    }
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((otpCooldownEnd - Date.now()) / 1000));
+      setSecondsRemaining(remaining);
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [otpCooldownEnd]);
+
+  const helperError = useMemo(() => {
+    if (step === 'email' && emailDraft.trim().length > 0) {
+      return validateUmdEmail(emailDraft).error ?? null;
+    }
+    return null;
+  }, [emailDraft, step]);
+
+  const handleContinue = async () => {
+    const validation = validateUmdEmail(emailDraft);
+    if (!validation.valid) {
+      setError(validation.error ?? 'Enter a valid UMD email.');
+      return;
+    }
+
+    setStep('loading');
+    setEmail(emailDraft.trim().toLowerCase());
+
+    try {
+      await requestOtp(emailDraft.trim().toLowerCase());
+      startCooldown(OTP_COOLDOWN_SECONDS);
+      setOtpValue('');
+      setError(null);
+      setStep('otp');
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : 'Unable to send code.');
+      setStep('email');
+    }
   };
 
-  const form = (
-    <View style={[styles.formWrapper, !isMobile && styles.desktopCard]}>
-      {/* Logo */}
-      <View style={styles.logoContainer}>
-        <Text style={styles.logoText}>xUMD</Text>
-        <Text style={styles.subtitle}>Experience UMD</Text>
-      </View>
+  const handleVerify = async (value = otpValue) => {
+    if (value.trim().length !== 6) {
+      setError('Enter the 6-digit code from your email.');
+      return;
+    }
 
-      {/* Error */}
-      {error ? (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={18} color={colors.status.error} />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
+    setStep('loading');
+    try {
+      await verifyOtp(email, value);
+      setError(null);
+      reset();
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : 'Invalid code.');
+      setStep('otp');
+    }
+  };
 
-      {/* Email */}
-      <Input
-        label="Email"
-        value={email}
-        onChangeText={(text) => {
-          clearError();
-          setEmail(text);
-        }}
-        placeholder="you@terpmail.umd.edu"
-        keyboardType="email-address"
-        leftIcon={<Ionicons name="mail-outline" size={18} color={colors.text.tertiary} />}
-      />
+  const handleResend = async () => {
+    if (secondsRemaining > 0) {
+      return;
+    }
 
-      {/* Password */}
-      <Input
-        label="Password"
-        value={password}
-        onChangeText={(text) => {
-          clearError();
-          setPassword(text);
-        }}
-        placeholder="Enter your password"
-        secureTextEntry={!showPassword}
-        leftIcon={<Ionicons name="lock-closed-outline" size={18} color={colors.text.tertiary} />}
-        rightIcon={
-          <Pressable onPress={() => setShowPassword((prev) => !prev)} hitSlop={8}>
-            <Ionicons
-              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-              size={20}
-              color={colors.text.tertiary}
-            />
-          </Pressable>
-        }
-      />
+    setStep('loading');
+    try {
+      await requestOtp(email);
+      startCooldown(OTP_COOLDOWN_SECONDS);
+      setError(null);
+      setStep('otp');
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : 'Unable to resend code.');
+      setStep('otp');
+    }
+  };
 
-      {/* Sign In Button */}
-      <Button
-        title="Sign In"
-        onPress={handleSignIn}
-        loading={loading}
-        disabled={!email.trim() || !password}
-        fullWidth
-        size="lg"
-      />
+  const goBackToEmail = () => {
+    setOtpValue('');
+    setStep('email');
+    setError(null);
+  };
 
-      {/* Forgot Password */}
-      <Pressable
-        onPress={() => navigation.navigate('ForgotPassword')}
-        style={styles.forgotLink}
-      >
-        <Text style={styles.forgotText}>Forgot Password?</Text>
-      </Pressable>
-
-      {/* Sign Up Link */}
-      <View style={styles.signUpRow}>
-        <Text style={styles.signUpLabel}>Don't have an account? </Text>
-        <Pressable onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.signUpLink}>Sign Up</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
+  const activeStep = step === 'loading' ? (otpValue.length > 0 || email ? 'otp' : 'email') : step;
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            !isMobile && styles.desktopScrollContent,
-          ]}
+          contentContainerStyle={[styles.scrollContent, !isMobile && styles.desktopScrollContent]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {form}
+          <Card style={[styles.card, !isMobile && styles.desktopCard]}>
+            {activeStep === 'otp' ? (
+              <Pressable onPress={goBackToEmail} style={styles.backButton} accessibilityLabel="Back to email step">
+                <Ionicons name="arrow-back" size={20} color={colors.text.primary} />
+              </Pressable>
+            ) : null}
+
+            <View style={styles.logoWrap}>
+              <Text style={styles.logo}>xUMD</Text>
+              <Text style={styles.tagline}>Experience Your Campus</Text>
+            </View>
+
+            {activeStep === 'email' ? (
+              <>
+                <Text style={styles.title}>Sign in with your UMD email</Text>
+                <Text style={styles.subtitle}>No password needed. We will send a 6-digit code to your inbox.</Text>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Email</Text>
+                  <TextInput
+                    value={emailDraft}
+                    onChangeText={(text) => {
+                      setEmailDraft(text);
+                      if (error) {
+                        setError(null);
+                      }
+                    }}
+                    placeholder="you@umd.edu"
+                    placeholderTextColor={colors.text.tertiary}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={styles.input}
+                    accessibilityLabel="UMD email address"
+                  />
+                  <Text style={styles.helperText}>Only @umd.edu and @terpmail.umd.edu can sign in.</Text>
+                </View>
+
+                {error || helperError ? (
+                  <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                    {error ?? helperError}
+                  </Text>
+                ) : null}
+
+                <Button
+                  title="Continue"
+                  onPress={() => void handleContinue()}
+                  disabled={!emailDraft.trim() || Boolean(helperError)}
+                  loading={loading && step === 'loading'}
+                  fullWidth
+                  size="lg"
+                />
+
+                <Text style={styles.footerText}>
+                  By continuing, you agree to our{' '}
+                  <Text style={styles.footerLink} onPress={() => void Linking.openURL('https://umd.edu')}>
+                    Terms
+                  </Text>{' '}
+                  and{' '}
+                  <Text style={styles.footerLink} onPress={() => void Linking.openURL('https://umd.edu')}>
+                    Privacy Policy
+                  </Text>
+                  .
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.title}>Check your email</Text>
+                <Text style={styles.subtitle}>We sent a 6-digit code to</Text>
+                <Pressable onPress={goBackToEmail} accessibilityLabel="Change email address">
+                  <Text style={styles.emailPill}>{email}</Text>
+                </Pressable>
+
+                <OtpInput
+                  value={otpValue}
+                  onChange={(next) => {
+                    setOtpValue(next);
+                    if (error) {
+                      setError(null);
+                    }
+                  }}
+                  onComplete={(next) => {
+                    setOtpValue(next);
+                    void handleVerify(next);
+                  }}
+                  disabled={loading && step === 'loading'}
+                />
+
+                <Text style={styles.helperText}>Code expires in 10 minutes.</Text>
+
+                <View style={styles.resendRow}>
+                  <Text style={styles.resendPrompt}>Did not get the code?</Text>
+                  <Pressable onPress={() => void handleResend()} disabled={secondsRemaining > 0}>
+                    <Text style={[styles.resendLink, secondsRemaining > 0 && styles.resendLinkDisabled]}>
+                      {secondsRemaining > 0 ? `Resend in 0:${String(secondsRemaining).padStart(2, '0')}` : 'Resend'}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {error ? (
+                  <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                    {error}
+                  </Text>
+                ) : null}
+
+                <Button
+                  title="Verify"
+                  onPress={() => void handleVerify()}
+                  disabled={otpValue.length !== 6}
+                  loading={loading && step === 'loading'}
+                  fullWidth
+                  size="lg"
+                />
+
+                <Text style={styles.footerText}>Check your spam folder if you do not see the email right away.</Text>
+              </>
+            )}
+          </Card>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {loading && step === 'loading' ? (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="small" color={colors.primary.main} />
+            <Text style={styles.loadingLabel}>Working on it...</Text>
+          </View>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -151,76 +277,152 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    padding: spacing.md,
+    padding: spacing.lg,
+    justifyContent: 'center',
   },
   desktopScrollContent: {
-    justifyContent: 'center',
     alignItems: 'center',
   },
-  formWrapper: {
+  card: {
     width: '100%',
-    paddingTop: spacing.xxl,
-  },
-  desktopCard: {
-    maxWidth: 440,
-    backgroundColor: colors.brand.white,
-    borderRadius: borderRadius.lg,
     padding: spacing.xl,
-    paddingTop: spacing.xxl,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.brand.white,
+    borderWidth: 1,
+    borderColor: colors.border.light,
     ...shadows.lg,
   },
-  logoContainer: {
+  desktopCard: {
+    maxWidth: 460,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background.secondary,
+    marginBottom: spacing.md,
+  },
+  logoWrap: {
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
-  logoText: {
+  logo: {
     fontSize: typography.fontSize['4xl'],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.primary.main,
     letterSpacing: -1,
   },
-  subtitle: {
-    fontSize: typography.fontSize.lg,
-    color: colors.text.secondary,
+  tagline: {
     marginTop: spacing.xs,
+    fontSize: typography.fontSize.base,
+    color: colors.text.secondary,
   },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.status.errorLight,
-    borderRadius: borderRadius.sm,
-    padding: spacing.sm,
+  title: {
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+    textAlign: 'center',
+  },
+  subtitle: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
+    fontSize: typography.fontSize.base,
+    lineHeight: 24,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  inputGroup: {
     marginBottom: spacing.md,
-    gap: spacing.sm,
+  },
+  label: {
+    marginBottom: spacing.xs,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
+  },
+  input: {
+    minHeight: 54,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    backgroundColor: colors.brand.white,
+    paddingHorizontal: spacing.md,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
+  },
+  helperText: {
+    marginTop: spacing.sm,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    textAlign: 'center',
   },
   errorText: {
-    flex: 1,
-    fontSize: typography.fontSize.md,
+    marginBottom: spacing.md,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.status.error,
+    textAlign: 'center',
   },
-  forgotLink: {
-    alignSelf: 'center',
+  footerText: {
     marginTop: spacing.lg,
-    padding: spacing.xs,
+    fontSize: typography.fontSize.sm,
+    lineHeight: 22,
+    color: colors.text.secondary,
+    textAlign: 'center',
   },
-  forgotText: {
-    fontSize: typography.fontSize.md,
+  footerLink: {
+    color: colors.primary.main,
+    fontWeight: typography.fontWeight.semiBold,
+  },
+  emailPill: {
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary.lightest,
+    color: colors.primary.main,
+    fontWeight: typography.fontWeight.bold,
+  },
+  resendRow: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+  resendPrompt: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  resendLink: {
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.primary.main,
   },
-  signUpRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  resendLinkDisabled: {
+    color: colors.text.tertiary,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(17, 24, 39, 0.18)',
     alignItems: 'center',
-    marginTop: spacing.xl,
+    justifyContent: 'center',
   },
-  signUpLabel: {
-    fontSize: typography.fontSize.base,
-    color: colors.text.secondary,
+  loadingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.brand.white,
+    ...shadows.md,
   },
-  signUpLink: {
+  loadingLabel: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.primary.main,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
   },
 });
