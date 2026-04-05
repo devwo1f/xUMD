@@ -9,15 +9,19 @@ interface DemoSettings {
 
 interface DemoAppState {
   savedEventIds: string[];
+  goingEventIds: string[];
   joinedClubIds: string[];
   settings: DemoSettings;
   toggleSavedEvent: (eventId: string) => void;
+  toggleGoingEvent: (eventId: string) => void;
+  setEventRsvpStatus: (eventId: string, status: 'going' | 'interested' | null) => void;
   toggleJoinedClub: (clubId: string) => void;
   updateSetting: (key: keyof DemoSettings, value: boolean) => void;
 }
 
 export const useDemoAppStore = create<DemoAppState>((set) => ({
   savedEventIds: ['evt-002', 'evt-003', 'evt-006'],
+  goingEventIds: ['evt-001', 'evt-004', 'evt-009'],
   joinedClubIds: ['club-001', 'club-003', 'club-005', 'club-006'],
   settings: {
     pushNotifications: true,
@@ -30,6 +34,23 @@ export const useDemoAppStore = create<DemoAppState>((set) => ({
       savedEventIds: state.savedEventIds.includes(eventId)
         ? state.savedEventIds.filter((id) => id !== eventId)
         : [...state.savedEventIds, eventId],
+    })),
+  toggleGoingEvent: (eventId) =>
+    set((state) => ({
+      goingEventIds: state.goingEventIds.includes(eventId)
+        ? state.goingEventIds.filter((id) => id !== eventId)
+        : [...state.goingEventIds, eventId],
+    })),
+  setEventRsvpStatus: (eventId, status) =>
+    set((state) => ({
+      goingEventIds:
+        status === 'going'
+          ? Array.from(new Set([...state.goingEventIds.filter((id) => id !== eventId), eventId]))
+          : state.goingEventIds.filter((id) => id !== eventId),
+      savedEventIds:
+        status === 'interested'
+          ? Array.from(new Set([...state.savedEventIds.filter((id) => id !== eventId), eventId]))
+          : state.savedEventIds.filter((id) => id !== eventId),
     })),
   toggleJoinedClub: (clubId) =>
     set((state) => ({

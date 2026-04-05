@@ -12,7 +12,8 @@ import { useResponsive } from '../../../shared/hooks/useResponsive';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
-import type { Post } from '../../../shared/types';
+import type { Post, User } from '../../../shared/types';
+import { mockUsers, getClubIdsForUser } from '../../../assets/data/mockClubs';
 import { isSupabaseConfigured } from '../../../services/supabase';
 import {
   fetchCurrentRemoteUserId,
@@ -22,6 +23,7 @@ import {
 } from '../../../services/social';
 import PostMediaGallery from '../../feed/components/PostMediaGallery';
 import { useFeedStore } from '../../feed/hooks/useFeed';
+import { useProfile } from '../../profile/hooks/useProfile';
 import {
   clubNameById,
   CURRENT_SOCIAL_USER_ID,
@@ -145,9 +147,33 @@ function toCampusProfileView(input: {
   } satisfies CampusProfileView;
 }
 
+function toCampusProfileFromClubUser(user: User) {
+  const username =
+    user.username ||
+    user.email.split('@')[0] ||
+    user.display_name.toLowerCase().replace(/\s+/g, '');
+  const clubIds = getClubIdsForUser(user.id);
+
+  return {
+    id: user.id,
+    displayName: user.display_name,
+    username,
+    avatarUrl: user.avatar_url,
+    bio: user.bio ?? 'UMD student on xUMD.',
+    pronouns: null,
+    major: user.major,
+    classYear: user.graduation_year,
+    clubLabels: clubIds.map(formatClubLabel),
+    followerCount: user.follower_count ?? 0,
+    followingCount: user.following_count ?? 0,
+    isOfficial: false,
+  } satisfies CampusProfileView;
+}
+
 export default function UserProfileScreen({ navigation, route }: Props) {
   const targetUserId = route.params.userId;
   const { isWide } = useResponsive();
+  const { user: profileUser } = useProfile();
   const hydratePosts = useFeedStore((state) => state.hydratePosts);
   const localPosts = useFeedStore((state) => state.posts);
   const localProfiles = useSocialGraphStore((state) => state.profiles);
@@ -157,15 +183,19 @@ export default function UserProfileScreen({ navigation, route }: Props) {
   const [remoteTargetProfile, setRemoteTargetProfile] = useState<RemoteSocialProfile | null>(null);
   const [remoteViewerProfile, setRemoteViewerProfile] = useState<RemoteSocialProfile | null>(null);
   const [remotePosts, setRemotePosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [loading, setLoading] = useState(isSupabaseConfigured && !targetUserId.startsWith('user-'));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
 
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || targetUserId.startsWith('user-')) {
       setLoading(false);
       setError(null);
+      setRemoteTargetProfile(null);
+      setRemoteViewerProfile(null);
+      setViewerRemoteId(null);
+      setRemotePosts([]);
       return () => {
         isActive = false;
       };
@@ -216,6 +246,14 @@ export default function UserProfileScreen({ navigation, route }: Props) {
 
   const demoTargetProfile = localProfiles[targetUserId];
   const demoViewerProfile = localProfiles[CURRENT_SOCIAL_USER_ID];
+  const clubTargetUser = useMemo(
+    () => mockUsers.find((user) => user.id === targetUserId) ?? null,
+    [targetUserId],
+  );
+  const clubViewerUser = useMemo(
+    () => mockUsers.find((candidate) => candidate.id === profileUser.id || candidate.email === profileUser.email) ?? null,
+    [profileUser.email, profileUser.id],
+  );
 
   const profilePosts = useMemo(
     () =>
@@ -234,35 +272,45 @@ export default function UserProfileScreen({ navigation, route }: Props) {
       });
     }
 
-    if (!demoTargetProfile) {
-      return null;
+    if (demoTargetProfile) {
+      return toCampusProfileView({
+        profile: demoTargetProfile,
+        followerCount: getFollowerCount(localFollowingByUser, targetUserId),
+        followingCount: (localFollowingByUser[targetUserId] ?? []).length,
+      });
     }
 
-    return toCampusProfileView({
-      profile: demoTargetProfile,
-      followerCount: getFollowerCount(localFollowingByUser, targetUserId),
-      followingCount: (localFollowingByUser[targetUserId] ?? []).length,
-    });
-  }, [demoTargetProfile, localFollowingByUser, remoteTargetProfile, targetUserId]);
+    if (clubTargetUser) {
+      return toCampusProfileFromClubUser(clubTargetUser);
+    }
+
+    return null;
+  }, [clubTargetUser, demoTargetProfile, localFollowingByUser, remoteTargetProfile, targetUserId]);
 
   const commonClubLabels = useMemo(() => {
     if (remoteTargetProfile) {
-      const viewerClubIds = remoteViewerProfile?.clubIds ?? [];
+      const viewerClubIds = remoteViewerProfile?.clubIds ?? getClubIdsForUser(profileUser.id);
       return intersect(viewerClubIds, remoteTargetProfile.clubIds).map(formatClubLabel);
     }
 
-    if (!demoTargetProfile || !demoViewerProfile) {
+    if (clubTargetUser && clubViewerUser) {
+      return intersect(getClubIdsForUser(clubViewerUser.id), getClubIdsForUser(clubTargetUser.id)).map(formatClubLabel);
+    }
+
+    if (!demoTargetProfile) {
       return [];
     }
 
-    return intersect(demoViewerProfile.clubIds, demoTargetProfile.clubIds).map(formatClubLabel);
-  }, [demoTargetProfile, demoViewerProfile, remoteTargetProfile, remoteViewerProfile]);
+    const viewerClubIds = demoViewerProfile?.clubIds ?? getClubIdsForUser(profileUser.id);
+    return intersect(viewerClubIds, demoTargetProfile.clubIds).map(formatClubLabel);
+  }, [clubTargetUser, clubViewerUser, demoTargetProfile, demoViewerProfile, profileUser.id, remoteTargetProfile, remoteViewerProfile]);
 
   const recentActivity = useMemo(() => buildActivityItems(profilePosts), [profilePosts]);
+  const supportsFollow = Boolean(remoteTargetProfile || demoTargetProfile);
 
   const isOwnProfile = remoteTargetProfile
     ? viewerRemoteId === targetUserId
-    : targetUserId === CURRENT_SOCIAL_USER_ID;
+    : targetUserId === CURRENT_SOCIAL_USER_ID || targetUserId === profileUser.id;
 
   if (!profile && !loading) {
     return (
@@ -335,7 +383,7 @@ export default function UserProfileScreen({ navigation, route }: Props) {
               </View>
             </View>
           </View>
-          {!isOwnProfile ? (
+          {!isOwnProfile && supportsFollow ? (
             <Button
               title={isFollowingUser(targetUserId) ? 'Following' : 'Follow'}
               onPress={() => void toggleFollow(targetUserId)}

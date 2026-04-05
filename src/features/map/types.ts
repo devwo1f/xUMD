@@ -1,5 +1,16 @@
 export type MapCoordinate = [number, number];
 
+export type MapTimeFilter =
+  | 'happening_now'
+  | 'next_2_hours'
+  | 'today'
+  | 'this_week'
+  | 'custom';
+
+export type MapSortOption = 'soonest' | 'most_popular' | 'nearest';
+
+export type MarkerVisualMode = 'heatmap' | 'category';
+
 export interface MapUserLocation {
   latitude: number;
   longitude: number;
@@ -34,4 +45,33 @@ export interface WayfindingJourney {
   distanceLabel: string;
   color: string;
   coordinates: MapCoordinate[];
+}
+
+export interface MapMarkerEventSummary {
+  id: string;
+  title: string;
+  category: string;
+  startsAt: string;
+  endsAt: string;
+  locationName: string;
+  attendeeCount: number;
+  interestedCount: number;
+  isLive: boolean;
+}
+
+export interface EventLocationGroup {
+  id: string;
+  locationKey: string;
+  locationName: string;
+  coordinate: MapCoordinate;
+  events: MapMarkerEventSummary[];
+  primaryCategory: string;
+  density: number;
+  eventCount: number;
+  isLive: boolean;
+  markerColor: string;
+  markerSize: number;
+  markerOpacity: number;
+  glyph: string;
+  densityLabel: string;
 }

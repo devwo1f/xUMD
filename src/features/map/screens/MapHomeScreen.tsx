@@ -1,1145 +1,1631 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { format } from 'date-fns';
-import CampusMap from '../../map/components/CampusMap';
-import EventBottomSheet from '../../map/components/EventBottomSheet';
-import BottomSheet from '../../../shared/components/BottomSheet';
 import Badge from '../../../shared/components/Badge';
+import BottomSheet from '../../../shared/components/BottomSheet';
 import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
 import HeaderTag from '../../../shared/components/HeaderTag';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import UMDBrandLockup from '../../../shared/components/UMDBrandLockup';
-import { buildings, type Building, type BuildingType } from '../../../assets/data/buildings';
-import { mockCampusEvents } from '../../../assets/data/mockEvents';
+import { buildings, type Building } from '../../../assets/data/buildings';
+import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
+import { colors } from '../../../shared/theme/colors';
+import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
+import { typography } from '../../../shared/theme/typography';
+import { EventCategory, type Event } from '../../../shared/types';
+import type { MapStackParamList } from '../../../navigation/types';
+import { isSupabaseConfigured } from '../../../services/supabase';
 import {
+  createMapEventRemote,
+  reportMapEventRemote,
+  submitEventRsvpRemote,
+} from '../../../services/mapEvents';
+import CampusMap from '../components/CampusMap';
+import { campusMapCenter } from '../config/campusMapStyle';
+import {
+  buildingTypeMeta,
   campusRoutes,
   diningZones,
   type CampusRoute,
   type DiningZone,
-} from '../../map/data/campusOverlays';
-import { useMapData, type TimeFilter } from '../../map/hooks/useMapData';
-import { useUserLocation } from '../../map/hooks/useUserLocation';
+} from '../data/campusOverlays';
+import { useMapData } from '../hooks/useMapData';
+import { useMapEventDetail } from '../hooks/useMapEventDetail';
+import { useMapSearchResults } from '../hooks/useMapSearchResults';
+import { useUserLocation } from '../hooks/useUserLocation';
+import { useMapFilterStore } from '../stores/useMapFilterStore';
+import type {
+  EventLocationGroup,
+  MapCoordinate,
+  MapFocusRequest,
+  MapTimeFilter,
+  WayfindingJourney,
+} from '../types';
 import {
-  getBuildingNowStatus,
-  getBuildingQuickFacts,
-  getCurrentEventsForBuilding,
-  getNearbyBuildings,
-  getNearbyEvents,
-  getUpcomingEventsForBuilding,
-  isBuildingOpenNow,
-  isTonightEvent,
-} from '../../map/utils/buildingExperience';
+  MAP_CATEGORY_OPTIONS,
+  buildEventLocationGroups,
+  filterAndSortEvents,
+  getContextualTimeLabel,
+  getLiveEventCounter,
+  getNearestLiveEvent,
+  isEventLive,
+} from '../utils/eventDiscovery';
 import {
   buildFocusRequestForCoordinate,
   buildFocusRequestFromCoordinates,
   buildWayfindingJourney,
-  defaultJourneyOrigin,
-  formatDistanceMiles,
+  getDistanceMeters,
   toMapCoordinate,
-} from '../../map/utils/wayfinding';
-import type { MapFocusRequest, WayfindingJourney } from '../../map/types';
-import { useResponsive } from '../../../shared/hooks/useResponsive';
-import { colors } from '../../../shared/theme/colors';
-import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
-import { typography } from '../../../shared/theme/typography';
-import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
-import { EventCategory, type Event } from '../../../shared/types';
-import type { MapStackParamList } from '../../../navigation/types';
+} from '../utils/wayfinding';
 
 type Props = NativeStackScreenProps<MapStackParamList, 'MapHome'>;
 
-type OverlayBounds = {
-  minLongitude: number;
-  maxLongitude: number;
-  minLatitude: number;
-  maxLatitude: number;
-};
+const QUICK_LENSES = [
+  { id: 'open_now', label: 'Open now', icon: 'flash-outline' as const },
+  { id: 'food', label: 'Food', icon: 'restaurant-outline' as const },
+  { id: 'study', label: 'Study', icon: 'book-outline' as const },
+  { id: 'tonight', label: 'Tonight', icon: 'moon-outline' as const },
+] as const;
 
-type QuickChip = 'all' | 'open-now' | 'food' | 'study' | 'tonight';
-
-const quickChips: Array<{
-  value: QuickChip;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}> = [
-  { value: 'all', label: 'Everything', icon: 'layers-outline' },
-  { value: 'open-now', label: 'Open now', icon: 'time-outline' },
-  { value: 'food', label: 'Food', icon: 'restaurant-outline' },
-  { value: 'study', label: 'Study', icon: 'book-outline' },
-  { value: 'tonight', label: 'Tonight', icon: 'moon-outline' },
+const TIME_FILTER_OPTIONS: Array<{ value: MapTimeFilter; label: string }> = [
+  { value: 'happening_now', label: 'Happening Now' },
+  { value: 'next_2_hours', label: 'Next 2 Hours' },
+  { value: 'today', label: 'Today' },
+  { value: 'this_week', label: 'This Week' },
 ];
 
-function getOverlayBounds(coordinates: [number, number][]): OverlayBounds {
-  const longitudes = coordinates.map(([longitude]) => longitude);
-  const latitudes = coordinates.map(([, latitude]) => latitude);
+type CreateEventDraft = {
+  title: string;
+  description: string;
+  category: EventCategory;
+  startsAt: string;
+  endsAt: string;
+  maxCapacity: string;
+  tags: string;
+};
+
+function buildCreateEventDraft(): CreateEventDraft {
+  const now = new Date();
+  const startsAt = new Date(now.getTime() + 60 * 60 * 1000);
+  const endsAt = new Date(startsAt.getTime() + 2 * 60 * 60 * 1000);
 
   return {
-    minLongitude: Math.min(...longitudes),
-    maxLongitude: Math.max(...longitudes),
-    minLatitude: Math.min(...latitudes),
-    maxLatitude: Math.max(...latitudes),
+    title: '',
+    description: '',
+    category: EventCategory.Other,
+    startsAt: startsAt.toISOString().slice(0, 16),
+    endsAt: endsAt.toISOString().slice(0, 16),
+    maxCapacity: '',
+    tags: '',
   };
 }
 
-function isPointInBounds(latitude: number, longitude: number, bounds: OverlayBounds) {
-  return (
-    longitude >= bounds.minLongitude &&
-    longitude <= bounds.maxLongitude &&
-    latitude >= bounds.minLatitude &&
-    latitude <= bounds.maxLatitude
+function getMapsUrl(label: string, coordinate: MapCoordinate) {
+  const [longitude, latitude] = coordinate;
+  const query = encodeURIComponent(label);
+
+  if (Platform.OS === 'ios') {
+    return `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=w&q=${query}`;
+  }
+
+  return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=walking&dir_action=navigate`;
+}
+
+function findNearestBuilding(coordinate: MapCoordinate) {
+  return buildings
+    .map((building) => ({
+      building,
+      distance: getDistanceMeters(coordinate, [building.longitude, building.latitude]),
+    }))
+    .sort((left, right) => left.distance - right.distance)[0] ?? null;
+}
+
+function findBuildingEvents(target: Building, events: Event[]) {
+  const buildingCoordinate: MapCoordinate = [target.longitude, target.latitude];
+
+  return events.filter((event) => {
+    if (event.latitude === null || event.longitude === null) {
+      return false;
+    }
+
+    const byDistance =
+      getDistanceMeters(buildingCoordinate, [event.longitude, event.latitude]) <= 135;
+    const byName = event.location_name.toLowerCase().includes(target.name.toLowerCase());
+
+    return byDistance || byName;
+  });
+}
+
+function getDensityMap(events: Event[]) {
+  return Object.fromEntries(
+    events.map((event) => {
+      if (event.latitude === null || event.longitude === null) {
+        return [event.id, 1] as const;
+      }
+
+      const coordinate: MapCoordinate = [event.longitude, event.latitude];
+      const density = events.reduce((count, otherEvent) => {
+        if (otherEvent.latitude === null || otherEvent.longitude === null) {
+          return count;
+        }
+
+        const otherCoordinate: MapCoordinate = [otherEvent.longitude, otherEvent.latitude];
+        return getDistanceMeters(coordinate, otherCoordinate) <= 100 ? count + 1 : count;
+      }, 0);
+
+      return [event.id, density] as const;
+    }),
   );
 }
 
-function countEventsInZone(zone: DiningZone, events: Event[]) {
-  const bounds = getOverlayBounds(zone.coordinates);
+function EventListItem({
+  event,
+  isSaved,
+  isGoing,
+  onPress,
+}: {
+  event: Event;
+  isSaved: boolean;
+  isGoing: boolean;
+  onPress: () => void;
+}) {
+  const categoryColor =
+    colors.eventCategory[event.category as keyof typeof colors.eventCategory] ??
+    colors.eventCategory.other;
 
-  return events.filter(
-    (event) =>
-      event.latitude !== null &&
-      event.longitude !== null &&
-      isPointInBounds(event.latitude, event.longitude, bounds),
-  ).length;
-}
-
-function countBuildingsInZone(zone: DiningZone, campusBuildings: Building[]) {
-  const bounds = getOverlayBounds(zone.coordinates);
-
-  return campusBuildings.filter((building) =>
-    isPointInBounds(building.latitude, building.longitude, bounds),
-  ).length;
-}
-
-function countBuildingsNearRoute(route: CampusRoute, campusBuildings: Building[]) {
-  return campusBuildings.filter((building) =>
-    route.coordinates.some(
-      ([longitude, latitude]) =>
-        Math.abs(building.longitude - longitude) <= 0.0019 &&
-        Math.abs(building.latitude - latitude) <= 0.0019,
-    ),
-  ).length;
-}
-
-function matchesFoodEvent(event: Event) {
-  const haystack = `${event.title} ${event.location_name} ${event.description}`.toLowerCase();
-  return haystack.includes('food') || haystack.includes('dining') || haystack.includes('stamp');
-}
-
-function matchesStudyEvent(event: Event) {
-  return event.category === EventCategory.Academic || event.category === EventCategory.Workshop;
+  return (
+    <Pressable onPress={onPress} style={styles.eventListItem}>
+      <View style={styles.eventListHeader}>
+        <Badge label={event.category} color={categoryColor} />
+        <View style={styles.eventStateRow}>
+          {isGoing ? <Text style={styles.goingText}>Going</Text> : null}
+          {isSaved ? <Text style={styles.savedText}>Interested</Text> : null}
+        </View>
+      </View>
+      <Text style={styles.eventListTitle}>{event.title}</Text>
+      <Text style={styles.eventListMeta}>{getContextualTimeLabel(event)}</Text>
+      <Text style={styles.eventListMeta}>{event.location_name}</Text>
+    </Pressable>
+  );
 }
 
 export default function MapHomeScreen({ navigation }: Props) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
-  const [activeQuickChip, setActiveQuickChip] = useState<QuickChip>('all');
-  const [showEvents, setShowEvents] = useState(true);
-  const [showBuildings, setShowBuildings] = useState(true);
-  const [showWalkingRoutes, setShowWalkingRoutes] = useState(false);
-  const [showDiningZones, setShowDiningZones] = useState(false);
-  const [clusterEvents, setClusterEvents] = useState(true);
-  const [buildingTypeFilters, setBuildingTypeFilters] = useState<BuildingType[]>([]);
-  const [onlyOpenNow, setOnlyOpenNow] = useState(false);
-  const [nearMeMode, setNearMeMode] = useState(false);
-  const [isLayersSheetOpen, setIsLayersSheetOpen] = useState(false);
-  const [focusRequest, setFocusRequest] = useState<MapFocusRequest | null>(null);
-  const [activeEvent, setActiveEvent] = useState<Event | null>(null);
-  const [activeBuilding, setActiveBuilding] = useState<Building | null>(null);
-  const [activeRoute, setActiveRoute] = useState<CampusRoute | null>(null);
-  const [activeDiningZone, setActiveDiningZone] = useState<DiningZone | null>(null);
-  const [activeJourney, setActiveJourney] = useState<WayfindingJourney | null>(null);
-
-  const { isWide } = useResponsive();
+  const queryClient = useQueryClient();
   const { userLocation, isLocating, locationError, requestUserLocation } = useUserLocation();
-  const { events, loading } = useMapData({
+  const {
+    selectedCategories,
     timeFilter,
+    sortBy,
+    customRange,
+    onlyFriendsAttending,
     searchQuery,
+    isFilterModalOpen,
+    setSearchQuery,
+    setTimeFilter,
+    setSortBy,
+    setOnlyFriendsAttending,
+    setFilterModalOpen,
+    toggleCategory,
+    reset,
+  } = useMapFilterStore();
+  const { rawEvents, loading, refetch: refetchMapData } = useMapData({
+    onlyFriendsAttending,
   });
-  const { savedEventIds, toggleSavedEvent } = useDemoAppStore();
+  const { savedEventIds, goingEventIds, setEventRsvpStatus } = useDemoAppStore();
 
-  const filteredBuildings = useMemo(() => {
-    const needle = searchQuery.trim().toLowerCase();
-    let filtered = buildings.filter((building) => {
-      const matchesSearch =
-        needle.length === 0 ||
-        building.name.toLowerCase().includes(needle) ||
-        building.code.toLowerCase().includes(needle) ||
-        building.description.toLowerCase().includes(needle);
-      const matchesType =
-        buildingTypeFilters.length === 0 || buildingTypeFilters.includes(building.building_type);
+  const [showBuildings, setShowBuildings] = useState(true);
+  const [showWalkingRoutes, setShowWalkingRoutes] = useState(true);
+  const [showDiningZones, setShowDiningZones] = useState(true);
+  const [showListView, setShowListView] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedEventGroupId, setSelectedEventGroupId] = useState<string | null>(null);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [selectedDiningZoneId, setSelectedDiningZoneId] = useState<string | null>(null);
+  const [detailEventId, setDetailEventId] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState<MapFocusRequest | null>(null);
+  const [wayfindingJourney, setWayfindingJourney] = useState<WayfindingJourney | null>(null);
+  const [createEventCoordinate, setCreateEventCoordinate] =
+    useState<MapCoordinate | null>(null);
+  const [createEventDraft, setCreateEventDraft] = useState<CreateEventDraft>(
+    buildCreateEventDraft,
+  );
+  const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
+  const detailEventQuery = useMapEventDetail(detailEventId);
+  const { results: searchResults, isLoading: isSearchLoading } = useMapSearchResults({
+    query: searchQuery,
+    events: rawEvents,
+    buildings,
+  });
 
-      return matchesSearch && matchesType;
-    });
-
-    if (activeQuickChip === 'food') {
-      filtered = filtered.filter((building) =>
-        ['dining', 'student_center'].includes(building.building_type),
-      );
-    }
-
-    if (activeQuickChip === 'study') {
-      filtered = filtered.filter((building) =>
-        ['library', 'academic', 'engineering'].includes(building.building_type),
-      );
-    }
-
-    if (onlyOpenNow) {
-      filtered = filtered.filter((building) => isBuildingOpenNow(building));
-    }
-
-    if (nearMeMode && userLocation) {
-      filtered = getNearbyBuildings(userLocation, filtered, 550).map((item) => item.building);
-    }
-
-    return filtered;
-  }, [
-    activeQuickChip,
-    buildingTypeFilters,
-    nearMeMode,
-    onlyOpenNow,
-    searchQuery,
-    userLocation,
-  ]);
-
-  const filteredEvents = useMemo(() => {
-    let filtered = [...events];
-
-    if (activeQuickChip === 'food') {
-      filtered = filtered.filter(matchesFoodEvent);
-    }
-
-    if (activeQuickChip === 'study') {
-      filtered = filtered.filter(matchesStudyEvent);
-    }
-
-    if (activeQuickChip === 'tonight') {
-      filtered = filtered.filter((event) => isTonightEvent(event));
-    }
-
-    if (nearMeMode && userLocation) {
-      filtered = getNearbyEvents(userLocation, filtered, 550).map((item) => item.event);
-    }
-
-    return filtered;
-  }, [activeQuickChip, events, nearMeMode, userLocation]);
-
-  const featuredEvents = useMemo(() => {
-    const source =
-      filteredEvents.length > 0
-        ? filteredEvents
-        : searchQuery.trim().length === 0
-          ? mockCampusEvents
-          : [];
-    return source.slice(0, isWide ? 3 : 2);
-  }, [filteredEvents, isWide, searchQuery]);
-
-  const nearbyBuildings = useMemo(
+  const isHeatmapMode = selectedCategories.length === 0;
+  const filteredEvents = useMemo(
     () =>
-      userLocation ? getNearbyBuildings(userLocation, buildings, 450).slice(0, isWide ? 4 : 3) : [],
-    [isWide, userLocation],
+      filterAndSortEvents(rawEvents, {
+        searchQuery,
+        selectedCategories,
+        timeFilter,
+        sortBy,
+        customRange,
+        onlyFriendsAttending: onlyFriendsAttending && !isSupabaseConfigured,
+        userLocation,
+      }),
+    [
+      customRange,
+      onlyFriendsAttending,
+      rawEvents,
+      searchQuery,
+      selectedCategories,
+      sortBy,
+      timeFilter,
+      userLocation,
+    ],
   );
+  const eventById = useMemo(
+    () => new Map(rawEvents.map((event) => [event.id, event])),
+    [rawEvents],
+  );
+  const eventGroups = useMemo(
+    () => buildEventLocationGroups(filteredEvents, isHeatmapMode ? 'heatmap' : 'category'),
+    [filteredEvents, isHeatmapMode],
+  );
+  const densityByEventId = useMemo(() => getDensityMap(filteredEvents), [filteredEvents]);
+  const liveCounter = useMemo(() => getLiveEventCounter(filteredEvents), [filteredEvents]);
 
-  const nearbyEvents = useMemo(
+  const selectedGroup = useMemo(
+    () => eventGroups.find((group) => group.id === selectedEventGroupId) ?? null,
+    [eventGroups, selectedEventGroupId],
+  );
+  const selectedEvent = useMemo(
+    () => (selectedEventId ? eventById.get(selectedEventId) ?? null : null),
+    [eventById, selectedEventId],
+  );
+  const detailEvent = useMemo(
     () =>
-      userLocation
-        ? getNearbyEvents(userLocation, mockCampusEvents, 450).slice(0, isWide ? 4 : 3)
-        : [],
-    [isWide, userLocation],
+      detailEventQuery.data?.event ??
+      (detailEventId ? eventById.get(detailEventId) ?? null : null),
+    [detailEventId, detailEventQuery.data?.event, eventById],
+  );
+  const selectedBuilding = useMemo(
+    () => buildings.find((building) => building.id === selectedBuildingId) ?? null,
+    [selectedBuildingId],
+  );
+  const selectedRoute = useMemo(
+    () => campusRoutes.find((route) => route.id === selectedRouteId) ?? null,
+    [selectedRouteId],
+  );
+  const selectedDiningZone = useMemo(
+    () => diningZones.find((zone) => zone.id === selectedDiningZoneId) ?? null,
+    [selectedDiningZoneId],
+  );
+  const selectedBuildingEvents = useMemo(
+    () => (selectedBuilding ? findBuildingEvents(selectedBuilding, filteredEvents) : []),
+    [filteredEvents, selectedBuilding],
+  );
+  const nearestCreateLocation = useMemo(
+    () => (createEventCoordinate ? findNearestBuilding(createEventCoordinate) : null),
+    [createEventCoordinate],
   );
 
-  const activeRouteStats = useMemo(() => {
-    if (!activeRoute) {
-      return null;
+  useEffect(() => {
+    if (selectedEventId && !filteredEvents.some((event) => event.id === selectedEventId)) {
+      setSelectedEventId(null);
     }
+  }, [filteredEvents, selectedEventId]);
 
-    return {
-      checkpoints: activeRoute.coordinates.length,
-      nearbyBuildings: countBuildingsNearRoute(activeRoute, buildings),
-    };
-  }, [activeRoute]);
-
-  const activeDiningZoneStats = useMemo(() => {
-    if (!activeDiningZone) {
-      return null;
+  useEffect(() => {
+    if (
+      selectedEventGroupId &&
+      !eventGroups.some((group) => group.id === selectedEventGroupId)
+    ) {
+      setSelectedEventGroupId(null);
     }
+  }, [eventGroups, selectedEventGroupId]);
 
-    return {
-      nearbyBuildings: countBuildingsInZone(activeDiningZone, buildings),
-      nearbyEvents: countEventsInZone(activeDiningZone, filteredEvents),
-    };
-  }, [activeDiningZone, filteredEvents]);
+  useEffect(() => {
+    if (locationError) {
+      Alert.alert('Location unavailable', locationError);
+    }
+  }, [locationError]);
 
-  const activeBuildingStatus = useMemo(
-    () => (activeBuilding ? getBuildingNowStatus(activeBuilding) : null),
-    [activeBuilding],
-  );
+  useEffect(() => {
+    if (createEventCoordinate) {
+      setCreateEventDraft(buildCreateEventDraft());
+    }
+  }, [createEventCoordinate]);
 
-  const activeBuildingCurrentEvents = useMemo(
-    () => (activeBuilding ? getCurrentEventsForBuilding(activeBuilding, mockCampusEvents) : []),
-    [activeBuilding],
-  );
-
-  const activeBuildingUpcomingEvents = useMemo(
-    () => (activeBuilding ? getUpcomingEventsForBuilding(activeBuilding, mockCampusEvents) : []),
-    [activeBuilding],
-  );
-
-  const activeBuildingFacts = useMemo(
-    () => (activeBuilding ? getBuildingQuickFacts(activeBuilding) : []),
-    [activeBuilding],
-  );
-
-  const activeMapBuildingId =
-    activeBuilding?.id ??
-    (activeJourney?.destinationType === 'building' ? activeJourney.destinationId : null);
-  const activeMapEventId =
-    activeEvent?.id ?? (activeJourney?.destinationType === 'event' ? activeJourney.destinationId : null);
-
-  const clearDetailSelections = () => {
-    setActiveEvent(null);
-    setActiveBuilding(null);
-    setActiveRoute(null);
-    setActiveDiningZone(null);
+  const clearSelections = () => {
+    setSelectedEventId(null);
+    setSelectedEventGroupId(null);
+    setSelectedBuildingId(null);
+    setSelectedRouteId(null);
+    setSelectedDiningZoneId(null);
+    setDetailEventId(null);
+    setWayfindingJourney(null);
   };
 
-  const handleSelectEvent = (event: Event) => {
-    setActiveBuilding(null);
-    setActiveRoute(null);
-    setActiveDiningZone(null);
-    setActiveJourney(null);
-    setActiveEvent(event);
-  };
-
-  const handleSelectBuilding = (building: Building) => {
-    setActiveEvent(null);
-    setActiveRoute(null);
-    setActiveDiningZone(null);
-    setActiveJourney(null);
-    setActiveBuilding(building);
-  };
-
-  const handleSelectRoute = (route: CampusRoute) => {
-    setShowWalkingRoutes(true);
-    setActiveEvent(null);
-    setActiveBuilding(null);
-    setActiveDiningZone(null);
-    setActiveJourney(null);
-    setActiveRoute(route);
-    setFocusRequest(
-      buildFocusRequestFromCoordinates(`route-${route.id}-${Date.now()}`, route.coordinates, {
-        padding: 72,
-      }),
+  const focusEvent = (event: Event) => {
+    const group = eventGroups.find((item) =>
+      item.events.some((groupEvent) => groupEvent.id === event.id),
     );
-  };
-
-  const handleSelectDiningZone = (zone: DiningZone) => {
-    setShowDiningZones(true);
-    setActiveEvent(null);
-    setActiveBuilding(null);
-    setActiveRoute(null);
-    setActiveJourney(null);
-    setActiveDiningZone(zone);
-    setFocusRequest(
-      buildFocusRequestFromCoordinates(`zone-${zone.id}-${Date.now()}`, zone.coordinates, {
-        padding: 68,
-      }),
-    );
-  };
-
-  const toggleBuildingTypeFilter = (type: BuildingType) => {
-    setBuildingTypeFilters((current) =>
-      current.includes(type) ? current.filter((item) => item !== type) : [...current, type],
-    );
-  };
-
-  const resetLens = () => {
-    setSearchQuery('');
-    setTimeFilter('today');
-    setActiveQuickChip('all');
-    setOnlyOpenNow(false);
-    setNearMeMode(false);
-    setBuildingTypeFilters([]);
-    setShowEvents(true);
-    setShowBuildings(true);
-    setShowWalkingRoutes(false);
-    setShowDiningZones(false);
-    setClusterEvents(true);
-    setFocusRequest(null);
-    setActiveJourney(null);
-    clearDetailSelections();
-  };
-
-  const handleQuickChipPress = (chip: QuickChip) => {
-    setActiveQuickChip(chip);
-    setOnlyOpenNow(false);
-    setNearMeMode(false);
-    setBuildingTypeFilters([]);
-    setShowEvents(true);
-    setShowBuildings(true);
-    setShowWalkingRoutes(false);
-    setShowDiningZones(false);
-    setClusterEvents(true);
-    setFocusRequest(null);
-    setActiveJourney(null);
-    clearDetailSelections();
-
-    if (chip === 'all') {
-      setTimeFilter('today');
-      return;
-    }
-
-    if (chip === 'open-now') {
-      setOnlyOpenNow(true);
-      setTimeFilter('happening_now');
-      return;
-    }
-
-    if (chip === 'food') {
-      setTimeFilter('today');
-      setBuildingTypeFilters(['dining', 'student_center']);
-      setShowDiningZones(true);
-      return;
-    }
-
-    if (chip === 'study') {
-      setTimeFilter('today');
-      setBuildingTypeFilters(['library', 'academic', 'engineering']);
-      return;
-    }
-
-    if (chip === 'tonight') {
-      setTimeFilter('today');
-    }
-  };
-
-  const handleLocateMePress = async () => {
-    const location = await requestUserLocation();
-
-    if (!location) {
-      return;
-    }
-
-    setNearMeMode(true);
-    setActiveJourney(null);
-    clearDetailSelections();
+    setSelectedBuildingId(null);
+    setSelectedRouteId(null);
+    setSelectedDiningZoneId(null);
+    setWayfindingJourney(null);
+    setSelectedEventGroupId(group?.id ?? null);
+    setSelectedEventId(event.id);
+    setShowListView(false);
     setFocusRequest(
       buildFocusRequestForCoordinate(
-        'near-me-' + Date.now(),
-        toMapCoordinate(location),
-        17.1,
+        `event-${event.id}`,
+        group?.coordinate ?? [
+          event.longitude ?? campusMapCenter[0],
+          event.latitude ?? campusMapCenter[1],
+        ],
+        16.65,
       ),
     );
   };
 
-  const handleRouteToEvent = (event: Event) => {
+  const focusGroup = (group: EventLocationGroup) => {
+    setSelectedBuildingId(null);
+    setSelectedRouteId(null);
+    setSelectedDiningZoneId(null);
+    setWayfindingJourney(null);
+    setSelectedEventGroupId(group.id);
+    setFocusRequest(buildFocusRequestForCoordinate(`group-${group.id}`, group.coordinate, 16.35));
+
+    if (group.events.length === 1) {
+      setSelectedEventId(group.events[0].id);
+      setShowListView(false);
+      return;
+    }
+
+    setSelectedEventId(null);
+    setShowListView(false);
+  };
+
+  const handleRouteToEvent = async (event: Event) => {
     if (event.latitude === null || event.longitude === null) {
       return;
     }
 
+    const origin = userLocation ?? (await requestUserLocation());
     const journey = buildWayfindingJourney({
       destinationId: event.id,
       destinationType: 'event',
       destinationLabel: event.title,
       destinationCoordinate: [event.longitude, event.latitude],
       subtitle: event.location_name,
-      originCoordinate: userLocation ? toMapCoordinate(userLocation) : undefined,
-      startLabel: userLocation ? 'Your location' : defaultJourneyOrigin.label,
+      originCoordinate: origin ? toMapCoordinate(origin) : undefined,
+      startLabel: origin ? 'Your location' : undefined,
     });
 
-    setActiveEvent(null);
-    setActiveBuilding(null);
-    setActiveRoute(null);
-    setActiveDiningZone(null);
-    setActiveJourney(journey);
+    setWayfindingJourney(journey);
     setFocusRequest(
-      buildFocusRequestFromCoordinates(`journey-${journey.id}-${Date.now()}`, journey.coordinates, {
-        padding: 88,
+      buildFocusRequestFromCoordinates(journey.id, journey.coordinates, {
+        padding: 72,
+        zoomLevel: 16.2,
       }),
     );
   };
 
-  const handleRouteToBuilding = (building: Building) => {
+  const handleRouteToBuilding = async (building: Building) => {
+    const origin = userLocation ?? (await requestUserLocation());
     const journey = buildWayfindingJourney({
       destinationId: building.id,
       destinationType: 'building',
       destinationLabel: building.name,
       destinationCoordinate: [building.longitude, building.latitude],
-      subtitle: building.code,
-      originCoordinate: userLocation ? toMapCoordinate(userLocation) : undefined,
-      startLabel: userLocation ? 'Your location' : defaultJourneyOrigin.label,
+      subtitle: building.description,
+      originCoordinate: origin ? toMapCoordinate(origin) : undefined,
+      startLabel: origin ? 'Your location' : undefined,
     });
 
-    setActiveEvent(null);
-    setActiveBuilding(null);
-    setActiveRoute(null);
-    setActiveDiningZone(null);
-    setActiveJourney(journey);
+    setWayfindingJourney(journey);
     setFocusRequest(
-      buildFocusRequestFromCoordinates(`journey-${journey.id}-${Date.now()}`, journey.coordinates, {
-        padding: 88,
+      buildFocusRequestFromCoordinates(journey.id, journey.coordinates, {
+        padding: 72,
+        zoomLevel: 16.2,
       }),
     );
   };
 
-  const mapHintText = activeJourney
-    ? 'Walking route ready from ' + activeJourney.startLabel
-    : activeRoute
-      ? activeRoute.name + ' is highlighted on the map'
-      : activeDiningZone
-        ? activeDiningZone.name + ' is active on the map'
-        : nearMeMode
-          ? 'Centered on your current area'
-          : 'Tap a building, event pin, or walk card to explore campus.';
+  const handleDirections = async (label: string, coordinate: MapCoordinate) => {
+    const url = getMapsUrl(label, coordinate);
+
+    if (!(await Linking.canOpenURL(url))) {
+      Alert.alert('Unable to open directions', 'No maps app was available for this action.');
+      return;
+    }
+
+    await Linking.openURL(url);
+  };
+
+  const handleShare = async (event: Event) => {
+    await Share.share({
+      message: `${event.title}\n${getContextualTimeLabel(event)}\n${event.location_name}`,
+    });
+  };
+
+  const handleRsvpAction = async (
+    event: Event,
+    status: 'going' | 'interested',
+  ) => {
+    try {
+      if (isSupabaseConfigured) {
+        await submitEventRsvpRemote({
+          eventId: event.id,
+          status,
+          action: 'upsert',
+        });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['map-events'] }),
+          queryClient.invalidateQueries({ queryKey: ['map-event-detail', event.id] }),
+        ]);
+      }
+
+      setEventRsvpStatus(event.id, status);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to update your RSVP right now.';
+      Alert.alert('RSVP unavailable', message);
+    }
+  };
+
+  const handleReportEvent = async (eventId: string) => {
+    if (!isSupabaseConfigured) {
+      Alert.alert(
+        'Report event',
+        'Reporting is ready on the backend once Supabase is configured for this app.',
+      );
+      return;
+    }
+
+    try {
+      await reportMapEventRemote({
+        eventId,
+        reason: 'misleading',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['map-event-detail', eventId] });
+
+      Alert.alert('Report sent', 'Thanks. The moderation queue has been updated.');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to report this event right now.';
+      Alert.alert('Report unavailable', message);
+    }
+  };
+
+  const handleQuickLens = async (lensId: (typeof QUICK_LENSES)[number]['id']) => {
+    if (lensId === 'open_now') {
+      useMapFilterStore.setState({
+        selectedCategories: [],
+        timeFilter: 'happening_now',
+        searchQuery: '',
+      });
+      return;
+    }
+
+    if (lensId === 'food') {
+      useMapFilterStore.setState({
+        selectedCategories: [EventCategory.Food],
+        timeFilter: 'today',
+        searchQuery: '',
+      });
+      return;
+    }
+
+    if (lensId === 'study') {
+      useMapFilterStore.setState({
+        selectedCategories: [],
+        timeFilter: 'today',
+        searchQuery: 'study',
+      });
+      return;
+    }
+
+    const location = userLocation ?? (await requestUserLocation());
+    useMapFilterStore.setState({
+      selectedCategories: [
+        EventCategory.Party,
+        EventCategory.Social,
+        EventCategory.Arts,
+      ],
+      timeFilter: 'today',
+      sortBy: location ? 'nearest' : 'soonest',
+      searchQuery: '',
+    });
+  };
+
+  const handleSearchResult = (resultId: string) => {
+    const result = searchResults.find((item) => item.id === resultId);
+
+    if (!result) {
+      return;
+    }
+
+    setSearchQuery('');
+
+    if (result.type === 'event') {
+      const eventId = result.event_ids[0];
+      const event = eventId ? eventById.get(eventId) : null;
+      if (event) {
+        focusEvent(event);
+        return;
+      }
+
+      clearSelections();
+      setDetailEventId(eventId ?? null);
+      setFocusRequest(
+        buildFocusRequestForCoordinate(result.id, [result.longitude, result.latitude], 16.55),
+      );
+      return;
+    }
+
+    const building =
+      buildings.find((item) => item.id === result.id.replace(/^location-/, '')) ??
+      buildings.find((item) => item.name === result.title);
+
+    if (building) {
+      clearSelections();
+      setSelectedBuildingId(building.id);
+      setFocusRequest(
+        buildFocusRequestForCoordinate(
+          `building-${building.id}`,
+          [result.longitude, result.latitude],
+          16.5,
+        ),
+      );
+      return;
+    }
+
+    clearSelections();
+    setFocusRequest(
+      buildFocusRequestForCoordinate(result.id, [result.longitude, result.latitude], 16.3),
+    );
+  };
+
+  const handleJumpToLive = () => {
+    const event = getNearestLiveEvent(filteredEvents, userLocation);
+
+    if (!event) {
+      Alert.alert('No live events', 'There are no live events matching your current filters.');
+      return;
+    }
+
+    focusEvent(event);
+  };
+
+  const handleCreateFromLongPress = (coordinate: MapCoordinate) => {
+    clearSelections();
+    setCreateEventCoordinate(coordinate);
+  };
+
+  const handleSubmitCreateEvent = async () => {
+    if (!createEventCoordinate) {
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
+      Alert.alert(
+        'Supabase required',
+        'Event creation is ready on the backend, but this app still needs your Supabase env vars and auth session to publish events.',
+      );
+      return;
+    }
+
+    if (!createEventDraft.title.trim()) {
+      Alert.alert('Missing title', 'Give your event a title before publishing it.');
+      return;
+    }
+
+    const startsAt = new Date(createEventDraft.startsAt);
+    const endsAt = new Date(createEventDraft.endsAt);
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) {
+      Alert.alert(
+        'Invalid time',
+        'Make sure the end time is after the start time and both fields are valid.',
+      );
+      return;
+    }
+
+    setIsSubmittingEvent(true);
+
+    try {
+      const result = await createMapEventRemote({
+        title: createEventDraft.title.trim(),
+        description: createEventDraft.description.trim(),
+        category: createEventDraft.category,
+        locationName: nearestCreateLocation?.building.name,
+        latitude: createEventCoordinate[1],
+        longitude: createEventCoordinate[0],
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+        maxCapacity: createEventDraft.maxCapacity
+          ? Number(createEventDraft.maxCapacity)
+          : null,
+        tags: createEventDraft.tags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      });
+
+      setCreateEventCoordinate(null);
+      setCreateEventDraft(buildCreateEventDraft());
+      await queryClient.invalidateQueries({ queryKey: ['map-events'] });
+      await refetchMapData();
+      Alert.alert(
+        'Event created',
+        `${result.event.title} is now pinned on the map${
+          result.snappedLocation ? ` near ${result.snappedLocation.name}` : ''
+        }.`,
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to publish the event right now.';
+      Alert.alert('Create event unavailable', message);
+    } finally {
+      setIsSubmittingEvent(false);
+    }
+  };
 
   return (
     <ScreenLayout
       title="Map"
-      subtitle="Full campus intelligence with buildings, routes, dining zones, and what is happening right now."
+      subtitle="Live campus pulse, density hotspots, and event discovery across UMD."
       headerTopContent={<UMDBrandLockup />}
       headerMetaContent={
         <HeaderTag
           icon="map-outline"
-          label="Main Campus Map"
+          label="Campus Pulse"
           color={colors.primary.main}
           tintColor={colors.primary.lightest}
         />
       }
-      headerStyle={styles.headerShell}
     >
       <View style={styles.container}>
-        <View style={styles.searchWrap}>
-          <Ionicons name="search" size={18} color={colors.text.tertiary} />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search buildings, routes, events, or landmarks..."
-            placeholderTextColor={colors.text.tertiary}
-            style={styles.searchInput}
-          />
-        </View>
+        <View style={styles.topControls}>
+          <View style={styles.searchCard}>
+            <Ionicons name="search" size={18} color={colors.text.tertiary} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search events or campus places"
+              placeholderTextColor={colors.text.tertiary}
+              style={styles.searchInput}
+              accessibilityLabel="Search campus events and locations"
+            />
+            <Pressable
+              onPress={() => setFilterModalOpen(true)}
+              style={styles.controlIconButton}
+            >
+              <Ionicons name="options-outline" size={18} color={colors.text.primary} />
+            </Pressable>
+          </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.toolbar}
-        >
-          {(['happening_now', 'today', 'this_week'] as TimeFilter[]).map((option) => {
-            const selected = option === timeFilter;
-            const label =
-              option === 'happening_now' ? 'Now' : option === 'today' ? 'Today' : 'This Week';
+          {searchResults.length > 0 ? (
+            <Card style={styles.searchResultsCard}>
+              {searchResults.map((result) => (
+                <Pressable
+                  key={result.id}
+                  onPress={() => handleSearchResult(result.id)}
+                  style={styles.searchResultRow}
+                >
+                  <View style={styles.searchResultIcon}>
+                    <Ionicons
+                      name={
+                        result.type === 'event'
+                          ? 'sparkles-outline'
+                          : 'business-outline'
+                      }
+                      size={16}
+                      color={colors.primary.main}
+                    />
+                  </View>
+                  <View style={styles.searchResultCopy}>
+                    <Text style={styles.searchResultTitle}>{result.title}</Text>
+                    <Text style={styles.searchResultSubtitle}>{result.subtitle}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </Card>
+          ) : isSearchLoading ? (
+            <Card style={styles.searchResultsCard}>
+              <Text style={styles.helperText}>Searching campus events...</Text>
+            </Card>
+          ) : null}
 
-            return (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickLensRow}
+          >
+            {QUICK_LENSES.map((lens) => (
               <Pressable
-                key={option}
-                onPress={() => setTimeFilter(option)}
-                style={[styles.filterChip, selected && styles.filterChipActive]}
+                key={lens.id}
+                onPress={() => void handleQuickLens(lens.id)}
+                style={styles.quickLensChip}
               >
-                <Text style={[styles.filterLabel, selected && styles.filterLabelActive]}>
-                  {label}
-                </Text>
+                <Ionicons name={lens.icon} size={14} color={colors.text.primary} />
+                <Text style={styles.quickLensLabel}>{lens.label}</Text>
               </Pressable>
-            );
-          })}
-        </ScrollView>
+            ))}
+          </ScrollView>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.quickChipRow}
-        >
-          {quickChips.map((chip) => {
-            const selected = chip.value === activeQuickChip;
-
-            return (
-              <Pressable
-                key={chip.value}
-                onPress={() => handleQuickChipPress(chip.value)}
-                style={[styles.quickChip, selected && styles.quickChipActive]}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryRow}
+          >
+            <Pressable
+              onPress={() => useMapFilterStore.setState({ selectedCategories: [] })}
+              style={[styles.categoryChip, isHeatmapMode && styles.allChipActive]}
+            >
+              <View style={styles.allChipDots}>
+                {['#42A5F5', '#26A69A', '#FFA726', '#FF5722', '#D32F2F'].map(
+                  (color) => (
+                    <View key={color} style={[styles.allChipDot, { backgroundColor: color }]} />
+                  ),
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.categoryChipLabel,
+                  isHeatmapMode && styles.categoryChipLabelDark,
+                ]}
               >
-                <Ionicons
-                  name={chip.icon}
-                  size={16}
-                  color={selected ? colors.brand.white : colors.text.secondary}
-                />
-                <Text style={[styles.quickChipText, selected && styles.quickChipTextActive]}>
-                  {chip.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-        <View style={styles.actionRow}>
-          <Pressable onPress={() => setIsLayersSheetOpen(true)} style={styles.actionButton}>
-            <Ionicons name="layers-outline" size={18} color={colors.text.primary} />
-            <Text style={styles.actionButtonText}>Layers</Text>
-          </Pressable>
-          <Pressable onPress={() => { void handleLocateMePress(); }} style={styles.actionButton}>
-            <Ionicons name="locate-outline" size={18} color={colors.text.primary} />
-            <Text style={styles.actionButtonText}>Locate Me</Text>
-            {isLocating ? (
-              <ActivityIndicator size="small" color={colors.primary.main} />
-            ) : null}
-          </Pressable>
-          <Pressable onPress={resetLens} style={styles.actionButton}>
-            <Ionicons name="refresh-outline" size={18} color={colors.text.primary} />
-            <Text style={styles.actionButtonText}>Reset</Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.helperText}>
-          Tap a building, event pin, or preset walk to focus it on the map.
-        </Text>
-
-        {locationError ? (
-          <Card style={styles.locationNoticeCard}>
-            <View style={styles.locationNoticeHeader}>
-              <Ionicons
-                name="information-circle-outline"
-                size={18}
-                color={colors.primary.main}
-              />
-              <Text style={styles.locationNoticeTitle}>
-                Near-me mode needs location access
+                All
               </Text>
-            </View>
-            <Text style={styles.locationNoticeBody}>{locationError}</Text>
-          </Card>
-        ) : null}
+            </Pressable>
 
-        <View style={[styles.mapCard, isWide && styles.mapCardWide]}>
+            {MAP_CATEGORY_OPTIONS.filter((option) => option.value !== 'all').map((option) => {
+              const selected = selectedCategories.includes(option.value as EventCategory);
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => toggleCategory(option.value as EventCategory)}
+                  style={[
+                    styles.categoryChip,
+                    { borderColor: option.color },
+                    selected && { backgroundColor: option.color },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.categoryDot,
+                      {
+                        backgroundColor: selected
+                          ? colors.brand.white
+                          : option.color,
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryChipLabel,
+                      selected && styles.categoryChipLabelActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <View style={styles.mapShell}>
           <CampusMap
             style={styles.map}
             events={filteredEvents}
-            buildings={filteredBuildings}
-            showEvents={showEvents}
+            eventGroups={eventGroups}
+            densityByEventId={densityByEventId}
+            buildings={buildings}
+            showEvents
             showBuildings={showBuildings}
             showWalkingRoutes={showWalkingRoutes}
             showDiningZones={showDiningZones}
-            clusterEvents={clusterEvents}
-            activeBuildingId={activeMapBuildingId}
-            activeEventId={activeMapEventId}
-            activeRouteId={activeRoute?.id ?? null}
-            activeDiningZoneId={activeDiningZone?.id ?? null}
+            clusterEvents
+            isHeatmapMode={isHeatmapMode}
+            activeBuildingId={selectedBuildingId}
+            activeEventGroupId={selectedEventGroupId}
+            activeRouteId={selectedRouteId}
+            activeDiningZoneId={selectedDiningZoneId}
             userLocation={userLocation}
             focusRequest={focusRequest}
-            wayfindingJourney={activeJourney}
-            onSelectEvent={handleSelectEvent}
-            onSelectBuilding={handleSelectBuilding}
-            onSelectRoute={handleSelectRoute}
-            onSelectDiningZone={handleSelectDiningZone}
+            wayfindingJourney={wayfindingJourney}
+            onSelectEventGroup={focusGroup}
+            onSelectBuilding={(building) => {
+              clearSelections();
+              setSelectedBuildingId(building.id);
+              setFocusRequest(
+                buildFocusRequestForCoordinate(
+                  `building-${building.id}`,
+                  [building.longitude, building.latitude],
+                  16.5,
+                ),
+              );
+            }}
+            onSelectRoute={(route) => {
+              clearSelections();
+              setSelectedRouteId(route.id);
+              setFocusRequest(
+                buildFocusRequestFromCoordinates(`route-${route.id}`, route.coordinates, {
+                  padding: 72,
+                }),
+              );
+            }}
+            onSelectDiningZone={(zone) => {
+              clearSelections();
+              setSelectedDiningZoneId(zone.id);
+              setFocusRequest(
+                buildFocusRequestFromCoordinates(`zone-${zone.id}`, zone.coordinates, {
+                  padding: 72,
+                }),
+              );
+            }}
+            onLongPressCoordinate={handleCreateFromLongPress}
           />
 
-          <View style={styles.mapOverlay}>
-            <View style={styles.mapStatCard}>
-              <Text style={styles.mapStatValue}>{loading ? '...' : filteredEvents.length}</Text>
-              <Text style={styles.mapStatLabel}>Event pins</Text>
-            </View>
-            <View style={styles.mapStatCard}>
-              <Text style={styles.mapStatValue}>{filteredBuildings.length}</Text>
-              <Text style={styles.mapStatLabel}>Buildings</Text>
-            </View>
-            <View style={styles.mapStatCard}>
-              <Text style={styles.mapStatValue}>
-                {filteredBuildings.filter((item) => isBuildingOpenNow(item)).length}
-              </Text>
-              <Text style={styles.mapStatLabel}>Open now</Text>
-            </View>
-            <View style={styles.mapStatCard}>
-              <Text style={styles.mapStatValue}>
-                {activeJourney ? activeJourney.durationLabel : `${campusRoutes.length}`}
-              </Text>
-              <Text style={styles.mapStatLabel}>{activeJourney ? 'Walk time' : 'Routes'}</Text>
-            </View>
-          </View>
+          <Pressable onPress={handleJumpToLive} style={styles.liveCounterPill}>
+            <View style={styles.liveCounterDot} />
+            <Text style={styles.liveCounterText}>
+              {liveCounter.liveCount} live · {liveCounter.nextTwoHoursCount} in next 2hrs
+            </Text>
+          </Pressable>
 
-          <View style={styles.mapHintPill}>
-            <Ionicons name="location-outline" size={16} color={colors.text.primary} />
-            <Text style={styles.mapHintText}>{mapHintText}</Text>
-          </View>
-        </View>
-
-        {nearMeMode && userLocation ? (
-          <Card style={styles.nearMeCard}>
-            <View style={styles.nearMeHeader}>
-              <View>
-                <Text style={styles.sectionEyebrow}>Near you</Text>
-                <Text style={styles.nearMeTitle}>What's close right now</Text>
-              </View>
-              <Badge
-                label={formatDistanceMiles((userLocation.accuracy ?? 0) || 45)}
-                color={colors.status.info}
-              />
-            </View>
-            <View style={styles.nearMeGrid}>
-              <View style={styles.nearMeColumn}>
-                <Text style={styles.nearMeColumnTitle}>Buildings</Text>
-                {nearbyBuildings.length > 0 ? (
-                  nearbyBuildings.map(({ building, distanceMeters }) => (
-                    <Pressable
-                      key={building.id}
-                      onPress={() => handleSelectBuilding(building)}
-                      style={styles.nearItemRow}
-                    >
-                      <Text style={styles.nearItemTitle}>{building.name}</Text>
-                      <Text style={styles.nearItemMeta}>{formatDistanceMiles(distanceMeters)}</Text>
-                    </Pressable>
-                  ))
-                ) : (
-                  <Text style={styles.nearEmptyText}>No mapped buildings within a short walk.</Text>
-                )}
-              </View>
-              <View style={styles.nearMeColumn}>
-                <Text style={styles.nearMeColumnTitle}>Events</Text>
-                {nearbyEvents.length > 0 ? (
-                  nearbyEvents.map(({ event, distanceMeters }) => (
-                    <Pressable
-                      key={event.id}
-                      onPress={() => handleSelectEvent(event)}
-                      style={styles.nearItemRow}
-                    >
-                      <Text style={styles.nearItemTitle}>{event.title}</Text>
-                      <Text style={styles.nearItemMeta}>{formatDistanceMiles(distanceMeters)}</Text>
-                    </Pressable>
-                  ))
-                ) : (
-                  <Text style={styles.nearEmptyText}>
-                    No registered events nearby at the moment.
-                  </Text>
-                )}
-              </View>
-            </View>
-          </Card>
-        ) : null}
-
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionCopy}>
-            <Text style={styles.sectionEyebrow}>Campus walks</Text>
-            <Text style={styles.sectionTitle}>Tap a route to focus it on the map</Text>
-          </View>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.routeCardRow}
-        >
-          {campusRoutes.map((route) => {
-            const selected = activeRoute?.id === route.id;
-
-            return (
-              <Pressable
-                key={route.id}
-                onPress={() => {
-                  if (activeRoute?.id === route.id) {
-                    setActiveRoute(null);
+          <View style={styles.mapFabColumn}>
+            <Pressable
+              onPress={() =>
+                void requestUserLocation().then((location) => {
+                  if (!location) {
                     return;
                   }
-
-                  handleSelectRoute(route);
-                }}
-                style={[styles.routeCard, selected && styles.routeCardActive]}
-              >
-                <View style={[styles.routeCardAccent, { backgroundColor: route.color }]} />
-                <Text style={styles.routeCardTitle}>{route.name}</Text>
-                <Text style={styles.routeCardMeta}>{route.duration}</Text>
-                <Text numberOfLines={2} style={styles.routeCardDescription}>
-                  {route.description}
-                </Text>
-                <Text style={styles.routeCardCta}>{selected ? 'Selected on map' : 'Tap to preview'}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        {activeRoute ? (
-          <Card style={styles.routeSummaryCard}>
-            <View style={styles.routeSummaryHeader}>
-              <View>
-                <Text style={styles.sectionEyebrow}>Selected walk</Text>
-                <Text style={styles.routeSummaryTitle}>{activeRoute.name}</Text>
-              </View>
-              <Badge label={activeRoute.duration} color={activeRoute.color} />
-            </View>
-            <Text style={styles.routeSummaryBody}>{activeRoute.description}</Text>
-            <View style={styles.routeSummaryStats}>
-              <Text style={styles.routeSummaryStat}>{activeRouteStats?.checkpoints ?? 0} checkpoints</Text>
-              <Text style={styles.routeSummaryStat}>
-                {activeRouteStats?.nearbyBuildings ?? 0} nearby buildings
-              </Text>
-            </View>
-            <View style={styles.sheetActionRow}>
-              <Button
-                title="Focus route"
-                onPress={() => handleSelectRoute(activeRoute)}
-                fullWidth
-                style={styles.sheetActionButton}
+                  setFocusRequest(
+                    buildFocusRequestForCoordinate(
+                      `user-${Date.now()}`,
+                      [location.longitude, location.latitude],
+                      16.5,
+                    ),
+                  );
+                })
+              }
+              style={styles.fab}
+              accessibilityLabel="Center map on my location"
+            >
+              <Ionicons
+                name={isLocating ? 'locate' : 'locate-outline'}
+                size={20}
+                color={colors.text.primary}
               />
-              <Button
-                title="Clear"
-                onPress={() => setActiveRoute(null)}
-                variant="secondary"
-                fullWidth
-                style={styles.sheetActionButton}
-              />
-            </View>
-          </Card>
-        ) : null}
+            </Pressable>
 
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionCopy}>
-            <Text style={styles.sectionEyebrow}>Registered events</Text>
-            <Text style={styles.sectionTitle}>What is happening across campus</Text>
+            <Pressable
+              onPress={() => setShowListView(true)}
+              style={styles.fab}
+              accessibilityLabel="Open event list view"
+            >
+              <Ionicons name="list-outline" size={20} color={colors.text.primary} />
+            </Pressable>
+
+            <Pressable
+              onPress={() => setCreateEventCoordinate(campusMapCenter)}
+              style={[styles.fab, styles.primaryFab]}
+              accessibilityLabel="Create event"
+            >
+              <Ionicons name="add" size={22} color={colors.brand.white} />
+            </Pressable>
+          </View>
+
+          <View style={styles.mapLegend}>
+            <Text style={styles.mapLegendTitle}>
+              {isHeatmapMode ? 'Heatmap mode' : 'Category mode'}
+            </Text>
+            <Text style={styles.mapLegendBody}>
+              {isHeatmapMode
+                ? 'Marker color and size reflect nearby event density. Tap a hotspot to unpack what is happening there.'
+                : 'Markers switch to category colors when you filter, so each pin tells you what kind of event it represents.'}
+            </Text>
           </View>
         </View>
 
-        <View style={[styles.featuredList, isWide && styles.featuredListWide]}>
-          {featuredEvents.length > 0 ? (
-            featuredEvents.map((event) => {
-              const isSaved = savedEventIds.includes(event.id);
-
-              return (
-                <Card
-                  key={event.id}
-                  onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
-                  style={[styles.featuredCard, isWide && styles.featuredCardWide]}
-                >
-                  <View style={styles.featuredTopRow}>
-                    <Badge
-                      label={event.category}
-                      color={
-                        colors.eventCategory[
-                          event.category as keyof typeof colors.eventCategory
-                        ] ?? colors.primary.main
-                      }
-                    />
-                    {isSaved ? <Text style={styles.savedTag}>Saved</Text> : null}
-                  </View>
-                  <Text style={styles.featuredTitle}>{event.title}</Text>
-                  <Text style={styles.featuredMeta}>
-                    {format(new Date(event.starts_at), 'EEE, h:mm a')} | {event.location_name}
-                  </Text>
-                  <Text numberOfLines={2} style={styles.featuredDescription}>
-                    {event.description}
-                  </Text>
-                </Card>
-              );
-            })
-          ) : (
-            <Card style={styles.emptyStateCard}>
-              <Text style={styles.emptyStateTitle}>No events match this lens yet</Text>
-              <Text style={styles.emptyStateBody}>
-                Try a broader time range or clear one of the category filters.
-              </Text>
-            </Card>
-          )}
-        </View>
-
-
+        {loading ? (
+          <Card>
+            <Text style={styles.helperText}>Loading today's campus activity...</Text>
+          </Card>
+        ) : null}
       </View>
 
-      <BottomSheet visible={isLayersSheetOpen} onClose={() => setIsLayersSheetOpen(false)}>
-        <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Layers</Text>
-          <Text style={styles.sheetDescription}>
-            Keep the map clean by only turning on what you need.
-          </Text>
-          <View style={styles.layerSheetList}>
-            {[
-              {
-                label: 'Registered events',
-                description: 'Only mapped events from the xUMD feed.',
-                active: showEvents,
-                onPress: () => setShowEvents((value) => !value),
-              },
-              {
-                label: 'Campus buildings',
-                description: 'Academic, dining, athletics, study, and student-life buildings.',
-                active: showBuildings,
-                onPress: () => setShowBuildings((value) => !value),
-              },
-              {
-                label: 'Campus walks',
-                description: 'Preset walking paths like Mall Loop and STEM Link.',
-                active: showWalkingRoutes,
-                onPress: () => setShowWalkingRoutes((value) => !value),
-              },
-              {
-                label: 'Dining zones',
-                description: 'Meal hubs and high-traffic food areas.',
-                active: showDiningZones,
-                onPress: () => setShowDiningZones((value) => !value),
-              },
-              {
-                label: 'Event clusters',
-                description: 'Group dense event pins until you zoom in.',
-                active: clusterEvents,
-                onPress: () => setClusterEvents((value) => !value),
-              },
-            ].map((item) => (
-              <Pressable key={item.label} onPress={item.onPress} style={styles.layerSheetRow}>
-                <View style={styles.layerSheetCopy}>
-                  <Text style={styles.layerSheetTitle}>{item.label}</Text>
-                  <Text style={styles.layerSheetDescription}>{item.description}</Text>
+      <BottomSheet
+        visible={Boolean(selectedGroup && !selectedEvent && selectedGroup.events.length > 1)}
+        onClose={() => setSelectedEventGroupId(null)}
+        snapPoints={[0.46]}
+      >
+        {selectedGroup ? (
+          <View style={styles.sheetBlock}>
+            <Text style={styles.sheetTitle}>{selectedGroup.locationName}</Text>
+            <Text style={styles.sheetSubtitle}>
+              {selectedGroup.eventCount} events here · {selectedGroup.densityLabel}
+            </Text>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.sheetList}
+            >
+              {selectedGroup.events.map((summary) => {
+                const event = eventById.get(summary.id);
+                if (!event) {
+                  return null;
+                }
+
+                return (
+                  <EventListItem
+                    key={event.id}
+                    event={event}
+                    isSaved={savedEventIds.includes(event.id)}
+                    isGoing={goingEventIds.includes(event.id)}
+                    onPress={() => focusEvent(event)}
+                  />
+                );
+              })}
+            </ScrollView>
+          </View>
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={Boolean(selectedEvent)}
+        onClose={() => setSelectedEventId(null)}
+        snapPoints={[0.35]}
+      >
+        {selectedEvent ? (
+          <View style={styles.sheetBlock}>
+            <View style={styles.previewHeader}>
+              <View style={styles.previewCopy}>
+                <View style={styles.previewBadges}>
+                  <Badge
+                    label={selectedEvent.category}
+                    color={
+                      colors.eventCategory[
+                        selectedEvent.category as keyof typeof colors.eventCategory
+                      ] ?? colors.primary.main
+                    }
+                  />
+                  {isEventLive(selectedEvent) ? (
+                    <View style={styles.liveBadge}>
+                      <View style={styles.liveBadgeDot} />
+                      <Text style={styles.liveBadgeText}>Happening Now</Text>
+                    </View>
+                  ) : null}
                 </View>
-                <View
-                  style={[
-                    styles.layerSheetPill,
-                    item.active && styles.layerSheetPillActive,
-                  ]}
+                <Text style={styles.previewTitle}>{selectedEvent.title}</Text>
+                <Text style={styles.previewMeta}>
+                  {getContextualTimeLabel(selectedEvent)}
+                </Text>
+                <Text style={styles.previewMeta}>{selectedEvent.location_name}</Text>
+              </View>
+            </View>
+
+            <View style={styles.metricRow}>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricValue}>
+                  {(
+                    selectedEvent.attendee_count ?? selectedEvent.rsvp_count
+                  ).toLocaleString()}
+                </Text>
+                <Text style={styles.metricLabel}>Going</Text>
+              </View>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricValue}>
+                  {(selectedEvent.interested_count ?? 0).toLocaleString()}
+                </Text>
+                <Text style={styles.metricLabel}>Interested</Text>
+              </View>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricValue}>
+                  {selectedEvent.organizer_name ?? 'xUMD'}
+                </Text>
+                <Text style={styles.metricLabel}>Organizer</Text>
+              </View>
+            </View>
+
+            <View style={styles.sheetActionRow}>
+              <Button
+                title="Going"
+                onPress={() => void handleRsvpAction(selectedEvent, 'going')}
+                style={styles.flexButton}
+              />
+              <Button
+                title="Interested"
+                onPress={() => void handleRsvpAction(selectedEvent, 'interested')}
+                style={styles.flexButton}
+                variant="secondary"
+              />
+            </View>
+
+            <View style={styles.sheetActionRow}>
+              <Button
+                title="Route"
+                onPress={() => void handleRouteToEvent(selectedEvent)}
+                style={styles.flexButton}
+                variant="ghost"
+              />
+              <Button
+                title="Details"
+                onPress={() => {
+                  setDetailEventId(selectedEvent.id);
+                  setSelectedEventId(null);
+                }}
+                style={styles.flexButton}
+                variant="secondary"
+              />
+            </View>
+          </View>
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={Boolean(detailEvent)}
+        onClose={() => setDetailEventId(null)}
+        snapPoints={[0.82]}
+      >
+        {detailEvent ? (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.detailSheetContent}
+          >
+            {detailEvent.image_url ? (
+              <Image source={{ uri: detailEvent.image_url }} style={styles.detailHeroImage} />
+            ) : null}
+
+            <View style={styles.previewBadges}>
+              <Badge
+                label={detailEvent.category}
+                color={
+                  colors.eventCategory[
+                    detailEvent.category as keyof typeof colors.eventCategory
+                  ] ?? colors.primary.main
+                }
+              />
+              <Text style={styles.detailOrganizer}>
+                Hosted by{' '}
+                {detailEventQuery.data?.organizer?.display_name ??
+                  detailEvent.organizer_name ??
+                  'xUMD'}
+              </Text>
+            </View>
+
+            <Text style={styles.detailTitle}>{detailEvent.title}</Text>
+            <Text style={styles.detailMeta}>{getContextualTimeLabel(detailEvent)}</Text>
+            <Text style={styles.detailMeta}>{detailEvent.location_name}</Text>
+            {detailEventQuery.isLoading ? (
+              <Text style={styles.detailMeta}>Loading live event details...</Text>
+            ) : null}
+            <Text style={styles.detailDescription}>{detailEvent.description}</Text>
+
+            {detailEvent.tags?.length ? (
+              <View style={styles.tagRow}>
+                {detailEvent.tags.map((tag) => (
+                  <View key={tag} style={styles.tagChip}>
+                    <Text style={styles.tagLabel}>#{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            <Card style={styles.detailInfoCard}>
+              <Text style={styles.cardHeading}>People pulse</Text>
+              <Text style={styles.infoText}>
+                {(
+                  detailEventQuery.data?.rsvp_stats.going ??
+                  detailEvent.attendee_count ??
+                  detailEvent.rsvp_count
+                ).toLocaleString()}{' '}
+                Terps marked going and{' '}
+                {(
+                  detailEventQuery.data?.rsvp_stats.interested ??
+                  detailEvent.interested_count ??
+                  0
+                ).toLocaleString()}{' '}
+                are interested.
+              </Text>
+            </Card>
+
+            {detailEventQuery.data?.campus_location ? (
+              <Card style={styles.detailInfoCard}>
+                <Text style={styles.cardHeading}>Pinned building</Text>
+                <Text style={styles.infoText}>
+                  {detailEventQuery.data.campus_location.name}
+                  {detailEventQuery.data.campus_location.address
+                    ? ` · ${detailEventQuery.data.campus_location.address}`
+                    : ''}
+                </Text>
+              </Card>
+            ) : null}
+
+            {detailEventQuery.data?.friends_attending?.length ? (
+              <Card style={styles.detailInfoCard}>
+                <Text style={styles.cardHeading}>Friends attending</Text>
+                <View style={styles.inlineList}>
+                  {detailEventQuery.data.friends_attending.map((friend) => (
+                    <View key={friend.id} style={styles.inlineEventRow}>
+                      <View style={styles.inlineEventDot} />
+                      <View style={styles.inlineEventCopy}>
+                        <Text style={styles.inlineEventTitle}>{friend.display_name}</Text>
+                        <Text style={styles.inlineEventMeta}>
+                          {friend.major ?? 'UMD community'}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </Card>
+            ) : null}
+
+            <View style={styles.detailButtonGrid}>
+              <Button
+                title="Open full event"
+                onPress={() => navigation.navigate('EventDetail', { eventId: detailEvent.id })}
+                fullWidth
+              />
+              <Button
+                title="Get Directions"
+                onPress={() =>
+                  void handleDirections(detailEvent.location_name, [
+                    detailEvent.longitude ?? campusMapCenter[0],
+                    detailEvent.latitude ?? campusMapCenter[1],
+                  ])
+                }
+                fullWidth
+                variant="secondary"
+              />
+              <Button
+                title="Share"
+                onPress={() => void handleShare(detailEvent)}
+                fullWidth
+                variant="ghost"
+              />
+              <Button
+                title="Report"
+                onPress={() => void handleReportEvent(detailEvent.id)}
+                fullWidth
+                variant="ghost"
+              />
+            </View>
+          </ScrollView>
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={Boolean(selectedBuilding)}
+        onClose={() => setSelectedBuildingId(null)}
+        snapPoints={[0.52]}
+      >
+        {selectedBuilding ? (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.sheetBlock}
+          >
+            <Badge
+              label={buildingTypeMeta[selectedBuilding.building_type].label}
+              color={buildingTypeMeta[selectedBuilding.building_type].color}
+            />
+            <Text style={styles.sheetTitle}>{selectedBuilding.name}</Text>
+            <Text style={styles.sheetDescription}>{selectedBuilding.description}</Text>
+
+            <Card style={styles.detailInfoCard}>
+              <Text style={styles.cardHeading}>What's here now</Text>
+              {selectedBuildingEvents.length > 0 ? (
+                <View style={styles.inlineList}>
+                  {selectedBuildingEvents.slice(0, 4).map((event) => (
+                    <Pressable
+                      key={event.id}
+                      onPress={() => focusEvent(event)}
+                      style={styles.inlineEventRow}
+                    >
+                      <View style={styles.inlineEventDot} />
+                      <View style={styles.inlineEventCopy}>
+                        <Text style={styles.inlineEventTitle}>{event.title}</Text>
+                        <Text style={styles.inlineEventMeta}>
+                          {getContextualTimeLabel(event)}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.infoText}>
+                  No approved events are pinned here right now.
+                </Text>
+              )}
+            </Card>
+
+            <View style={styles.sheetActionRow}>
+              <Button
+                title="Route Here"
+                onPress={() => void handleRouteToBuilding(selectedBuilding)}
+                style={styles.flexButton}
+              />
+              <Button
+                title="Directions"
+                onPress={() =>
+                  void handleDirections(selectedBuilding.name, [
+                    selectedBuilding.longitude,
+                    selectedBuilding.latitude,
+                  ])
+                }
+                style={styles.flexButton}
+                variant="secondary"
+              />
+            </View>
+          </ScrollView>
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={Boolean(selectedRoute || wayfindingJourney)}
+        onClose={() => {
+          setSelectedRouteId(null);
+          setWayfindingJourney(null);
+        }}
+        snapPoints={[0.32]}
+      >
+        <View style={styles.sheetBlock}>
+          <Text style={styles.sheetTitle}>
+            {wayfindingJourney?.title ?? selectedRoute?.name ?? 'Route'}
+          </Text>
+          <Text style={styles.sheetSubtitle}>
+            {wayfindingJourney
+              ? `${wayfindingJourney.durationLabel} · ${wayfindingJourney.distanceLabel}`
+              : selectedRoute?.description ?? 'Campus walking route'}
+          </Text>
+          <Text style={styles.sheetDescription}>
+            {wayfindingJourney?.subtitle ?? selectedRoute?.description ?? ''}
+          </Text>
+          <Button
+            title="Clear Route"
+            onPress={() => {
+              setSelectedRouteId(null);
+              setWayfindingJourney(null);
+            }}
+            fullWidth
+            variant="secondary"
+          />
+        </View>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={Boolean(selectedDiningZone)}
+        onClose={() => setSelectedDiningZoneId(null)}
+        snapPoints={[0.32]}
+      >
+        {selectedDiningZone ? (
+          <View style={styles.sheetBlock}>
+            <Text style={styles.sheetTitle}>{selectedDiningZone.name}</Text>
+            <Text style={styles.sheetDescription}>{selectedDiningZone.description}</Text>
+          </View>
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={showListView}
+        onClose={() => setShowListView(false)}
+        snapPoints={[0.72]}
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetBlock}>
+          <Text style={styles.sheetTitle}>Event List</Text>
+          <Text style={styles.sheetSubtitle}>
+            {filteredEvents.length} events match your current map lens
+          </Text>
+          <View style={styles.sheetList}>
+            {filteredEvents.map((event) => (
+              <EventListItem
+                key={event.id}
+                event={event}
+                isSaved={savedEventIds.includes(event.id)}
+                isGoing={goingEventIds.includes(event.id)}
+                onPress={() => {
+                  setShowListView(false);
+                  focusEvent(event);
+                }}
+              />
+            ))}
+          </View>
+        </ScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={isFilterModalOpen}
+        onClose={() => setFilterModalOpen(false)}
+        snapPoints={[0.62]}
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetBlock}>
+          <Text style={styles.sheetTitle}>Refine the map</Text>
+          <Text style={styles.sheetSubtitle}>
+            Switch lenses without overwhelming the screen.
+          </Text>
+
+          <Text style={styles.filterSectionTitle}>Time</Text>
+          <View style={styles.optionGrid}>
+            {TIME_FILTER_OPTIONS.map((option) => {
+              const selected = timeFilter === option.value;
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => setTimeFilter(option.value)}
+                  style={[styles.optionChip, selected && styles.optionChipActive]}
                 >
                   <Text
                     style={[
-                      styles.layerSheetPillText,
-                      item.active && styles.layerSheetPillTextActive,
+                      styles.optionChipLabel,
+                      selected && styles.optionChipLabelActive,
                     ]}
                   >
-                    {item.active ? 'On' : 'Off'}
+                    {option.label}
                   </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.filterSectionTitle}>Sort</Text>
+          <View style={styles.optionGrid}>
+            {[
+              { value: 'soonest', label: 'Soonest' },
+              { value: 'most_popular', label: 'Most Popular' },
+              { value: 'nearest', label: 'Nearest' },
+            ].map((option) => {
+              const selected = sortBy === option.value;
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => setSortBy(option.value as typeof sortBy)}
+                  style={[styles.optionChip, selected && styles.optionChipActive]}
+                >
+                  <Text
+                    style={[
+                      styles.optionChipLabel,
+                      selected && styles.optionChipLabelActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.filterSectionTitle}>Map layers</Text>
+          <View style={styles.toggleCardList}>
+            {[
+              {
+                key: 'buildings',
+                label: 'Buildings',
+                value: showBuildings,
+                onToggle: () => setShowBuildings((current) => !current),
+              },
+              {
+                key: 'routes',
+                label: 'Walking routes',
+                value: showWalkingRoutes,
+                onToggle: () => setShowWalkingRoutes((current) => !current),
+              },
+              {
+                key: 'dining',
+                label: 'Dining zones',
+                value: showDiningZones,
+                onToggle: () => setShowDiningZones((current) => !current),
+              },
+              {
+                key: 'friends',
+                label: 'Only friends attending',
+                value: onlyFriendsAttending,
+                onToggle: () =>
+                  setOnlyFriendsAttending(!onlyFriendsAttending),
+              },
+            ].map((toggle) => (
+              <Pressable key={toggle.key} onPress={toggle.onToggle} style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>{toggle.label}</Text>
+                <View style={[styles.togglePill, toggle.value && styles.togglePillActive]}>
+                  <View style={[styles.toggleKnob, toggle.value && styles.toggleKnobActive]} />
                 </View>
               </Pressable>
             ))}
           </View>
-          <Button title="Done" onPress={() => setIsLayersSheetOpen(false)} fullWidth />
-        </View>
+
+          <View style={styles.sheetActionRow}>
+            <Button
+              title="Reset"
+              onPress={() => {
+                reset();
+                setShowBuildings(true);
+                setShowWalkingRoutes(true);
+                setShowDiningZones(true);
+              }}
+              variant="secondary"
+              style={styles.flexButton}
+            />
+            <Button
+              title="Done"
+              onPress={() => setFilterModalOpen(false)}
+              style={styles.flexButton}
+            />
+          </View>
+        </ScrollView>
       </BottomSheet>
 
-      <EventBottomSheet
-        event={activeEvent}
-        visible={Boolean(activeEvent)}
-        onClose={() => setActiveEvent(null)}
-        onViewDetail={(eventId) => {
-          setActiveEvent(null);
-          navigation.navigate('EventDetail', { eventId });
-        }}
-        onRSVP={(eventId) => {
-          toggleSavedEvent(eventId);
-        }}
-        secondaryActionLabel="Route there"
-        onSecondaryAction={(eventId) => {
-          const event = filteredEvents.find((item) => item.id === eventId);
-
-          if (event) {
-            handleRouteToEvent(event);
-          }
-        }}
-      />
-
-      <BottomSheet visible={Boolean(activeBuilding)} onClose={() => setActiveBuilding(null)}>
-        {activeBuilding ? (
-          <View style={styles.sheetContent}>
-            <View style={styles.sheetBadgeRow}>
-              <Badge label={activeBuilding.code} color={colors.gray[700]} />
-              <Badge
-                label={activeBuildingStatus?.isOpen ? 'Open now' : 'Closed'}
-                color={
-                  activeBuildingStatus?.isOpen ? colors.status.success : colors.text.secondary
-                }
-              />
-            </View>
-            <Text style={styles.sheetTitle}>{activeBuilding.name}</Text>
-            <Text style={styles.sheetMeta}>{activeBuildingStatus?.label}</Text>
-            <Text style={styles.sheetDescription}>{activeBuilding.description}</Text>
-            <View style={styles.factRow}>
-              {activeBuildingFacts.map((fact) => (
-                <Badge key={fact} label={fact} color={colors.text.primary} />
-              ))}
-            </View>
-            <View style={styles.sheetStatCard}>
-              <Text style={styles.sheetStatCardLabel}>What's here now</Text>
-              {activeBuildingCurrentEvents.length > 0 ? (
-                activeBuildingCurrentEvents.map((event) => (
-                  <Pressable
-                    key={event.id}
-                    onPress={() => handleSelectEvent(event)}
-                    style={styles.activityRow}
-                  >
-                    <View style={styles.activityDot} />
-                    <View style={styles.activityCopy}>
-                      <Text style={styles.activityTitle}>{event.title}</Text>
-                      <Text style={styles.activityMeta}>
-                        Live until {format(new Date(event.ends_at), 'h:mm a')}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
-                  </Pressable>
-                ))
+      <BottomSheet
+        visible={Boolean(createEventCoordinate)}
+        onClose={() => setCreateEventCoordinate(null)}
+        snapPoints={[0.72]}
+      >
+        {createEventCoordinate ? (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.sheetBlock}
+          >
+            <Text style={styles.sheetTitle}>Create Event Here</Text>
+            <Text style={styles.sheetDescription}>
+              This pin is at {createEventCoordinate[1].toFixed(5)},{' '}
+              {createEventCoordinate[0].toFixed(5)}.
+            </Text>
+            <Card style={styles.detailInfoCard}>
+              <Text style={styles.cardHeading}>Nearest campus location</Text>
+              {nearestCreateLocation ? (
+                <Text style={styles.infoText}>
+                  {nearestCreateLocation.building.name} ·{' '}
+                  {Math.round(nearestCreateLocation.distance)}m away
+                </Text>
               ) : (
-                <Text style={styles.emptyBodyText}>
-                  No live registered events inside this building right now.
+                <Text style={styles.infoText}>
+                  No major campus location was close enough to suggest.
                 </Text>
               )}
-            </View>
-            {activeBuildingUpcomingEvents.length > 0 ? (
-              <View style={styles.sheetStatCard}>
-                <Text style={styles.sheetStatCardLabel}>Next up here</Text>
-                {activeBuildingUpcomingEvents.map((event) => (
-                  <Pressable
-                    key={event.id}
-                    onPress={() => handleSelectEvent(event)}
-                    style={styles.activityRow}
-                  >
-                    <View style={styles.activityDotMuted} />
-                    <View style={styles.activityCopy}>
-                      <Text style={styles.activityTitle}>{event.title}</Text>
-                      <Text style={styles.activityMeta}>
-                        {format(new Date(event.starts_at), 'EEE, h:mm a')}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-            <View style={styles.sheetActionRow}>
-              <Button
-                title="Route here"
-                onPress={() => handleRouteToBuilding(activeBuilding)}
-                fullWidth
-                style={styles.sheetActionButton}
-              />
-              <Button
-                title="Center"
-                onPress={() =>
-                  setFocusRequest(
-                    buildFocusRequestForCoordinate(
-                      `building-${activeBuilding.id}-${Date.now()}`,
-                      [activeBuilding.longitude, activeBuilding.latitude],
-                    ),
-                  )
+            </Card>
+
+            <View style={styles.formSection}>
+              <Text style={styles.filterSectionTitle}>Title</Text>
+              <TextInput
+                value={createEventDraft.title}
+                onChangeText={(value) =>
+                  setCreateEventDraft((current) => ({ ...current, title: value }))
                 }
-                variant="secondary"
-                fullWidth
-                style={styles.sheetActionButton}
+                placeholder="What is happening?"
+                placeholderTextColor={colors.text.tertiary}
+                style={styles.formInput}
               />
             </View>
-          </View>
-        ) : null}
-      </BottomSheet>
 
-      <BottomSheet visible={Boolean(activeRoute)} onClose={() => setActiveRoute(null)}>
-        {activeRoute ? (
-          <View style={styles.sheetContent}>
-            <View style={styles.sheetBadgeRow}>
-              <Badge label="Walking route" color={activeRoute.color} />
-              <Badge label={activeRoute.duration} color={colors.text.primary} />
-            </View>
-            <Text style={styles.sheetTitle}>{activeRoute.name}</Text>
-            <Text style={styles.sheetDescription}>{activeRoute.description}</Text>
-            <View style={styles.sheetStatsRow}>
-              <View style={styles.sheetStatCardCompact}>
-                <Text style={styles.sheetStatCardLabel}>Checkpoints</Text>
-                <Text style={styles.sheetStatCardValue}>{activeRouteStats?.checkpoints ?? 0}</Text>
-              </View>
-              <View style={styles.sheetStatCardCompact}>
-                <Text style={styles.sheetStatCardLabel}>Nearby buildings</Text>
-                <Text style={styles.sheetStatCardValue}>
-                  {activeRouteStats?.nearbyBuildings ?? 0}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.sheetActionRow}>
-              <Button
-                title="Focus route"
-                onPress={() => handleSelectRoute(activeRoute)}
-                fullWidth
-                style={styles.sheetActionButton}
-              />
-              <Button
-                title="Hide"
-                onPress={() => setActiveRoute(null)}
-                variant="secondary"
-                fullWidth
-                style={styles.sheetActionButton}
-              />
-            </View>
-          </View>
-        ) : null}
-      </BottomSheet>
-
-      <BottomSheet visible={Boolean(activeDiningZone)} onClose={() => setActiveDiningZone(null)}>
-        {activeDiningZone ? (
-          <View style={styles.sheetContent}>
-            <View style={styles.sheetBadgeRow}>
-              <Badge label="Dining zone" color={colors.secondary.dark} />
-              <Badge label="Overlay" color={colors.text.primary} />
-            </View>
-            <Text style={styles.sheetTitle}>{activeDiningZone.name}</Text>
-            <Text style={styles.sheetDescription}>{activeDiningZone.description}</Text>
-            <View style={styles.sheetStatsRow}>
-              <View style={styles.sheetStatCardCompact}>
-                <Text style={styles.sheetStatCardLabel}>Buildings inside</Text>
-                <Text style={styles.sheetStatCardValue}>
-                  {activeDiningZoneStats?.nearbyBuildings ?? 0}
-                </Text>
-              </View>
-              <View style={styles.sheetStatCardCompact}>
-                <Text style={styles.sheetStatCardLabel}>Events nearby</Text>
-                <Text style={styles.sheetStatCardValue}>
-                  {activeDiningZoneStats?.nearbyEvents ?? 0}
-                </Text>
-              </View>
-            </View>
-            <Button title="Close" onPress={() => setActiveDiningZone(null)} fullWidth />
-          </View>
-        ) : null}
-      </BottomSheet>
-
-      <BottomSheet visible={Boolean(activeJourney)} onClose={() => setActiveJourney(null)}>
-        {activeJourney ? (
-          <View style={styles.sheetContent}>
-            <View style={styles.sheetBadgeRow}>
-              <Badge label="Walking route" color={colors.primary.main} />
-              <Badge label={activeJourney.distanceLabel} color={colors.text.primary} />
-            </View>
-            <Text style={styles.sheetTitle}>{activeJourney.title}</Text>
-            <Text style={styles.sheetDescription}>
-              {activeJourney.startLabel} to {activeJourney.endLabel}
-            </Text>
-            <Text style={styles.sheetMeta}>{activeJourney.subtitle}</Text>
-            <View style={styles.sheetStatsRow}>
-              <View style={styles.sheetStatCardCompact}>
-                <Text style={styles.sheetStatCardLabel}>Estimated walk</Text>
-                <Text style={styles.sheetStatCardValue}>{activeJourney.durationLabel}</Text>
-              </View>
-              <View style={styles.sheetStatCardCompact}>
-                <Text style={styles.sheetStatCardLabel}>Distance</Text>
-                <Text style={styles.sheetStatCardValue}>{activeJourney.distanceLabel}</Text>
-              </View>
-            </View>
-            <View style={styles.sheetActionRow}>
-              <Button
-                title="Focus route"
-                onPress={() =>
-                  setFocusRequest(
-                    buildFocusRequestFromCoordinates(
-                      `journey-focus-${activeJourney.id}-${Date.now()}`,
-                      activeJourney.coordinates,
-                      { padding: 88 },
-                    ),
-                  )
+            <View style={styles.formSection}>
+              <Text style={styles.filterSectionTitle}>Description</Text>
+              <TextInput
+                value={createEventDraft.description}
+                onChangeText={(value) =>
+                  setCreateEventDraft((current) => ({ ...current, description: value }))
                 }
-                fullWidth
-                style={styles.sheetActionButton}
-              />
-              <Button
-                title="Clear"
-                onPress={() => setActiveJourney(null)}
-                variant="secondary"
-                fullWidth
-                style={styles.sheetActionButton}
+                placeholder="Add context, details, and what Terps should expect."
+                placeholderTextColor={colors.text.tertiary}
+                style={[styles.formInput, styles.formInputMultiline]}
+                multiline
+                textAlignVertical="top"
               />
             </View>
-          </View>
+
+            <View style={styles.formSection}>
+              <Text style={styles.filterSectionTitle}>Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.optionGridRow}>
+                  {MAP_CATEGORY_OPTIONS.filter((option) => option.value !== 'all').map((option) => {
+                    const selected = createEventDraft.category === option.value;
+                    return (
+                      <Pressable
+                        key={option.value}
+                        onPress={() =>
+                          setCreateEventDraft((current) => ({
+                            ...current,
+                            category: option.value as EventCategory,
+                          }))
+                        }
+                        style={[
+                          styles.optionChip,
+                          { borderColor: option.color },
+                          selected && { backgroundColor: option.color },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.optionChipLabel,
+                            selected && styles.optionChipLabelActive,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+
+            <View style={styles.formSplitRow}>
+              <View style={[styles.formSection, styles.formSplitColumn]}>
+                <Text style={styles.filterSectionTitle}>Starts</Text>
+                <TextInput
+                  value={createEventDraft.startsAt}
+                  onChangeText={(value) =>
+                    setCreateEventDraft((current) => ({ ...current, startsAt: value }))
+                  }
+                  placeholder="2026-04-04T18:30"
+                  placeholderTextColor={colors.text.tertiary}
+                  style={styles.formInput}
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={[styles.formSection, styles.formSplitColumn]}>
+                <Text style={styles.filterSectionTitle}>Ends</Text>
+                <TextInput
+                  value={createEventDraft.endsAt}
+                  onChangeText={(value) =>
+                    setCreateEventDraft((current) => ({ ...current, endsAt: value }))
+                  }
+                  placeholder="2026-04-04T20:30"
+                  placeholderTextColor={colors.text.tertiary}
+                  style={styles.formInput}
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <View style={styles.formSplitRow}>
+              <View style={[styles.formSection, styles.formSplitColumn]}>
+                <Text style={styles.filterSectionTitle}>Capacity</Text>
+                <TextInput
+                  value={createEventDraft.maxCapacity}
+                  onChangeText={(value) =>
+                    setCreateEventDraft((current) => ({ ...current, maxCapacity: value }))
+                  }
+                  placeholder="Optional"
+                  placeholderTextColor={colors.text.tertiary}
+                  style={styles.formInput}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={[styles.formSection, styles.formSplitColumn]}>
+                <Text style={styles.filterSectionTitle}>Tags</Text>
+                <TextInput
+                  value={createEventDraft.tags}
+                  onChangeText={(value) =>
+                    setCreateEventDraft((current) => ({ ...current, tags: value }))
+                  }
+                  placeholder="club, cs, networking"
+                  placeholderTextColor={colors.text.tertiary}
+                  style={styles.formInput}
+                />
+              </View>
+            </View>
+
+            <Button
+              title={isSubmittingEvent ? 'Publishing…' : 'Publish Event'}
+              onPress={() => void handleSubmitCreateEvent()}
+              fullWidth
+            />
+          </ScrollView>
         ) : null}
       </BottomSheet>
     </ScreenLayout>
@@ -1147,689 +1633,530 @@ export default function MapHomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  headerShell: {
-    marginTop: spacing.sm,
-    borderRadius: borderRadius.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.primary.lightest,
-    backgroundColor: '#FFFDFC',
-  },
   container: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
-  searchWrap: {
+  topControls: {
+    gap: spacing.sm,
+  },
+  searchCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.gray[100],
+    gap: spacing.sm,
+    height: 50,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     borderColor: colors.border.light,
+    backgroundColor: colors.brand.white,
     paddingHorizontal: spacing.md,
-    height: 48,
+    ...shadows.sm,
   },
   searchInput: {
     flex: 1,
     color: colors.text.primary,
-    marginLeft: spacing.sm,
+    fontSize: typography.fontSize.base,
   },
-  toolbar: {
-    alignItems: 'center',
-    paddingRight: spacing.sm,
-  },
-  filterChip: {
-    minHeight: 44,
+  controlIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    backgroundColor: colors.brand.white,
+    backgroundColor: colors.background.secondary,
+  },
+  searchResultsCard: {
+    paddingVertical: spacing.sm,
+  },
+  searchResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  searchResultIcon: {
+    width: 34,
+    height: 34,
     borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary.lightest,
+  },
+  searchResultCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  searchResultTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+  },
+  searchResultSubtitle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  quickLensRow: {
+    paddingRight: spacing.md,
+  },
+  quickLensChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginRight: spacing.sm,
+  },
+  quickLensLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+  },
+  categoryRow: {
+    paddingRight: spacing.md,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: 38,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    backgroundColor: colors.brand.white,
     paddingHorizontal: spacing.md,
     marginRight: spacing.sm,
   },
-  filterChipActive: {
-    backgroundColor: colors.primary.main,
+  allChipActive: {
     borderColor: colors.primary.main,
+    backgroundColor: colors.primary.lightest,
   },
-  filterLabel: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    lineHeight: 16,
-    color: colors.text.secondary,
-  },
-  filterLabelActive: {
-    color: colors.brand.white,
-  },
-  quickChipRow: {
-    gap: spacing.sm,
-    paddingRight: spacing.sm,
-  },
-  quickChip: {
-    minHeight: 40,
+  allChipDots: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
+    gap: 2,
+    marginRight: 2,
+  },
+  allChipDot: {
+    width: 6,
+    height: 6,
     borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    backgroundColor: colors.brand.white,
   },
-  quickChipActive: {
-    backgroundColor: colors.primary.main,
-    borderColor: colors.primary.main,
-  },
-  quickChipText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  quickChipTextActive: {
-    color: colors.brand.white,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-    minHeight: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.brand.white,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    ...shadows.sm,
-  },
-  actionButtonText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  helperText: {
-    fontSize: typography.fontSize.sm,
-    lineHeight: 20,
-    color: colors.text.secondary,
-  },
-  controlsCard: {
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.brand.white,
-    padding: spacing.md,
-    gap: spacing.md,
-    ...shadows.md,
-  },
-  controlsHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  controlsCopy: {
-    gap: spacing.xs,
-  },
-  controlsEyebrow: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semiBold,
-    letterSpacing: typography.letterSpacing.wider,
-    textTransform: 'uppercase',
-    color: colors.text.tertiary,
-  },
-  controlsTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-  },
-  resetButton: {
-    minHeight: 34,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.background.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resetButtonText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  controlSection: {
-    gap: spacing.sm,
-  },
-  controlSectionLabel: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.secondary,
-  },
-  controlWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  controlScrollRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingRight: spacing.sm,
-  },
-  controlChip: {
-    minHeight: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    backgroundColor: colors.background.secondary,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  controlChipDot: {
+  categoryDot: {
     width: 8,
     height: 8,
     borderRadius: borderRadius.full,
   },
-  controlChipText: {
+  categoryChipLabel: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
-  controlChipTextActive: {
+  categoryChipLabelDark: {
+    color: colors.primary.dark,
+  },
+  categoryChipLabelActive: {
     color: colors.brand.white,
   },
-  locationNoticeCard: {
-    gap: spacing.sm,
-  },
-  locationNoticeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  locationNoticeTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-  },
-  locationNoticeBody: {
-    fontSize: typography.fontSize.sm,
-    lineHeight: 20,
-    color: colors.text.secondary,
-  },
-  mapCard: {
-    height: 360,
-    borderRadius: borderRadius.xl,
+  mapShell: {
+    height: 560,
     overflow: 'hidden',
+    borderRadius: borderRadius.xl,
     backgroundColor: colors.brand.white,
-    ...shadows.md,
-  },
-  mapCardWide: {
-    height: 440,
+    ...shadows.lg,
   },
   map: {
     flex: 1,
   },
-  mapOverlay: {
+  liveCounterPill: {
     position: 'absolute',
     top: spacing.md,
-    right: spacing.md,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
-  },
-  mapStatCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(17, 24, 39, 0.86)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    minWidth: 96,
   },
-  mapStatValue: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
+  liveCounterDot: {
+    width: 9,
+    height: 9,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary.main,
   },
-  mapStatLabel: {
-    fontSize: typography.fontSize.xs,
-    color: colors.text.secondary,
-    textTransform: 'uppercase',
-    marginTop: 2,
+  liveCounterText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.brand.white,
   },
-  mapHintPill: {
+  mapFabColumn: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: spacing.md,
+    gap: spacing.sm,
+  },
+  fab: {
+    width: 50,
+    height: 50,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    ...shadows.md,
+  },
+  primaryFab: {
+    backgroundColor: colors.primary.main,
+  },
+  mapLegend: {
     position: 'absolute',
     left: spacing.md,
     bottom: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  mapHintText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  nearMeCard: {
-    gap: spacing.md,
-  },
-  nearMeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  nearMeTitle: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-  },
-  nearMeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  nearMeColumn: {
-    flex: 1,
-    minWidth: 220,
-    gap: spacing.sm,
-  },
-  nearMeColumnTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-  },
-  nearItemRow: {
+    maxWidth: 280,
     borderRadius: borderRadius.lg,
-    backgroundColor: colors.background.secondary,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  nearItemTitle: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  nearItemMeta: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-  },
-  nearEmptyText: {
-    fontSize: typography.fontSize.sm,
-    lineHeight: 20,
-    color: colors.text.secondary,
-  },
-  routeCardRow: {
-    gap: spacing.md,
-    paddingRight: spacing.sm,
-  },
-  routeCard: {
-    width: 220,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.brand.white,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    ...shadows.sm,
-  },
-  routeCardActive: {
-    borderColor: colors.primary.main,
-    backgroundColor: '#FFF7F8',
-  },
-  routeCardAccent: {
-    width: 42,
-    height: 4,
-    borderRadius: borderRadius.full,
-    marginBottom: spacing.md,
-  },
-  routeCardTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-  },
-  routeCardMeta: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primary.main,
-    marginTop: spacing.xs,
-  },
-  routeCardDescription: {
-    fontSize: typography.fontSize.sm,
-    lineHeight: 20,
-    color: colors.text.secondary,
-    marginTop: spacing.sm,
-  },
-  routeCardCta: {
-    marginTop: spacing.md,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primary.main,
-  },
-  routeSummaryCard: {
-    gap: spacing.sm,
-  },
-  routeSummaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  routeSummaryTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-    marginTop: spacing.xs,
-  },
-  routeSummaryBody: {
-    fontSize: typography.fontSize.sm,
-    lineHeight: 20,
-    color: colors.text.secondary,
-  },
-  routeSummaryStats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  routeSummaryStat: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.secondary,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  sectionCopy: {
-    gap: spacing.xs,
-  },
-  sectionEyebrow: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semiBold,
-    letterSpacing: typography.letterSpacing.wider,
-    textTransform: 'uppercase',
-    color: colors.text.tertiary,
-  },
-  sectionTitle: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-  },
-  pulseGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  pulseCard: {
-    flexBasis: 220,
-    flexGrow: 1,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.brand.white,
+    backgroundColor: 'rgba(255,255,255,0.94)',
     padding: spacing.md,
     ...shadows.md,
   },
-  pulseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  highlightIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  highlightTitle: {
+  mapLegendTitle: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
   },
-  highlightValue: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primary.main,
+  mapLegendBody: {
     marginTop: spacing.xs,
-  },
-  highlightDescription: {
     fontSize: typography.fontSize.sm,
     lineHeight: 20,
     color: colors.text.secondary,
-    marginTop: spacing.sm,
   },
-  featuredList: {
+  helperText: {
+    fontSize: typography.fontSize.base,
+    color: colors.text.secondary,
+  },
+  sheetBlock: {
     gap: spacing.md,
-  },
-  featuredListWide: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  featuredCard: {
-    gap: spacing.sm,
-  },
-  featuredCardWide: {
-    flex: 1,
-    minWidth: 220,
-  },
-  featuredTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  savedTag: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primary.main,
-    textTransform: 'uppercase',
-    letterSpacing: typography.letterSpacing.wider,
-  },
-  featuredTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-  },
-  featuredMeta: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.secondary,
-  },
-  featuredDescription: {
-    fontSize: typography.fontSize.sm,
-    lineHeight: 20,
-    color: colors.text.secondary,
-  },
-  emptyStateCard: {
-    gap: spacing.sm,
-  },
-  emptyStateTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-  },
-  emptyStateBody: {
-    fontSize: typography.fontSize.sm,
-    lineHeight: 20,
-    color: colors.text.secondary,
-  },
-  topicRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  topicChip: {
-    minHeight: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.brand.white,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-  },
-  topicChipActive: {
-    backgroundColor: colors.primary.main,
-    borderColor: colors.primary.main,
-  },
-  topicText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primary.main,
-  },
-  topicTextActive: {
-    color: colors.brand.white,
-  },
-  sheetContent: {
-    gap: spacing.sm,
     paddingTop: spacing.sm,
-  },
-  sheetBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
+    paddingBottom: spacing.lg,
   },
   sheetTitle: {
     fontSize: typography.fontSize['2xl'],
     fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
   },
-  sheetMeta: {
-    fontSize: typography.fontSize.base,
-    color: colors.text.secondary,
-    textTransform: 'capitalize',
-  },
-  sheetDescription: {
-    fontSize: typography.fontSize.base,
-    lineHeight: 24,
-    color: colors.text.primary,
-  },
-  sheetStatsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  sheetStatCard: {
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.background.secondary,
-    padding: spacing.md,
-    marginVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  sheetStatCardCompact: {
-    flex: 1,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.background.secondary,
-    padding: spacing.md,
-  },
-  sheetStatCardLabel: {
+  sheetSubtitle: {
     fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
   },
-  sheetStatCardValue: {
-    fontSize: typography.fontSize.xl,
+  sheetList: {
+    gap: spacing.sm,
+  },
+  eventListItem: {
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background.secondary,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  eventListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  eventStateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  goingText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.status.success,
+    textTransform: 'uppercase',
+    letterSpacing: typography.letterSpacing.wide,
+  },
+  savedText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary.main,
+    textTransform: 'uppercase',
+    letterSpacing: typography.letterSpacing.wide,
+  },
+  eventListTitle: {
+    fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
+  },
+  eventListMeta: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  previewHeader: {
+    gap: spacing.sm,
+  },
+  previewCopy: {
+    gap: spacing.sm,
+  },
+  previewBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary.lightest,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+  },
+  liveBadgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary.main,
+  },
+  liveBadgeText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary.dark,
+    textTransform: 'uppercase',
+    letterSpacing: typography.letterSpacing.wide,
+  },
+  previewTitle: {
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  previewMeta: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  metricRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  metricCard: {
+    flex: 1,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background.secondary,
+    padding: spacing.md,
+  },
+  metricValue: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  metricLabel: {
     marginTop: spacing.xs,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: typography.letterSpacing.wide,
   },
   sheetActionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  sheetActionButton: {
+  flexButton: {
     flex: 1,
   },
-  layerSheetList: {
-    gap: spacing.sm,
-  },
-  layerSheetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  detailSheetContent: {
     gap: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.background.secondary,
-    padding: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
   },
-  layerSheetCopy: {
-    flex: 1,
-    gap: spacing.xs,
+  detailHeroImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.gray[200],
   },
-  layerSheetTitle: {
-    fontSize: typography.fontSize.base,
+  detailOrganizer: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
+  },
+  detailTitle: {
+    fontSize: typography.fontSize['3xl'],
     fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
   },
-  layerSheetDescription: {
-    fontSize: typography.fontSize.sm,
-    lineHeight: 20,
+  detailMeta: {
+    fontSize: typography.fontSize.base,
     color: colors.text.secondary,
   },
-  layerSheetPill: {
-    minWidth: 52,
-    minHeight: 32,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.brand.white,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  layerSheetPillActive: {
-    backgroundColor: colors.primary.main,
-    borderColor: colors.primary.main,
-  },
-  layerSheetPillText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
+  detailDescription: {
+    fontSize: typography.fontSize.base,
+    lineHeight: 24,
     color: colors.text.primary,
   },
-  layerSheetPillTextActive: {
-    color: colors.brand.white,
-  },
-  factRow: {
+  tagRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  activityDot: {
-    width: 10,
-    height: 10,
+  tagChip: {
     borderRadius: borderRadius.full,
-    backgroundColor: colors.status.success,
+    backgroundColor: colors.background.secondary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  activityDotMuted: {
-    width: 10,
-    height: 10,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary.main,
-    opacity: 0.6,
-  },
-  activityCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  activityTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  activityMeta: {
+  tagLabel: {
     fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
   },
-  emptyBodyText: {
+  detailInfoCard: {
+    gap: spacing.sm,
+  },
+  cardHeading: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  infoText: {
     fontSize: typography.fontSize.sm,
     lineHeight: 20,
     color: colors.text.secondary,
   },
+  detailButtonGrid: {
+    gap: spacing.sm,
+  },
+  sheetDescription: {
+    fontSize: typography.fontSize.base,
+    lineHeight: 22,
+    color: colors.text.secondary,
+  },
+  inlineList: {
+    gap: spacing.sm,
+  },
+  inlineEventRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  inlineEventDot: {
+    width: 10,
+    height: 10,
+    borderRadius: borderRadius.full,
+    marginTop: 5,
+    backgroundColor: colors.primary.main,
+  },
+  inlineEventCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  inlineEventTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+  },
+  inlineEventMeta: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  filterSectionTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: typography.letterSpacing.wide,
+  },
+  optionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  optionGridRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingRight: spacing.sm,
+  },
+  optionChip: {
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    backgroundColor: colors.brand.white,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  optionChipActive: {
+    backgroundColor: colors.primary.main,
+    borderColor: colors.primary.main,
+  },
+  optionChipLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+  },
+  optionChipLabelActive: {
+    color: colors.brand.white,
+  },
+  formSection: {
+    gap: spacing.sm,
+  },
+  formSplitRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  formSplitColumn: {
+    flex: 1,
+  },
+  formInput: {
+    minHeight: 48,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    backgroundColor: colors.brand.white,
+    paddingHorizontal: spacing.md,
+    color: colors.text.primary,
+    fontSize: typography.fontSize.base,
+  },
+  formInputMultiline: {
+    minHeight: 120,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  toggleCardList: {
+    gap: spacing.sm,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background.secondary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  toggleLabel: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text.primary,
+  },
+  togglePill: {
+    width: 50,
+    height: 30,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.gray[300],
+    padding: 3,
+    justifyContent: 'center',
+  },
+  togglePillActive: {
+    backgroundColor: colors.primary.main,
+  },
+  toggleKnob: {
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.brand.white,
+  },
+  toggleKnobActive: {
+    alignSelf: 'flex-end',
+  },
 });
-
-
-
 

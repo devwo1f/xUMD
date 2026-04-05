@@ -17,6 +17,7 @@ import {
   type ExploreEventCategoryFilter,
 } from '../../map/data/campusOverlays';
 import { useMapData, type TimeFilter } from '../../map/hooks/useMapData';
+import { buildEventLocationGroups } from '../../map/utils/eventDiscovery';
 import { useResponsive } from '../../../shared/hooks/useResponsive';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
@@ -42,6 +43,33 @@ export default function ExploreHomeScreen({ navigation }: Props) {
       activeEventCategory === 'all' ? undefined : (activeEventCategory as EventCategory),
   });
   const { savedEventIds, toggleSavedEvent } = useDemoAppStore();
+  const eventById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
+  const eventGroups = useMemo(
+    () =>
+      buildEventLocationGroups(
+        events,
+        activeEventCategory === 'all' ? 'heatmap' : 'category',
+      ),
+    [activeEventCategory, events],
+  );
+  const densityByEventId = useMemo(
+    () =>
+      Object.fromEntries(
+        eventGroups.flatMap((group) =>
+          group.events.map((eventSummary) => [eventSummary.id, group.density] as const),
+        ),
+      ),
+    [eventGroups],
+  );
+  const activeEventGroupId = useMemo(
+    () =>
+      activeEvent
+        ? eventGroups.find((group) =>
+            group.events.some((groupEvent) => groupEvent.id === activeEvent.id),
+          )?.id ?? null
+        : null,
+    [activeEvent, eventGroups],
+  );
 
   const featuredEvents = useMemo(() => {
     const source =
@@ -147,14 +175,22 @@ export default function ExploreHomeScreen({ navigation }: Props) {
           <CampusMap
             style={styles.map}
             events={events}
+            eventGroups={eventGroups}
+            densityByEventId={densityByEventId}
             buildings={[]}
             showEvents
             showBuildings={false}
             showWalkingRoutes={false}
             showDiningZones={false}
             clusterEvents
-            activeEventId={activeEvent?.id ?? null}
-            onSelectEvent={setActiveEvent}
+            isHeatmapMode={activeEventCategory === 'all'}
+            activeEventGroupId={activeEventGroupId}
+            onSelectEventGroup={(group) => {
+              const firstEvent = eventById.get(group.events[0]?.id ?? '');
+              if (firstEvent) {
+                setActiveEvent(firstEvent);
+              }
+            }}
             onSelectBuilding={() => {}}
           />
 
@@ -516,6 +552,10 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
 });
+
+
+
+
 
 
 

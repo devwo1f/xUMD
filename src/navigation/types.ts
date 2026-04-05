@@ -32,6 +32,8 @@ export type FeedStackParamList = {
 export type ClubsStackParamList = {
   ClubsHome: undefined;
   ClubDetail: { clubId: string };
+  PostDetail: { postId: string };
+  UserProfile: { userId: string };
 };
 
 export type CampusFeatureKey =
@@ -64,4 +66,3 @@ export type ProfileStackParamList = {
   PostDetail: { postId: string };
   UserProfile: { userId: string };
 };
-

@@ -4,6 +4,7 @@
  * Sample UMD student organizations for development and testing.
  */
 
+import { profile as appProfile } from '../../experience/content';
 import { Club, ClubCategory, ClubMember, ClubMemberWithUser, MemberRole, MemberStatus, User, Event, EventCategory } from '../../shared/types';
 
 // ── Mock Clubs ───────────────────────────────────────────────
@@ -152,12 +153,13 @@ export const mockClubs: Club[] = [
 export const mockUsers: User[] = [
   {
     id: 'user-001',
-    email: 'alex.chen@terpmail.umd.edu',
-    display_name: 'Alex Chen',
-    avatar_url: 'https://picsum.photos/seed/alex/200',
-    major: 'Computer Science',
-    graduation_year: 2026,
-    bio: 'President of UMD Hackers. Passionate about building things.',
+    email: 'alexj@terpmail.umd.edu',
+    username: appProfile.handle,
+    display_name: appProfile.name,
+    avatar_url: appProfile.avatar,
+    major: appProfile.major,
+    graduation_year: appProfile.classYear,
+    bio: appProfile.bio,
     notification_prefs: { push_enabled: true, email_enabled: true, club_updates: true, event_reminders: true, feed_activity: true },
     created_at: '2023-08-15T00:00:00Z',
   },
@@ -359,3 +361,9 @@ export const mockClubMedia: ClubMedia[] = [
   { id: 'media-007', club_id: 'club-003', url: 'https://picsum.photos/seed/o1/400/400', type: 'photo', caption: 'Shenandoah hike', created_at: '2024-10-20T00:00:00Z' },
   { id: 'media-008', club_id: 'club-003', url: 'https://picsum.photos/seed/o2/400/400', type: 'photo', caption: 'Kayaking trip', created_at: '2024-09-15T00:00:00Z' },
 ];
+
+export function getClubIdsForUser(userId: string) {
+  return mockClubMembers
+    .filter((member) => member.user_id === userId && member.status === MemberStatus.Approved)
+    .map((member) => member.club_id);
+}

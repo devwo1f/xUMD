@@ -15,7 +15,7 @@ export interface ProfileData {
 }
 
 const initialProfile: ProfileData = {
-  id: 'user-mock-001',
+  id: 'user-001',
   email: 'alexj@terpmail.umd.edu',
   displayName: mockProfile.name,
   username: mockProfile.handle,

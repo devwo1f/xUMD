@@ -1,6 +1,5 @@
 import type { Building } from '../../../assets/data/buildings';
 import type { Event } from '../../../shared/types';
-import { colors } from '../../../shared/theme/colors';
 import { campusMapBounds } from '../config/campusMapStyle';
 import {
   buildingTypeMeta,
@@ -9,7 +8,13 @@ import {
   type CampusRoute,
   type DiningZone,
 } from '../data/campusOverlays';
-import type { MapUserLocation, WayfindingJourney } from '../types';
+import type {
+  EventLocationGroup,
+  MapCoordinate,
+  MapUserLocation,
+  MarkerVisualMode,
+  WayfindingJourney,
+} from '../types';
 
 export interface BuildingFeatureProperties {
   itemId: string;
@@ -19,14 +24,28 @@ export interface BuildingFeatureProperties {
   color: string;
 }
 
-export interface EventFeatureProperties {
+export interface EventMarkerFeatureProperties {
   itemId: string;
-  title: string;
+  locationKey: string;
   locationName: string;
-  category: Event['category'];
+  density: number;
+  densityLabel: string;
+  eventCount: number;
+  primaryCategory: string;
   color: string;
   glyph: string;
-  isFeatured: boolean;
+  markerSize: number;
+  markerOpacity: number;
+  haloSize: number;
+  haloOpacity: number;
+  isLive: boolean;
+  mode: MarkerVisualMode;
+}
+
+export interface EventHeatFeatureProperties {
+  itemId: string;
+  density: number;
+  category: Event['category'];
 }
 
 export interface RouteFeatureProperties {
@@ -83,9 +102,44 @@ export function createBuildingFeatureCollection(
   };
 }
 
-export function createEventFeatureCollection(
+export function createEventMarkerFeatureCollection(
+  groups: EventLocationGroup[],
+  mode: MarkerVisualMode,
+): PointFeatureCollection<EventMarkerFeatureProperties> {
+  return {
+    type: 'FeatureCollection',
+    features: groups.map((group) => ({
+      type: 'Feature',
+      id: group.id,
+      geometry: {
+        type: 'Point',
+        coordinates: group.coordinate,
+      },
+      properties: {
+        itemId: group.id,
+        locationKey: group.locationKey,
+        locationName: group.locationName,
+        density: group.density,
+        densityLabel: group.densityLabel,
+        eventCount: group.eventCount,
+        primaryCategory: group.primaryCategory,
+        color: group.markerColor,
+        glyph: group.glyph,
+        markerSize: group.markerSize,
+        markerOpacity: group.markerOpacity,
+        haloSize: group.markerSize + 8,
+        haloOpacity: mode === 'heatmap' ? 0.3 : 0.2,
+        isLive: group.isLive,
+        mode,
+      },
+    })),
+  };
+}
+
+export function createEventHeatFeatureCollection(
   events: Event[],
-): PointFeatureCollection<EventFeatureProperties> {
+  densityByEventId: Map<string, number>,
+): PointFeatureCollection<EventHeatFeatureProperties> {
   return {
     type: 'FeatureCollection',
     features: events
@@ -99,14 +153,8 @@ export function createEventFeatureCollection(
         },
         properties: {
           itemId: event.id,
-          title: event.title,
-          locationName: event.location_name,
+          density: densityByEventId.get(event.id) ?? 1,
           category: event.category,
-          color:
-            colors.eventCategory[event.category as keyof typeof colors.eventCategory] ??
-            colors.primary.main,
-          glyph: event.title.trim().charAt(0).toUpperCase() || 'E',
-          isFeatured: event.is_featured,
         },
       })),
   };
@@ -251,4 +299,13 @@ export function getFeatureItemId(feature?: GeoJSON.Feature | null) {
   const properties = feature?.properties as Record<string, unknown> | null | undefined;
   const itemId = properties?.itemId;
   return typeof itemId === 'string' ? itemId : null;
+}
+
+export function toCoordinateTuple(feature?: GeoJSON.Feature | null): MapCoordinate | null {
+  if (!feature || feature.geometry.type !== 'Point') {
+    return null;
+  }
+
+  const [longitude, latitude] = feature.geometry.coordinates as [number, number];
+  return [longitude, latitude];
 }

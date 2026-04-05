@@ -1,4 +1,4 @@
-﻿import type { BuildingType } from '../../../assets/data/buildings';
+import type { BuildingType } from '../../../assets/data/buildings';
 import { EventCategory } from '../../../shared/types';
 import { colors } from '../../../shared/theme/colors';
 
@@ -74,10 +74,14 @@ export type ExploreEventCategoryFilter = EventCategory | 'all';
 export const eventCategoryOptions: FilterChipOption<ExploreEventCategoryFilter>[] = [
   { value: 'all', label: 'All events', color: colors.text.primary },
   { value: EventCategory.Academic, label: 'Academic', color: colors.eventCategory.academic },
-  { value: EventCategory.Career, label: 'Career', color: colors.eventCategory.career },
-  { value: EventCategory.Sports, label: 'Sports', color: colors.eventCategory.sports },
   { value: EventCategory.Social, label: 'Social', color: colors.eventCategory.social },
+  { value: EventCategory.Sports, label: 'Sports', color: colors.eventCategory.sports },
+  { value: EventCategory.Club, label: 'Club', color: colors.eventCategory.club },
+  { value: EventCategory.Career, label: 'Career', color: colors.eventCategory.career },
   { value: EventCategory.Arts, label: 'Arts', color: colors.eventCategory.arts },
+  { value: EventCategory.Food, label: 'Food', color: colors.eventCategory.food },
+  { value: EventCategory.Workshop, label: 'Workshop', color: colors.eventCategory.workshop },
+  { value: EventCategory.Party, label: 'Party', color: colors.eventCategory.party },
 ];
 
 export const campusRoutes: CampusRoute[] = [
@@ -153,4 +157,3 @@ export const diningZones: DiningZone[] = [
     ],
   },
 ];
-

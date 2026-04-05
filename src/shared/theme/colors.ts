@@ -112,13 +112,16 @@ export const clubCategory = {
 // ── Event Category Colors ─────────────────────────────────────
 
 export const eventCategory = {
-  social: '#F97316',
-  academic: '#2563EB',
-  career: '#0891B2',
-  sports: '#16A34A',
-  arts: '#EC4899',
-  workshop: '#EAB308',
-  other: gray[500],
+  social: '#E91E63',
+  academic: '#1E88E5',
+  career: '#4CAF50',
+  sports: '#FF5722',
+  club: '#9C27B0',
+  arts: '#FF9800',
+  food: '#795548',
+  workshop: '#00BCD4',
+  party: '#F44336',
+  other: '#607D8B',
 } as const;
 
 // ── Unified Export ────────────────────────────────────────────

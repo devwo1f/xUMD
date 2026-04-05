@@ -1,47 +1,30 @@
-import { colors } from '../../../shared/theme/colors';
+export const mapboxAccessToken =
+  process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? process.env.MAPBOX_ACCESS_TOKEN ?? '';
 
-export const campusMapCenter: [number, number] = [-76.9428, 38.9876];
+export const hasUsableMapboxToken = /^pk\./.test(mapboxAccessToken.trim());
+
+export const campusMapStyleUrl = 'mapbox://styles/mapbox/light-v11';
+
+export const campusMapCenter: [number, number] = [-76.9426, 38.9869];
 
 export const campusMapBounds = {
-  ne: [-76.9325, 38.9955] as [number, number],
-  sw: [-76.9535, 38.9805] as [number, number],
+  ne: [-76.9330, 38.9980] as [number, number],
+  sw: [-76.9560, 38.9795] as [number, number],
 };
 
-export const campusMapStyle = {
-  version: 8,
-  name: 'xUMD Campus',
-  sources: {
-    openstreetmap: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
-  layers: [
-    {
-      id: 'openstreetmap',
-      type: 'raster',
-      source: 'openstreetmap',
-    },
-    {
-      id: 'xumd-tint',
-      type: 'background',
-      paint: {
-        'background-color': colors.background.primary,
-        'background-opacity': 0,
-      },
-    },
-  ],
-} as const;
+export const campusMapZoomRange = {
+  min: 14,
+  max: 19,
+  default: 15.35,
+};
 
 export const mapSourceIds = {
   campusBoundary: 'campus-boundary',
   routes: 'campus-routes',
   diningZones: 'campus-dining-zones',
   buildings: 'campus-buildings',
-  eventsClustered: 'campus-events-clustered',
-  eventsRaw: 'campus-events-raw',
+  eventMarkers: 'campus-event-markers',
+  eventHeat: 'campus-event-heat',
   wayfinding: 'campus-wayfinding',
   userLocation: 'campus-user-location',
 } as const;
@@ -58,14 +41,13 @@ export const mapLayerIds = {
   buildingHalo: 'campus-building-halo',
   buildingCircle: 'campus-building-circle',
   buildingLabel: 'campus-building-label',
+  eventHeat: 'campus-event-heat-layer',
   eventClusterBubble: 'campus-event-cluster-bubble',
   eventClusterLabel: 'campus-event-cluster-label',
-  clusteredEventHalo: 'campus-clustered-event-halo',
-  clusteredEventCircle: 'campus-clustered-event-circle',
-  clusteredEventLabel: 'campus-clustered-event-label',
-  rawEventHalo: 'campus-raw-event-halo',
-  rawEventCircle: 'campus-raw-event-circle',
-  rawEventLabel: 'campus-raw-event-label',
+  eventMarkerHalo: 'campus-event-marker-halo',
+  eventLivePulse: 'campus-event-live-pulse',
+  eventMarkerCircle: 'campus-event-marker-circle',
+  eventMarkerLabel: 'campus-event-marker-label',
   userLocationHalo: 'campus-user-location-halo',
   userLocationCircle: 'campus-user-location-circle',
 } as const;

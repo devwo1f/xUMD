@@ -26,8 +26,11 @@ export enum EventCategory {
   Academic = 'academic',
   Career = 'career',
   Sports = 'sports',
+  Club = 'club',
   Arts = 'arts',
+  Food = 'food',
   Workshop = 'workshop',
+  Party = 'party',
   Other = 'other',
 }
 
@@ -173,16 +176,23 @@ export interface Event {
   description: string;
   club_id: string | null;
   created_by: string;
+  organizer_name?: string;
   category: EventCategory;
   starts_at: string;
   ends_at: string;
+  status?: 'upcoming' | 'live' | 'completed' | 'cancelled';
+  moderation_status?: 'pending' | 'approved' | 'rejected';
   location_name: string;
+  location_id?: string | null;
   latitude: number | null;
   longitude: number | null;
   image_url: string | null;
   rsvp_count: number;
+  attendee_count?: number;
+  interested_count?: number;
   max_capacity: number | null;
   is_featured: boolean;
+  tags?: string[];
   location?: string;
   created_at?: string;
   updated_at?: string;
@@ -214,7 +224,63 @@ export interface EventFilters {
 export interface EventRSVP {
   event_id: string;
   user_id: string;
+  status?: 'going' | 'interested';
   created_at: string;
+}
+
+export interface CampusLocation {
+  id: string;
+  name: string;
+  short_name: string;
+  latitude: number;
+  longitude: number;
+  building_type:
+    | 'academic'
+    | 'dining'
+    | 'recreation'
+    | 'library'
+    | 'admin'
+    | 'residential'
+    | 'outdoor'
+    | 'arena'
+    | 'other';
+  floor_count: number | null;
+  address: string | null;
+}
+
+export type EventReportReason =
+  | 'spam'
+  | 'inappropriate'
+  | 'misleading'
+  | 'harassment'
+  | 'other';
+
+export interface EventDetailPayload {
+  event: Event;
+  organizer: Pick<
+    User,
+    'id' | 'display_name' | 'avatar_url' | 'bio' | 'major' | 'graduation_year'
+  > | null;
+  campus_location: CampusLocation | null;
+  friends_attending: Array<
+    Pick<User, 'id' | 'display_name' | 'avatar_url' | 'bio' | 'major' | 'graduation_year'>
+  >;
+  rsvp_stats: {
+    going: number;
+    interested: number;
+  };
+  current_user_rsvp: 'going' | 'interested' | null;
+  reports_count: number;
+}
+
+export interface EventSearchResult {
+  id: string;
+  type: 'event' | 'location';
+  title: string;
+  subtitle: string;
+  latitude: number;
+  longitude: number;
+  event_ids: string[];
 }
 
 // -- Post ------------------------------------------------------

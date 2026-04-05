@@ -3,5 +3,5 @@
   "compilerOptions": {
     "strict": true
   },
-  "exclude": ["dist", ".expo", "node_modules", "supabase"]
+  "exclude": ["dist", ".expo", "node_modules", "supabase", "src/experience/RootTabs.tsx"]
 }

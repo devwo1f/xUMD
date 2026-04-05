@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -26,8 +26,10 @@ import { colors } from '../../../shared/theme/colors';
 import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { MemberRole, MemberStatus } from '../../../shared/types';
-import type { ClubMemberWithUser } from '../../../shared/types';
+import type { ClubMemberWithUser, PostMediaItem } from '../../../shared/types';
 import type { ClubsStackParamList, ProfileStackParamList } from '../../../navigation/types';
+import { useProfile } from '../../profile/hooks/useProfile';
+import PostMediaGallery from '../../feed/components/PostMediaGallery';
 
 type Props = NativeStackScreenProps<ClubsStackParamList & ProfileStackParamList, 'ClubDetail'>;
 type TabKey = 'About' | 'Events' | 'Media' | 'Members';
@@ -37,6 +39,7 @@ interface ClubAnnouncement {
   clubId: string;
   title: string;
   body: string;
+  authorId: string;
   authorName: string;
   createdAt: string;
 }
@@ -45,19 +48,20 @@ interface ClubPost {
   id: string;
   clubId: string;
   body: string;
+  authorId: string;
   authorName: string;
   createdAt: string;
 }
 
 const tabs: TabKey[] = ['About', 'Events', 'Media', 'Members'];
-const currentUser = mockUsers.find((user) => user.id === 'user-001') ?? mockUsers[0];
 const initialAnnouncements: ClubAnnouncement[] = [
   {
     id: 'announcement-001',
     clubId: 'club-001',
     title: 'Bitcamp volunteer call',
     body: 'Officer applications for logistics, design, and hacker experience close Friday at 11:59 PM.',
-    authorName: 'Alex Chen',
+    authorId: 'user-001',
+    authorName: 'Alex Johnson',
     createdAt: '2026-03-27T19:30:00Z',
   },
   {
@@ -65,6 +69,7 @@ const initialAnnouncements: ClubAnnouncement[] = [
     clubId: 'club-001',
     title: 'Workshop room update',
     body: 'React workshop moved to IRB 2207 this week because of the engineering career fair setup.',
+    authorId: 'user-003',
     authorName: 'Jordan Kim',
     createdAt: '2026-03-26T22:10:00Z',
   },
@@ -74,7 +79,8 @@ const initialPosts: ClubPost[] = [
     id: 'club-post-001',
     clubId: 'club-001',
     body: 'Registration for our next web sprint opens tonight. Bring a project or find one there.',
-    authorName: 'Alex Chen',
+    authorId: 'user-001',
+    authorName: 'Alex Johnson',
     createdAt: '2026-03-28T18:10:00Z',
   },
 ];
@@ -100,6 +106,14 @@ function getRoleRank(role: MemberRole) {
   if (role === 'officer') return 2;
   return 1;
 }
+function toClubMediaItem(item: ClubMedia): PostMediaItem {
+  return {
+    id: item.id,
+    uri: item.url,
+    type: item.type === 'video' ? 'video' : 'image',
+  };
+}
+
 
 function getInitialClubState(clubId: string) {
   return {
@@ -112,6 +126,7 @@ function getInitialClubState(clubId: string) {
 }
 
 export default function ClubDetailScreen({ navigation, route }: Props) {
+  const { user: profileUser } = useProfile();
   const [activeTab, setActiveTab] = useState<TabKey>('About');
   const [showAnnouncementComposer, setShowAnnouncementComposer] = useState(false);
   const [showPostComposer, setShowPostComposer] = useState(false);
@@ -121,11 +136,26 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
   const [postBody, setPostBody] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
   const [mediaCaption, setMediaCaption] = useState('');
-  const [isJoined, setIsJoined] = useState(true);
 
   const club = useMemo(
     () => mockClubs.find((item) => item.id === route.params.clubId) ?? null,
     [route.params.clubId],
+  );
+
+  const currentUser = useMemo(
+    () =>
+      mockUsers.find((candidate) => candidate.id === profileUser.id || candidate.email === profileUser.email) ?? {
+        id: profileUser.id,
+        email: profileUser.email,
+        username: profileUser.username,
+        display_name: profileUser.displayName,
+        avatar_url: profileUser.avatar,
+        major: profileUser.major,
+        graduation_year: profileUser.classYear,
+        bio: profileUser.bio,
+        created_at: new Date().toISOString(),
+      },
+    [profileUser],
   );
 
   const [members, setMembers] = useState<ClubMemberWithUser[]>([]);
@@ -154,7 +184,6 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     setPostBody('');
     setMediaUrl('');
     setMediaCaption('');
-    setIsJoined(true);
   }, [club]);
 
   if (!club) {
@@ -185,6 +214,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
   });
   const leader = sortedMembers.find((member) => member.role === 'president') ?? sortedMembers[0];
   const currentMembership = sortedMembers.find((member) => member.user_id === currentUser.id) ?? null;
+  const isJoined = Boolean(currentMembership);
   const currentRole = currentMembership?.role ?? null;
   const canManageMembers = currentRole === 'admin' || currentRole === 'president';
   const canPublish = currentRole === 'officer' || currentRole === 'admin' || currentRole === 'president';
@@ -210,6 +240,33 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     setShowMediaComposer(composer === 'media' ? !showMediaComposer : false);
   };
 
+  const openUserProfile = (userId: string) => {
+    navigation.navigate('UserProfile', { userId });
+  };
+
+  const handleMembershipAction = () => {
+    if (currentRole === 'president' || currentRole === 'admin' || currentRole === 'officer') {
+      return;
+    }
+
+    if (isJoined) {
+      setMembers((current) => current.filter((member) => member.user_id !== currentUser.id));
+      return;
+    }
+
+    setMembers((current) => [
+      ...current,
+      {
+        club_id: club.id,
+        user_id: currentUser.id,
+        role: MemberRole.Member,
+        status: MemberStatus.Approved,
+        joined_at: new Date().toISOString(),
+        user: currentUser,
+      },
+    ]);
+  };
+
   const publishAnnouncement = () => {
     if (!announcementTitle.trim() || !announcementBody.trim()) {
       return;
@@ -221,6 +278,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
         clubId: club.id,
         title: announcementTitle.trim(),
         body: announcementBody.trim(),
+        authorId: currentUser.id,
         authorName: currentUser.display_name,
         createdAt: new Date().toISOString(),
       },
@@ -241,6 +299,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
         id: `club-post-${Date.now()}`,
         clubId: club.id,
         body: postBody.trim(),
+        authorId: currentUser.id,
         authorName: currentUser.display_name,
         createdAt: new Date().toISOString(),
       },
@@ -418,7 +477,23 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
         </View>
 
         <View style={styles.actionButtons}>
-          <Button title={isJoined ? 'Joined' : 'Join Club'} onPress={() => setIsJoined((value) => !value)} fullWidth />
+          <Button
+            title={
+              currentRole === 'president'
+                ? 'Owner Access'
+                : currentRole === 'admin'
+                  ? 'Admin Access'
+                  : currentRole === 'officer'
+                    ? 'Co-admin Access'
+                    : isJoined
+                      ? 'Joined'
+                      : 'Join Club'
+            }
+            onPress={handleMembershipAction}
+            fullWidth
+            variant={isJoined ? 'secondary' : 'primary'}
+            disabled={currentRole === 'president' || currentRole === 'admin' || currentRole === 'officer'}
+          />
         </View>
       </Card>
 
@@ -504,13 +579,13 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
               {leader ? (
                 <Card>
                   <Text style={styles.cardLabel}>Leadership</Text>
-                  <View style={styles.memberRow}>
+                  <Pressable onPress={() => openUserProfile(leader.user_id)} style={({ pressed }) => [styles.memberRow, pressed ? styles.personRowPressed : null]}>
                     <Avatar uri={leader.user.avatar_url} name={leader.user.display_name} size="md" />
                     <View style={styles.memberCopy}>
                       <Text style={styles.memberName}>{leader.user.display_name}</Text>
                       <Text style={styles.memberMeta}>{getRoleLabel(leader.role)}</Text>
                     </View>
-                  </View>
+                  </Pressable>
                 </Card>
               ) : null}
 
@@ -525,7 +600,9 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
                           <Text style={styles.noticeMeta}>{format(new Date(announcement.createdAt), 'MMM d')}</Text>
                         </View>
                         <Text style={styles.noticeBody}>{announcement.body}</Text>
-                        <Text style={styles.noticeMeta}>Posted by {announcement.authorName}</Text>
+                        <Pressable onPress={() => openUserProfile(announcement.authorId)}>
+                          <Text style={styles.noticeMeta}>Posted by {announcement.authorName}</Text>
+                        </Pressable>
                       </View>
                     ))}
                   </View>
@@ -541,7 +618,9 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
                     {posts.map((post) => (
                       <View key={post.id} style={styles.noticeCard}>
                         <View style={styles.noticeHeader}>
-                          <Text style={styles.noticeTitle}>{post.authorName}</Text>
+                          <Pressable onPress={() => openUserProfile(post.authorId)}>
+                            <Text style={styles.noticeTitle}>{post.authorName}</Text>
+                          </Pressable>
                           <Text style={styles.noticeMeta}>{format(new Date(post.createdAt), 'MMM d, h:mm a')}</Text>
                         </View>
                         <Text style={styles.noticeBody}>{post.body}</Text>
@@ -577,7 +656,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
             <View style={styles.mediaGrid}>
               {media.map((item) => (
                 <View key={item.id} style={styles.mediaTile}>
-                  <Image source={{ uri: item.url }} style={styles.mediaImage} />
+                  <PostMediaGallery mediaItems={[toClubMediaItem(item)]} mode="feed" />
                   <Text style={styles.mediaCaption} numberOfLines={2}>{item.caption}</Text>
                 </View>
               ))}
@@ -589,7 +668,10 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
               {sortedMembers.map((member) => (
                 <Card key={member.user_id} style={styles.memberCard}>
                   <View style={styles.memberHeader}>
-                    <View style={styles.memberRow}>
+                    <Pressable
+                      onPress={() => openUserProfile(member.user_id)}
+                      style={({ pressed }) => [styles.memberRow, pressed ? styles.personRowPressed : null]}
+                    >
                       <Avatar uri={member.user.avatar_url} name={member.user.display_name} size="md" />
                       <View style={styles.memberCopy}>
                         <Text style={styles.memberName}>{member.user.display_name}</Text>
@@ -598,7 +680,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
                           {member.user.graduation_year ? ` - Class of ${member.user.graduation_year}` : ''}
                         </Text>
                       </View>
-                    </View>
+                    </Pressable>
                     <View style={styles.memberBadgeGroup}>
                       <Badge label={getRoleLabel(member.role)} color={getRoleBadgeColor(member.role)} />
                       {member.user_id === currentUser.id ? <Badge label="You" color={colors.gray[700]} variant="outlined" /> : null}
@@ -621,6 +703,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
                 key={request.id}
                 user={request.user}
                 requestedAt={request.requested_at}
+                onOpenProfile={() => openUserProfile(request.user.id)}
                 onApprove={() => approveRequest(request)}
                 onReject={() => rejectRequest(request.id)}
               />
@@ -780,6 +863,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  personRowPressed: {
+    opacity: 0.8,
+  },
   memberCopy: {
     flex: 1,
     marginLeft: spacing.sm,
@@ -887,3 +973,14 @@ const styles = StyleSheet.create({
     color: colors.status.error,
   },
 });
+
+
+
+
+
+
+
+
+
+
+

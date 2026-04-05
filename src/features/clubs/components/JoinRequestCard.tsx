@@ -1,4 +1,4 @@
-/**
+﻿/**
  * JoinRequestCard Component
  *
  * Displays a pending join request with approve/reject actions.
@@ -17,6 +17,7 @@ interface JoinRequestCardProps {
   requestedAt: string;
   onApprove: () => void;
   onReject: () => void;
+  onOpenProfile?: () => void;
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -36,10 +37,15 @@ const JoinRequestCard: React.FC<JoinRequestCardProps> = ({
   requestedAt,
   onApprove,
   onReject,
+  onOpenProfile,
 }) => {
   return (
     <View style={styles.card}>
-      <View style={styles.topRow}>
+      <Pressable
+        onPress={onOpenProfile}
+        disabled={!onOpenProfile}
+        style={({ pressed }) => [styles.topRow, onOpenProfile && pressed ? styles.topRowPressed : null]}
+      >
         <Avatar uri={user.avatar_url} name={user.display_name} size="md" />
         <View style={styles.info}>
           <Text style={styles.name}>{user.display_name}</Text>
@@ -48,7 +54,7 @@ const JoinRequestCard: React.FC<JoinRequestCardProps> = ({
           </Text>
         </View>
         <Text style={styles.timestamp}>{formatTimeAgo(requestedAt)}</Text>
-      </View>
+      </Pressable>
 
       <View style={styles.actions}>
         <Pressable style={styles.approveButton} onPress={onApprove}>
@@ -73,6 +79,9 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  topRowPressed: {
+    opacity: 0.8,
   },
   info: {
     flex: 1,

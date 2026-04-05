@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,6 +73,8 @@ function ClubsNavigator() {
     <ClubsStack.Navigator screenOptions={{ headerShown: false }}>
       <ClubsStack.Screen name="ClubsHome" component={ClubsHomeScreen} />
       <ClubsStack.Screen name="ClubDetail" component={ClubDetailScreen} />
+      <ClubsStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <ClubsStack.Screen name="UserProfile" component={UserProfileScreen} />
     </ClubsStack.Navigator>
   );
 }

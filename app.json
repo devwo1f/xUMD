@@ -24,7 +24,7 @@
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
-      "@maplibre/maplibre-react-native",
+      "@rnmapbox/maps",
       "expo-video"
     ],
     "web": {

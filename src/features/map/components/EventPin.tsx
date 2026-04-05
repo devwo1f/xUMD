@@ -1,36 +1,33 @@
 /**
  * EventPin
  *
- * Custom map marker that renders a category-colored pin.
- * Featured events get a subtle pulsing animation.
+ * Custom marker used by the react-native-maps fallback only.
  */
 
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
+import { colors } from '../../../shared/theme/colors';
 import type { Event, EventCategory } from '../../../shared/types';
 
-// ── Category Color Map ───────────────────────────────────────
-
 const CATEGORY_COLORS: Record<EventCategory, string> = {
-  social: '#E21833',
-  academic: '#1565C0',
-  career: '#2E7D32',
-  sports: '#FFD200',
-  arts: '#9C27B0',
-  workshop: '#FF6F00',
-  other: '#6B7280',
+  social: colors.eventCategory.social,
+  academic: colors.eventCategory.academic,
+  career: colors.eventCategory.career,
+  sports: colors.eventCategory.sports,
+  club: colors.eventCategory.club,
+  arts: colors.eventCategory.arts,
+  food: colors.eventCategory.food,
+  workshop: colors.eventCategory.workshop,
+  party: colors.eventCategory.party,
+  other: colors.eventCategory.other,
 };
-
-// ── Props ────────────────────────────────────────────────────
 
 interface EventPinProps {
   event: Event;
   onPress: (event: Event) => void;
   isFeatured?: boolean;
 }
-
-// ── Component ────────────────────────────────────────────────
 
 const EventPin: React.FC<EventPinProps> = ({ event, onPress, isFeatured = false }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -41,7 +38,7 @@ const EventPin: React.FC<EventPinProps> = ({ event, onPress, isFeatured = false 
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.25,
+          toValue: 1.22,
           duration: 1000,
           useNativeDriver: true,
         }),
@@ -75,7 +72,6 @@ const EventPin: React.FC<EventPinProps> = ({ event, onPress, isFeatured = false 
           isFeatured && { transform: [{ scale: pulseAnim }] },
         ]}
       >
-        {/* Outer pin shape */}
         <View
           style={[
             styles.pin,
@@ -98,14 +94,11 @@ const EventPin: React.FC<EventPinProps> = ({ event, onPress, isFeatured = false 
             ]}
           />
         </View>
-        {/* Pin tail / triangle */}
         <View style={[styles.pinTail, { borderTopColor: color }]} />
       </Animated.View>
     </Marker>
   );
 };
-
-// ── Styles ───────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {

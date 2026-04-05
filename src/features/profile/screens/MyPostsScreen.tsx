@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -26,7 +26,6 @@ import {
   preparePostMediaForUpload,
 } from '../../feed/utils/mediaComposer';
 import { useProfile } from '../hooks/useProfile';
-import { CURRENT_SOCIAL_USER_ID } from '../../social/data/mockSocialGraph';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'MyPosts'>;
 
@@ -45,7 +44,7 @@ export default function MyPostsScreen({ navigation }: Props) {
   const hydratePosts = useFeedStore((state) => state.hydratePosts);
   const [draft, setDraft] = useState('');
   const [selectedMedia, setSelectedMedia] = useState<PostMediaItem[]>([]);
-  const [currentAuthorId, setCurrentAuthorId] = useState(CURRENT_SOCIAL_USER_ID);
+  const [currentAuthorId, setCurrentAuthorId] = useState(user.id);
   const [submitting, setSubmitting] = useState(false);
   const [loadingRemotePosts, setLoadingRemotePosts] = useState(false);
 
@@ -121,7 +120,7 @@ export default function MyPostsScreen({ navigation }: Props) {
     try {
       if (isSupabaseConfigured) {
         const remoteUserId =
-          currentAuthorId !== CURRENT_SOCIAL_USER_ID
+          currentAuthorId !== user.id
             ? currentAuthorId
             : await fetchCurrentRemoteUserId();
 
@@ -467,3 +466,4 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
 });
+

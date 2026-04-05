@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibre-gl';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import type { Building } from '../../../assets/data/buildings';
 import type { Event } from '../../../shared/types';
@@ -8,9 +7,12 @@ import { borderRadius } from '../../../shared/theme/spacing';
 import {
   campusMapBounds,
   campusMapCenter,
-  campusMapStyle,
+  campusMapStyleUrl,
+  campusMapZoomRange,
   mapLayerIds,
   mapSourceIds,
+  mapboxAccessToken,
+  hasUsableMapboxToken,
 } from '../config/campusMapStyle';
 import {
   campusRoutes,
@@ -18,12 +20,19 @@ import {
   type CampusRoute,
   type DiningZone,
 } from '../data/campusOverlays';
-import type { MapFocusRequest, MapUserLocation, WayfindingJourney } from '../types';
+import type {
+  EventLocationGroup,
+  MapCoordinate,
+  MapFocusRequest,
+  MapUserLocation,
+  WayfindingJourney,
+} from '../types';
 import {
   createBuildingFeatureCollection,
   createCampusBoundaryFeatureCollection,
   createDiningZoneFeatureCollection,
-  createEventFeatureCollection,
+  createEventHeatFeatureCollection,
+  createEventMarkerFeatureCollection,
   createRouteFeatureCollection,
   createUserLocationFeatureCollection,
   createWayfindingFeatureCollection,
@@ -33,520 +42,238 @@ import {
 interface CampusMapProps {
   style?: StyleProp<ViewStyle>;
   events: Event[];
+  eventGroups: EventLocationGroup[];
+  densityByEventId?: Record<string, number>;
   buildings: Building[];
   showEvents: boolean;
   showBuildings: boolean;
   showWalkingRoutes?: boolean;
   showDiningZones?: boolean;
   clusterEvents?: boolean;
+  isHeatmapMode?: boolean;
   activeBuildingId?: string | null;
-  activeEventId?: string | null;
+  activeEventGroupId?: string | null;
   activeRouteId?: string | null;
   activeDiningZoneId?: string | null;
   userLocation?: MapUserLocation | null;
   focusRequest?: MapFocusRequest | null;
   wayfindingJourney?: WayfindingJourney | null;
-  onSelectEvent: (event: Event) => void;
+  onSelectEventGroup: (group: EventLocationGroup) => void;
   onSelectBuilding: (building: Building) => void;
   onSelectRoute?: (route: CampusRoute) => void;
   onSelectDiningZone?: (zone: DiningZone) => void;
+  onLongPressCoordinate?: (coordinate: MapCoordinate) => void;
 }
 
-const boundaryFillLayer = {
-  id: mapLayerIds.boundaryFill,
-  type: 'fill',
-  source: mapSourceIds.campusBoundary,
-  paint: {
-    'fill-color': colors.primary.lightest,
-    'fill-opacity': 0.14,
-  },
-} as const;
+type MapFeature = GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>>;
+type MapSourceData = GeoJSON.FeatureCollection;
 
-const boundaryLineLayer = {
-  id: mapLayerIds.boundaryLine,
-  type: 'line',
-  source: mapSourceIds.campusBoundary,
-  paint: {
-    'line-color': colors.primary.main,
-    'line-opacity': 0.32,
-    'line-width': 2,
-    'line-dasharray': [2, 2],
-  },
-} as const;
+interface MapboxSource {
+  setData: (data: MapSourceData) => void;
+  getClusterExpansionZoom?: (
+    clusterId: number,
+    callback?: (error: Error | null, zoom: number) => void,
+  ) => Promise<number> | void;
+}
 
-const wayfindingCasingLayer = {
-  id: mapLayerIds.wayfindingCasing,
-  type: 'line',
-  source: mapSourceIds.wayfinding,
-  paint: {
-    'line-color': colors.brand.white,
-    'line-opacity': 0.98,
-    'line-width': 10,
-  },
-} as const;
+interface MapboxMap {
+  on: (
+    event: string,
+    layerOrHandler: string | ((event: any) => void),
+    handler?: (event: any) => void,
+  ) => void;
+  remove: () => void;
+  isStyleLoaded: () => boolean;
+  addSource: (id: string, source: Record<string, unknown>) => void;
+  addLayer: (layer: Record<string, unknown>) => void;
+  getSource: (id: string) => MapboxSource | undefined;
+  getLayer: (id: string) => unknown;
+  setLayoutProperty: (layerId: string, property: string, value: unknown) => void;
+  setPaintProperty: (layerId: string, property: string, value: unknown) => void;
+  easeTo: (options: Record<string, unknown>) => void;
+  fitBounds: (bounds: [MapCoordinate, MapCoordinate], options?: Record<string, unknown>) => void;
+}
 
-const wayfindingLineLayer = {
-  id: mapLayerIds.wayfindingLine,
-  type: 'line',
-  source: mapSourceIds.wayfinding,
-  paint: {
-    'line-color': ['get', 'color'],
-    'line-opacity': 1,
-    'line-width': 5,
-    'line-dasharray': [1.2, 0.8],
-  },
-} as const;
+interface MapboxRuntime {
+  accessToken: string;
+  Map: new (options: Record<string, unknown>) => MapboxMap;
+}
 
-const routeCasingLayer = {
-  id: mapLayerIds.routeCasing,
-  type: 'line',
-  source: mapSourceIds.routes,
-  paint: {
-    'line-color': colors.brand.white,
-    'line-opacity': 0.92,
-    'line-width': 8,
-  },
-} as const;
-
-const routeLineLayer = {
-  id: mapLayerIds.routeLine,
-  type: 'line',
-  source: mapSourceIds.routes,
-  paint: {
-    'line-color': ['get', 'color'],
-    'line-opacity': 0.98,
-    'line-width': 4,
-  },
-} as const;
-
-const diningZoneFillLayer = {
-  id: mapLayerIds.diningZoneFill,
-  type: 'fill',
-  source: mapSourceIds.diningZones,
-  paint: {
-    'fill-color': ['get', 'fillColor'],
-    'fill-opacity': 0.78,
-  },
-} as const;
-
-const diningZoneLineLayer = {
-  id: mapLayerIds.diningZoneLine,
-  type: 'line',
-  source: mapSourceIds.diningZones,
-  paint: {
-    'line-color': ['get', 'lineColor'],
-    'line-opacity': 0.94,
-    'line-width': 2,
-  },
-} as const;
-
-const buildingHaloLayer = {
-  id: mapLayerIds.buildingHalo,
-  type: 'circle',
-  source: mapSourceIds.buildings,
-  paint: {
-    'circle-color': ['get', 'color'],
-    'circle-radius': 18,
-    'circle-opacity': 0.18,
-  },
-} as const;
-
-const buildingCircleLayer = {
-  id: mapLayerIds.buildingCircle,
-  type: 'circle',
-  source: mapSourceIds.buildings,
-  paint: {
-    'circle-color': colors.brand.white,
-    'circle-radius': 14,
-    'circle-stroke-color': ['get', 'color'],
-    'circle-stroke-width': 2,
-  },
-} as const;
-
-const buildingLabelLayer = {
-  id: mapLayerIds.buildingLabel,
-  type: 'symbol',
-  source: mapSourceIds.buildings,
-  layout: {
-    'text-field': ['get', 'code'],
-    'text-size': 11,
-    'text-font': ['Open Sans Bold'],
-    'text-allow-overlap': true,
-    'text-ignore-placement': true,
-  },
-  paint: {
-    'text-color': colors.text.primary,
-  },
-} as const;
-
-const eventClusterBubbleLayer = {
-  id: mapLayerIds.eventClusterBubble,
-  type: 'circle',
-  source: mapSourceIds.eventsClustered,
-  filter: ['has', 'point_count'],
-  paint: {
-    'circle-color': colors.primary.main,
-    'circle-radius': ['step', ['get', 'point_count'], 18, 4, 22, 8, 27, 14, 32],
-    'circle-stroke-color': colors.brand.white,
-    'circle-stroke-width': 2,
-    'circle-opacity': 0.95,
-  },
-} as const;
-
-const eventClusterLabelLayer = {
-  id: mapLayerIds.eventClusterLabel,
-  type: 'symbol',
-  source: mapSourceIds.eventsClustered,
-  filter: ['has', 'point_count'],
-  layout: {
-    'text-field': ['get', 'point_count_abbreviated'],
-    'text-size': 12,
-    'text-font': ['Open Sans Bold'],
-    'text-allow-overlap': true,
-    'text-ignore-placement': true,
-  },
-  paint: {
-    'text-color': colors.brand.white,
-  },
-} as const;
-
-const clusteredEventHaloLayer = {
-  id: mapLayerIds.clusteredEventHalo,
-  type: 'circle',
-  source: mapSourceIds.eventsClustered,
-  filter: ['!', ['has', 'point_count']],
-  paint: {
-    'circle-color': [
-      'case',
-      ['boolean', ['get', 'isFeatured'], false],
-      colors.secondary.main,
-      ['get', 'color'],
-    ],
-    'circle-opacity': 0.2,
-    'circle-radius': [
-      'case',
-      ['boolean', ['get', 'isFeatured'], false],
-      19,
-      14,
-    ],
-  },
-} as const;
-
-const clusteredEventCircleLayer = {
-  id: mapLayerIds.clusteredEventCircle,
-  type: 'circle',
-  source: mapSourceIds.eventsClustered,
-  filter: ['!', ['has', 'point_count']],
-  paint: {
-    'circle-color': ['get', 'color'],
-    'circle-radius': [
-      'case',
-      ['boolean', ['get', 'isFeatured'], false],
-      11,
-      8,
-    ],
-    'circle-stroke-color': colors.brand.white,
-    'circle-stroke-width': 2,
-    'circle-opacity': 0.96,
-  },
-} as const;
-
-const clusteredEventLabelLayer = {
-  id: mapLayerIds.clusteredEventLabel,
-  type: 'symbol',
-  source: mapSourceIds.eventsClustered,
-  filter: ['!', ['has', 'point_count']],
-  layout: {
-    'text-field': ['get', 'glyph'],
-    'text-size': 10,
-    'text-font': ['Open Sans Bold'],
-    'text-allow-overlap': true,
-    'text-ignore-placement': true,
-  },
-  paint: {
-    'text-color': colors.brand.white,
-  },
-} as const;
-
-const rawEventHaloLayer = {
-  id: mapLayerIds.rawEventHalo,
-  type: 'circle',
-  source: mapSourceIds.eventsRaw,
-  paint: {
-    'circle-color': [
-      'case',
-      ['boolean', ['get', 'isFeatured'], false],
-      colors.secondary.main,
-      ['get', 'color'],
-    ],
-    'circle-opacity': 0.2,
-    'circle-radius': [
-      'case',
-      ['boolean', ['get', 'isFeatured'], false],
-      19,
-      14,
-    ],
-  },
-} as const;
-
-const rawEventCircleLayer = {
-  id: mapLayerIds.rawEventCircle,
-  type: 'circle',
-  source: mapSourceIds.eventsRaw,
-  paint: {
-    'circle-color': ['get', 'color'],
-    'circle-radius': [
-      'case',
-      ['boolean', ['get', 'isFeatured'], false],
-      11,
-      8,
-    ],
-    'circle-stroke-color': colors.brand.white,
-    'circle-stroke-width': 2,
-    'circle-opacity': 0.96,
-  },
-} as const;
-
-const rawEventLabelLayer = {
-  id: mapLayerIds.rawEventLabel,
-  type: 'symbol',
-  source: mapSourceIds.eventsRaw,
-  layout: {
-    'text-field': ['get', 'glyph'],
-    'text-size': 10,
-    'text-font': ['Open Sans Bold'],
-    'text-allow-overlap': true,
-    'text-ignore-placement': true,
-  },
-  paint: {
-    'text-color': colors.brand.white,
-  },
-} as const;
-
-const userLocationHaloLayer = {
-  id: mapLayerIds.userLocationHalo,
-  type: 'circle',
-  source: mapSourceIds.userLocation,
-  paint: {
-    'circle-color': colors.status.info,
-    'circle-radius': 18,
-    'circle-opacity': 0.2,
-  },
-} as const;
-
-const userLocationCircleLayer = {
-  id: mapLayerIds.userLocationCircle,
-  type: 'circle',
-  source: mapSourceIds.userLocation,
-  paint: {
-    'circle-color': colors.brand.white,
-    'circle-radius': 8,
-    'circle-stroke-color': colors.status.info,
-    'circle-stroke-width': 3,
-  },
-} as const;
-
-function setSourceData(
-  map: MapLibreMap,
-  sourceId: string,
-  data: GeoJSON.FeatureCollection,
-) {
-  const source = map.getSource(sourceId) as GeoJSONSource | undefined;
-
-  if (source) {
-    source.setData(data);
+declare global {
+  interface Window {
+    mapboxgl?: MapboxRuntime;
   }
 }
 
-function setLayerVisibility(map: MapLibreMap, layerIds: string[], visible: boolean) {
-  layerIds.forEach((layerId) => {
-    if (map.getLayer(layerId)) {
-      map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+const MAPBOX_WEB_VERSION = '3.21.0';
+
+const fallbackStyle = {
+  version: 8,
+  sources: {
+    openstreetmap: {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors',
+    },
+  },
+  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+  layers: [
+    {
+      id: 'openstreetmap',
+      type: 'raster',
+      source: 'openstreetmap',
+    },
+  ],
+};
+
+let mapboxWebLoaderPromise: Promise<MapboxRuntime> | null = null;
+
+function ensureDocumentStylesheet(href: string) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const existing = document.querySelector(`link[href="${href}"]`);
+  if (existing) {
+    return;
+  }
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+function loadScript(src: string) {
+  return new Promise<void>((resolve, reject) => {
+    if (typeof document === 'undefined') {
+      reject(new Error('Document is unavailable on this platform.'));
+      return;
     }
+
+    const existing = document.querySelector(`script[src="${src}"]`) as HTMLScriptElement | null;
+    if (existing) {
+      if (existing.dataset.loaded === 'true') {
+        resolve();
+        return;
+      }
+
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener(
+        'error',
+        () => reject(new Error('Failed to load Mapbox GL script.')),
+        {
+          once: true,
+        },
+      );
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.onload = () => {
+      script.dataset.loaded = 'true';
+      resolve();
+    };
+    script.onerror = () => reject(new Error('Failed to load Mapbox GL script.'));
+    document.head.appendChild(script);
   });
 }
 
-function applySelectionHighlight(
-  map: MapLibreMap,
-  activeRouteId?: string | null,
-  activeDiningZoneId?: string | null,
-  activeBuildingId?: string | null,
-  activeEventId?: string | null,
-) {
-  const routeKey = activeRouteId ?? '__none__';
-  const zoneKey = activeDiningZoneId ?? '__none__';
-  const buildingKey = activeBuildingId ?? '__none__';
-  const eventKey = activeEventId ?? '__none__';
-
-  if (map.getLayer(mapLayerIds.routeCasing)) {
-    map.setPaintProperty(
-      mapLayerIds.routeCasing,
-      'line-width',
-      ['case', ['==', ['get', 'itemId'], routeKey], 10, 8],
-    );
+async function ensureMapboxWebRuntime() {
+  if (typeof window === 'undefined') {
+    throw new Error('Mapbox web runtime is only available in a browser.');
   }
 
-  if (map.getLayer(mapLayerIds.routeLine)) {
-    map.setPaintProperty(
-      mapLayerIds.routeLine,
-      'line-color',
-      ['case', ['==', ['get', 'itemId'], routeKey], colors.text.primary, ['get', 'color']],
-    );
-    map.setPaintProperty(
-      mapLayerIds.routeLine,
-      'line-width',
-      ['case', ['==', ['get', 'itemId'], routeKey], 5, 4],
-    );
+  if (window.mapboxgl) {
+    return window.mapboxgl;
   }
 
-  if (map.getLayer(mapLayerIds.diningZoneFill)) {
-    map.setPaintProperty(
-      mapLayerIds.diningZoneFill,
-      'fill-opacity',
-      ['case', ['==', ['get', 'itemId'], zoneKey], 1, 0.78],
-    );
+  if (!mapboxWebLoaderPromise) {
+    mapboxWebLoaderPromise = (async () => {
+      ensureDocumentStylesheet(
+        `https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_WEB_VERSION}/mapbox-gl.css`,
+      );
+      await loadScript(
+        `https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_WEB_VERSION}/mapbox-gl.js`,
+      );
+
+      if (!window.mapboxgl) {
+        throw new Error('Mapbox GL did not finish loading.');
+      }
+
+      return window.mapboxgl;
+    })();
   }
 
-  if (map.getLayer(mapLayerIds.diningZoneLine)) {
-    map.setPaintProperty(
-      mapLayerIds.diningZoneLine,
-      'line-color',
-      ['case', ['==', ['get', 'itemId'], zoneKey], colors.text.primary, ['get', 'lineColor']],
-    );
-    map.setPaintProperty(
-      mapLayerIds.diningZoneLine,
-      'line-width',
-      ['case', ['==', ['get', 'itemId'], zoneKey], 3, 2],
-    );
+  return mapboxWebLoaderPromise;
+}
+
+function setSourceData(map: MapboxMap, sourceId: string, data: MapSourceData) {
+  const source = map.getSource(sourceId);
+  source?.setData(data);
+}
+
+function setLayerVisibility(map: MapboxMap, layerId: string, visible: boolean) {
+  if (!map.getLayer(layerId)) {
+    return;
   }
 
-  if (map.getLayer(mapLayerIds.buildingHalo)) {
-    map.setPaintProperty(
-      mapLayerIds.buildingHalo,
-      'circle-radius',
-      ['case', ['==', ['get', 'itemId'], buildingKey], 24, 18],
-    );
-    map.setPaintProperty(
-      mapLayerIds.buildingHalo,
-      'circle-opacity',
-      ['case', ['==', ['get', 'itemId'], buildingKey], 0.28, 0.18],
-    );
-  }
-
-  if (map.getLayer(mapLayerIds.buildingCircle)) {
-    map.setPaintProperty(
-      mapLayerIds.buildingCircle,
-      'circle-radius',
-      ['case', ['==', ['get', 'itemId'], buildingKey], 16, 14],
-    );
-    map.setPaintProperty(
-      mapLayerIds.buildingCircle,
-      'circle-stroke-width',
-      ['case', ['==', ['get', 'itemId'], buildingKey], 3, 2],
-    );
-  }
-
-  const eventColorExpression = [
-    'case',
-    ['==', ['get', 'itemId'], eventKey],
-    colors.text.primary,
-    ['boolean', ['get', 'isFeatured'], false],
-    colors.secondary.main,
-    ['get', 'color'],
-  ];
-  const eventCircleColorExpression = [
-    'case',
-    ['==', ['get', 'itemId'], eventKey],
-    colors.text.primary,
-    ['get', 'color'],
-  ];
-  const eventHaloRadiusExpression = [
-    'case',
-    ['==', ['get', 'itemId'], eventKey],
-    22,
-    ['boolean', ['get', 'isFeatured'], false],
-    19,
-    14,
-  ];
-  const eventCircleRadiusExpression = [
-    'case',
-    ['==', ['get', 'itemId'], eventKey],
-    12,
-    ['boolean', ['get', 'isFeatured'], false],
-    11,
-    8,
-  ];
-  const eventHaloOpacityExpression = [
-    'case',
-    ['==', ['get', 'itemId'], eventKey],
-    0.32,
-    0.2,
-  ];
-  const eventStrokeWidthExpression = [
-    'case',
-    ['==', ['get', 'itemId'], eventKey],
-    3,
-    2,
-  ];
-
-  [mapLayerIds.clusteredEventHalo, mapLayerIds.rawEventHalo].forEach((layerId) => {
-    if (map.getLayer(layerId)) {
-      map.setPaintProperty(layerId, 'circle-color', eventColorExpression as any);
-      map.setPaintProperty(layerId, 'circle-radius', eventHaloRadiusExpression as any);
-      map.setPaintProperty(layerId, 'circle-opacity', eventHaloOpacityExpression as any);
-    }
-  });
-
-  [mapLayerIds.clusteredEventCircle, mapLayerIds.rawEventCircle].forEach((layerId) => {
-    if (map.getLayer(layerId)) {
-      map.setPaintProperty(layerId, 'circle-color', eventCircleColorExpression as any);
-      map.setPaintProperty(layerId, 'circle-radius', eventCircleRadiusExpression as any);
-      map.setPaintProperty(layerId, 'circle-stroke-width', eventStrokeWidthExpression as any);
-    }
-  });
+  map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
 }
 
 export default function CampusMap({
   style,
   events,
+  eventGroups,
+  densityByEventId = {},
   buildings,
   showEvents,
   showBuildings,
   showWalkingRoutes = true,
   showDiningZones = true,
   clusterEvents = true,
+  isHeatmapMode = true,
   activeBuildingId,
-  activeEventId,
+  activeEventGroupId,
   activeRouteId,
   activeDiningZoneId,
   userLocation,
   focusRequest,
   wayfindingJourney,
-  onSelectEvent,
+  onSelectEventGroup,
   onSelectBuilding,
   onSelectRoute,
   onSelectDiningZone,
+  onLongPressCoordinate,
 }: CampusMapProps) {
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<MapLibreMap | null>(null);
-  const latestEventsRef = useRef(events);
-  const latestBuildingsRef = useRef(buildings);
-  const latestEventHandlerRef = useRef(onSelectEvent);
-  const latestBuildingHandlerRef = useRef(onSelectBuilding);
-  const latestRouteHandlerRef = useRef(onSelectRoute);
-  const latestDiningZoneHandlerRef = useRef(onSelectDiningZone);
-  const latestActiveRouteIdRef = useRef(activeRouteId);
-  const latestActiveDiningZoneIdRef = useRef(activeDiningZoneId);
-  const latestActiveBuildingIdRef = useRef(activeBuildingId);
-  const latestActiveEventIdRef = useRef(activeEventId);
-  const latestRouteShapeRef = useRef(createRouteFeatureCollection(showWalkingRoutes ? campusRoutes : []));
-  const latestDiningZoneShapeRef = useRef(
-    createDiningZoneFeatureCollection(showDiningZones ? diningZones : []),
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<MapboxMap | null>(null);
+  const [pulsePhase, setPulsePhase] = useState(0);
+  const [styleMode, setStyleMode] = useState<'mapbox' | 'fallback'>(
+    hasUsableMapboxToken ? 'mapbox' : 'fallback',
   );
-  const latestBuildingShapeRef = useRef(createBuildingFeatureCollection(showBuildings ? buildings : []));
-  const latestEventShapeRef = useRef(createEventFeatureCollection(showEvents ? events : []));
-  const latestUserLocationShapeRef = useRef(createUserLocationFeatureCollection(userLocation ?? null));
-  const latestWayfindingShapeRef = useRef(createWayfindingFeatureCollection(wayfindingJourney ?? null));
+  const latestStateRef = useRef({
+    buildings,
+    eventGroups,
+    onSelectBuilding,
+    onSelectEventGroup,
+    onSelectRoute,
+    onSelectDiningZone,
+    onLongPressCoordinate,
+  });
+
+  latestStateRef.current = {
+    buildings,
+    eventGroups,
+    onSelectBuilding,
+    onSelectEventGroup,
+    onSelectRoute,
+    onSelectDiningZone,
+    onLongPressCoordinate,
+  };
 
   const boundaryShape = useMemo(() => createCampusBoundaryFeatureCollection(), []);
   const routeShape = useMemo(
@@ -561,261 +288,480 @@ export default function CampusMap({
     () => createBuildingFeatureCollection(showBuildings ? buildings : []),
     [buildings, showBuildings],
   );
-  const eventShape = useMemo(
-    () => createEventFeatureCollection(showEvents ? events : []),
-    [events, showEvents],
+  const densityMap = useMemo(() => new Map(Object.entries(densityByEventId)), [densityByEventId]);
+  const eventMarkerShape = useMemo(
+    () =>
+      createEventMarkerFeatureCollection(
+        showEvents ? eventGroups : [],
+        isHeatmapMode ? 'heatmap' : 'category',
+      ),
+    [eventGroups, isHeatmapMode, showEvents],
   );
-  const userLocationShape = useMemo(() => createUserLocationFeatureCollection(userLocation ?? null), [userLocation]);
+  const eventHeatShape = useMemo(
+    () => createEventHeatFeatureCollection(showEvents ? events : [], densityMap),
+    [densityMap, events, showEvents],
+  );
+  const userLocationShape = useMemo(
+    () => createUserLocationFeatureCollection(userLocation ?? null),
+    [userLocation],
+  );
   const wayfindingShape = useMemo(
     () => createWayfindingFeatureCollection(wayfindingJourney ?? null),
     [wayfindingJourney],
   );
 
   useEffect(() => {
-    latestEventsRef.current = events;
-    latestBuildingsRef.current = buildings;
-    latestEventHandlerRef.current = onSelectEvent;
-    latestBuildingHandlerRef.current = onSelectBuilding;
-    latestRouteHandlerRef.current = onSelectRoute;
-    latestDiningZoneHandlerRef.current = onSelectDiningZone;
-    latestActiveRouteIdRef.current = activeRouteId;
-    latestActiveDiningZoneIdRef.current = activeDiningZoneId;
-    latestActiveBuildingIdRef.current = activeBuildingId;
-    latestActiveEventIdRef.current = activeEventId;
-    latestRouteShapeRef.current = routeShape;
-    latestDiningZoneShapeRef.current = diningZoneShape;
-    latestBuildingShapeRef.current = buildingShape;
-    latestEventShapeRef.current = eventShape;
-    latestUserLocationShapeRef.current = userLocationShape;
-    latestWayfindingShapeRef.current = wayfindingShape;
-  }, [
-    activeBuildingId,
-    activeDiningZoneId,
-    activeEventId,
-    activeRouteId,
-    buildingShape,
-    buildings,
-    diningZoneShape,
-    eventShape,
-    events,
-    onSelectBuilding,
-    onSelectDiningZone,
-    onSelectEvent,
-    onSelectRoute,
-    routeShape,
-    userLocationShape,
-    wayfindingShape,
-  ]);
-
-  useEffect(() => {
-    const container = mapContainerRef.current;
-
-    if (!container || mapRef.current) {
+    if (!eventGroups.some((group) => group.isLive)) {
+      setPulsePhase(0);
       return;
     }
 
-    const map = new maplibregl.Map({
-      container,
-      style: campusMapStyle as any,
-      center: campusMapCenter,
-      zoom: 15.35,
-      maxBounds: [campusMapBounds.sw, campusMapBounds.ne],
-      attributionControl: false,
-    });
+    const interval = window.setInterval(() => {
+      setPulsePhase((current) => (current + 0.08) % 1);
+    }, 80);
 
-    map.dragRotate.disable();
-    map.touchZoomRotate.disableRotation();
+    return () => window.clearInterval(interval);
+  }, [eventGroups]);
 
-    map.on('load', () => {
-      map.addSource(mapSourceIds.campusBoundary, {
-        type: 'geojson',
-        data: boundaryShape as any,
-      });
-      map.addSource(mapSourceIds.wayfinding, {
-        type: 'geojson',
-        data: latestWayfindingShapeRef.current as any,
-      });
-      map.addSource(mapSourceIds.routes, {
-        type: 'geojson',
-        data: latestRouteShapeRef.current as any,
-      });
-      map.addSource(mapSourceIds.diningZones, {
-        type: 'geojson',
-        data: latestDiningZoneShapeRef.current as any,
-      });
-      map.addSource(mapSourceIds.buildings, {
-        type: 'geojson',
-        data: latestBuildingShapeRef.current as any,
-      });
-      map.addSource(mapSourceIds.eventsClustered, {
-        type: 'geojson',
-        data: latestEventShapeRef.current as any,
-        cluster: true,
-        clusterRadius: 42,
-        clusterMaxZoom: 16,
-      });
-      map.addSource(mapSourceIds.eventsRaw, {
-        type: 'geojson',
-        data: latestEventShapeRef.current as any,
-      });
-      map.addSource(mapSourceIds.userLocation, {
-        type: 'geojson',
-        data: latestUserLocationShapeRef.current as any,
+  useEffect(() => {
+    let cancelled = false;
+    let loadTimeout: number | null = null;
+
+    async function bootstrapMap() {
+      const container = containerRef.current;
+      if (!container || mapRef.current) {
+        return;
+      }
+
+      const mapboxgl = await ensureMapboxWebRuntime();
+      if (cancelled || !container) {
+        return;
+      }
+
+      if (styleMode === 'mapbox' && hasUsableMapboxToken) {
+        mapboxgl.accessToken = mapboxAccessToken;
+      }
+
+      const map = new mapboxgl.Map({
+        container,
+        style: styleMode === 'mapbox' ? campusMapStyleUrl : fallbackStyle,
+        center: campusMapCenter,
+        zoom: campusMapZoomRange.default,
+        minZoom: campusMapZoomRange.min,
+        maxZoom: campusMapZoomRange.max,
+        maxBounds: [campusMapBounds.sw, campusMapBounds.ne],
+        pitch: 0,
+        dragRotate: false,
+        touchPitch: true,
+        attributionControl: false,
       });
 
-      map.addLayer(boundaryFillLayer as any);
-      map.addLayer(boundaryLineLayer as any);
-      map.addLayer(wayfindingCasingLayer as any);
-      map.addLayer(wayfindingLineLayer as any);
-      map.addLayer(diningZoneFillLayer as any);
-      map.addLayer(diningZoneLineLayer as any);
-      map.addLayer(routeCasingLayer as any);
-      map.addLayer(routeLineLayer as any);
-      map.addLayer(buildingHaloLayer as any);
-      map.addLayer(buildingCircleLayer as any);
-      map.addLayer(buildingLabelLayer as any);
-      map.addLayer(eventClusterBubbleLayer as any);
-      map.addLayer(eventClusterLabelLayer as any);
-      map.addLayer(clusteredEventHaloLayer as any);
-      map.addLayer(clusteredEventCircleLayer as any);
-      map.addLayer(clusteredEventLabelLayer as any);
-      map.addLayer(rawEventHaloLayer as any);
-      map.addLayer(rawEventCircleLayer as any);
-      map.addLayer(rawEventLabelLayer as any);
-      map.addLayer(userLocationHaloLayer as any);
-      map.addLayer(userLocationCircleLayer as any);
+      let didLoad = false;
 
-      applySelectionHighlight(
-        map,
-        latestActiveRouteIdRef.current,
-        latestActiveDiningZoneIdRef.current,
-        latestActiveBuildingIdRef.current,
-        latestActiveEventIdRef.current,
-      );
+      const activateFallback = () => {
+        if (cancelled || styleMode === 'fallback') {
+          return;
+        }
 
-      const buildingLayerIds = [mapLayerIds.buildingCircle, mapLayerIds.buildingLabel];
-      const routeLayerIds = [mapLayerIds.routeCasing, mapLayerIds.routeLine];
-      const diningZoneLayerIds = [mapLayerIds.diningZoneFill, mapLayerIds.diningZoneLine];
-      const clusteredEventLayerIds = [
-        mapLayerIds.clusteredEventCircle,
-        mapLayerIds.clusteredEventLabel,
-      ];
-      const rawEventLayerIds = [mapLayerIds.rawEventCircle, mapLayerIds.rawEventLabel];
-      const clusterLayerIds = [mapLayerIds.eventClusterBubble, mapLayerIds.eventClusterLabel];
+        try {
+          map.remove();
+        } catch {}
 
-      buildingLayerIds.forEach((layerId) => {
-        map.on('click', layerId, (layerEvent) => {
-          const buildingId = getFeatureItemId(layerEvent.features?.[0] as GeoJSON.Feature | undefined);
-          const building = latestBuildingsRef.current.find((item) => item.id === buildingId);
+        mapRef.current = null;
+        setStyleMode('fallback');
+      };
 
-          if (building) {
-            latestBuildingHandlerRef.current(building);
+      if (styleMode === 'mapbox') {
+        loadTimeout = window.setTimeout(() => {
+          if (!didLoad) {
+            activateFallback();
+          }
+        }, 3500);
+
+        map.on('error', () => {
+          if (!didLoad) {
+            activateFallback();
           }
         });
-        map.on('mouseenter', layerId, () => {
-          map.getCanvas().style.cursor = 'pointer';
+      }
+
+      map.on('load', () => {
+        didLoad = true;
+        if (loadTimeout) {
+          window.clearTimeout(loadTimeout);
+          loadTimeout = null;
+        }
+        map.addSource(mapSourceIds.campusBoundary, {
+          type: 'geojson',
+          data: boundaryShape,
         });
-        map.on('mouseleave', layerId, () => {
-          map.getCanvas().style.cursor = '';
+        map.addSource(mapSourceIds.wayfinding, { type: 'geojson', data: wayfindingShape });
+        map.addSource(mapSourceIds.routes, { type: 'geojson', data: routeShape });
+        map.addSource(mapSourceIds.diningZones, { type: 'geojson', data: diningZoneShape });
+        map.addSource(mapSourceIds.buildings, { type: 'geojson', data: buildingShape });
+        map.addSource(mapSourceIds.eventHeat, { type: 'geojson', data: eventHeatShape });
+        map.addSource(mapSourceIds.eventMarkers, {
+          type: 'geojson',
+          data: eventMarkerShape,
+          cluster: clusterEvents,
+          clusterRadius: 52,
+          clusterMaxZoom: 16,
+          clusterProperties: {
+            totalEvents: ['+', ['get', 'eventCount']],
+            maxDensity: ['max', ['get', 'density']],
+            hasLive: ['max', ['case', ['boolean', ['get', 'isLive'], false], 1, 0]],
+          },
+        });
+        map.addSource(mapSourceIds.userLocation, {
+          type: 'geojson',
+          data: userLocationShape,
+        });
+
+        map.addLayer({
+          id: mapLayerIds.boundaryFill,
+          type: 'fill',
+          source: mapSourceIds.campusBoundary,
+          paint: { 'fill-color': colors.primary.main, 'fill-opacity': 0.08 },
+        });
+        map.addLayer({
+          id: mapLayerIds.boundaryLine,
+          type: 'line',
+          source: mapSourceIds.campusBoundary,
+          paint: {
+            'line-color': colors.primary.main,
+            'line-opacity': 0.4,
+            'line-width': 2,
+            'line-dasharray': [2, 2],
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.wayfindingCasing,
+          type: 'line',
+          source: mapSourceIds.wayfinding,
+          paint: {
+            'line-color': colors.brand.white,
+            'line-width': 10,
+            'line-opacity': 0.98,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.wayfindingLine,
+          type: 'line',
+          source: mapSourceIds.wayfinding,
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': 5,
+            'line-opacity': 1,
+            'line-dasharray': [1.2, 0.8],
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.diningZoneFill,
+          type: 'fill',
+          source: mapSourceIds.diningZones,
+          paint: { 'fill-color': ['get', 'fillColor'], 'fill-opacity': 0.78 },
+        });
+        map.addLayer({
+          id: mapLayerIds.diningZoneLine,
+          type: 'line',
+          source: mapSourceIds.diningZones,
+          paint: {
+            'line-color': ['get', 'lineColor'],
+            'line-width': 2,
+            'line-opacity': 0.94,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.routeCasing,
+          type: 'line',
+          source: mapSourceIds.routes,
+          paint: { 'line-color': colors.brand.white, 'line-width': 8, 'line-opacity': 0.92 },
+        });
+        map.addLayer({
+          id: mapLayerIds.routeLine,
+          type: 'line',
+          source: mapSourceIds.routes,
+          paint: { 'line-color': ['get', 'color'], 'line-width': 4, 'line-opacity': 0.98 },
+        });
+        map.addLayer({
+          id: mapLayerIds.buildingHalo,
+          type: 'circle',
+          source: mapSourceIds.buildings,
+          paint: {
+            'circle-color': ['get', 'color'],
+            'circle-radius': 18,
+            'circle-opacity': 0.18,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.buildingCircle,
+          type: 'circle',
+          source: mapSourceIds.buildings,
+          paint: {
+            'circle-color': colors.brand.white,
+            'circle-radius': 14,
+            'circle-stroke-color': ['get', 'color'],
+            'circle-stroke-width': 2,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.buildingLabel,
+          type: 'symbol',
+          source: mapSourceIds.buildings,
+          layout: {
+            'text-field': ['get', 'code'],
+            'text-size': 11,
+            'text-font': ['Open Sans Bold'],
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
+          },
+          paint: { 'text-color': colors.text.primary },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventHeat,
+          type: 'heatmap',
+          source: mapSourceIds.eventHeat,
+          paint: {
+            'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 14, 28, 18, 44],
+            'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.36, 17.5, 0],
+            'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 14, 0.55, 18, 1.45],
+            'heatmap-color': [
+              'interpolate',
+              ['linear'],
+              ['heatmap-density'],
+              0,
+              'rgba(0,0,0,0)',
+              0.2,
+              '#42A5F5',
+              0.4,
+              '#26A69A',
+              0.6,
+              '#FFA726',
+              0.8,
+              '#FF5722',
+              1,
+              '#D32F2F',
+            ],
+            'heatmap-weight': ['interpolate', ['linear'], ['get', 'density'], 1, 0.3, 10, 1],
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventClusterBubble,
+          type: 'circle',
+          source: mapSourceIds.eventMarkers,
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': [
+              'step',
+              ['coalesce', ['get', 'totalEvents'], ['get', 'point_count']],
+              '#90A4AE',
+              2,
+              '#42A5F5',
+              3,
+              '#26A69A',
+              5,
+              '#FFA726',
+              7,
+              '#FF5722',
+              10,
+              '#D32F2F',
+            ],
+            'circle-radius': [
+              'step',
+              ['coalesce', ['get', 'totalEvents'], ['get', 'point_count']],
+              20,
+              6,
+              24,
+              12,
+              28,
+              20,
+              32,
+            ],
+            'circle-stroke-color': colors.brand.white,
+            'circle-stroke-width': 2,
+            'circle-opacity': 0.96,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventClusterLabel,
+          type: 'symbol',
+          source: mapSourceIds.eventMarkers,
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': [
+              'to-string',
+              ['coalesce', ['get', 'totalEvents'], ['get', 'point_count']],
+            ],
+            'text-size': 12,
+            'text-font': ['Open Sans Bold'],
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
+          },
+          paint: { 'text-color': colors.brand.white },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventMarkerHalo,
+          type: 'circle',
+          source: mapSourceIds.eventMarkers,
+          filter: clusterEvents ? ['!', ['has', 'point_count']] : undefined,
+          paint: {
+            'circle-color': ['get', 'color'],
+            'circle-radius': ['/', ['get', 'haloSize'], 2],
+            'circle-opacity': ['get', 'haloOpacity'],
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventLivePulse,
+          type: 'circle',
+          source: mapSourceIds.eventMarkers,
+          filter: clusterEvents
+            ? ['all', ['!', ['has', 'point_count']], ['==', ['get', 'isLive'], true]]
+            : ['==', ['get', 'isLive'], true],
+          paint: {
+            'circle-color': ['get', 'color'],
+            'circle-radius': ['+', ['/', ['get', 'haloSize'], 2], 3],
+            'circle-opacity': 0.2,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventMarkerCircle,
+          type: 'circle',
+          source: mapSourceIds.eventMarkers,
+          filter: clusterEvents ? ['!', ['has', 'point_count']] : undefined,
+          paint: {
+            'circle-color': ['get', 'color'],
+            'circle-radius': ['/', ['get', 'markerSize'], 2],
+            'circle-stroke-color': colors.brand.white,
+            'circle-stroke-width': 2,
+            'circle-opacity': ['get', 'markerOpacity'],
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventMarkerLabel,
+          type: 'symbol',
+          source: mapSourceIds.eventMarkers,
+          filter: clusterEvents ? ['!', ['has', 'point_count']] : undefined,
+          layout: {
+            'text-field': ['get', 'glyph'],
+            'text-size': ['case', ['>=', ['get', 'markerSize'], 40], 13, 11],
+            'text-font': ['Open Sans Bold'],
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
+          },
+          paint: { 'text-color': colors.brand.white },
+        });
+        map.addLayer({
+          id: mapLayerIds.userLocationHalo,
+          type: 'circle',
+          source: mapSourceIds.userLocation,
+          paint: {
+            'circle-color': colors.status.info,
+            'circle-radius': 18,
+            'circle-opacity': 0.2,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.userLocationCircle,
+          type: 'circle',
+          source: mapSourceIds.userLocation,
+          paint: {
+            'circle-color': colors.brand.white,
+            'circle-radius': 8,
+            'circle-stroke-color': colors.status.info,
+            'circle-stroke-width': 3,
+          },
+        });
+
+        [mapLayerIds.buildingHalo, mapLayerIds.buildingCircle, mapLayerIds.buildingLabel].forEach(
+          (layerId) => {
+            map.on('click', layerId, (layerEvent: { features?: MapFeature[] }) => {
+              const buildingId = getFeatureItemId(layerEvent.features?.[0] ?? null);
+              const building = latestStateRef.current.buildings.find((item) => item.id === buildingId);
+              if (building) {
+                latestStateRef.current.onSelectBuilding(building);
+              }
+            });
+          },
+        );
+
+        [mapLayerIds.routeCasing, mapLayerIds.routeLine].forEach((layerId) => {
+          map.on('click', layerId, (layerEvent: { features?: MapFeature[] }) => {
+            const routeId = getFeatureItemId(layerEvent.features?.[0] ?? null);
+            const route = campusRoutes.find((item) => item.id === routeId);
+            if (route) {
+              latestStateRef.current.onSelectRoute?.(route);
+            }
+          });
+        });
+
+        [mapLayerIds.diningZoneFill, mapLayerIds.diningZoneLine].forEach((layerId) => {
+          map.on('click', layerId, (layerEvent: { features?: MapFeature[] }) => {
+            const zoneId = getFeatureItemId(layerEvent.features?.[0] ?? null);
+            const zone = diningZones.find((item) => item.id === zoneId);
+            if (zone) {
+              latestStateRef.current.onSelectDiningZone?.(zone);
+            }
+          });
+        });
+
+        [mapLayerIds.eventMarkerHalo, mapLayerIds.eventMarkerCircle, mapLayerIds.eventMarkerLabel].forEach(
+          (layerId) => {
+            map.on('click', layerId, (layerEvent: { features?: MapFeature[] }) => {
+              const groupId = getFeatureItemId(layerEvent.features?.[0] ?? null);
+              const group = latestStateRef.current.eventGroups.find((item) => item.id === groupId);
+              if (group) {
+                latestStateRef.current.onSelectEventGroup(group);
+              }
+            });
+          },
+        );
+
+        [mapLayerIds.eventClusterBubble, mapLayerIds.eventClusterLabel].forEach((layerId) => {
+          map.on('click', layerId, async (layerEvent: { features?: MapFeature[] }) => {
+            const clusterFeature = layerEvent.features?.[0];
+            const clusterId = Number(
+              (clusterFeature?.properties as Record<string, unknown> | undefined)?.cluster_id,
+            );
+
+            if (!Number.isFinite(clusterId) || clusterFeature?.geometry.type !== 'Point') {
+              return;
+            }
+
+            const source = map.getSource(mapSourceIds.eventMarkers);
+            const zoom = await source?.getClusterExpansionZoom?.(clusterId);
+            if (typeof zoom === 'number') {
+              const [longitude, latitude] = clusterFeature.geometry.coordinates as [number, number];
+              map.easeTo({
+                center: [longitude, latitude],
+                zoom: zoom + 0.4,
+                duration: 550,
+              });
+            }
+          });
+        });
+
+        map.on('contextmenu', (event: { lngLat: { lng: number; lat: number } }) => {
+          latestStateRef.current.onLongPressCoordinate?.([event.lngLat.lng, event.lngLat.lat]);
         });
       });
 
-      routeLayerIds.forEach((layerId) => {
-        map.on('click', layerId, (layerEvent) => {
-          const routeId = getFeatureItemId(layerEvent.features?.[0] as GeoJSON.Feature | undefined);
-          const route = campusRoutes.find((item) => item.id === routeId);
+      mapRef.current = map;
+    }
 
-          if (route) {
-            latestRouteHandlerRef.current?.(route);
-          }
-        });
-        map.on('mouseenter', layerId, () => {
-          map.getCanvas().style.cursor = 'pointer';
-        });
-        map.on('mouseleave', layerId, () => {
-          map.getCanvas().style.cursor = '';
-        });
-      });
-
-      diningZoneLayerIds.forEach((layerId) => {
-        map.on('click', layerId, (layerEvent) => {
-          const zoneId = getFeatureItemId(layerEvent.features?.[0] as GeoJSON.Feature | undefined);
-          const zone = diningZones.find((item) => item.id === zoneId);
-
-          if (zone) {
-            latestDiningZoneHandlerRef.current?.(zone);
-          }
-        });
-        map.on('mouseenter', layerId, () => {
-          map.getCanvas().style.cursor = 'pointer';
-        });
-        map.on('mouseleave', layerId, () => {
-          map.getCanvas().style.cursor = '';
-        });
-      });
-
-      [...clusteredEventLayerIds, ...rawEventLayerIds].forEach((layerId) => {
-        map.on('click', layerId, (layerEvent) => {
-          const eventId = getFeatureItemId(layerEvent.features?.[0] as GeoJSON.Feature | undefined);
-          const event = latestEventsRef.current.find((item) => item.id === eventId);
-
-          if (event) {
-            latestEventHandlerRef.current(event);
-          }
-        });
-        map.on('mouseenter', layerId, () => {
-          map.getCanvas().style.cursor = 'pointer';
-        });
-        map.on('mouseleave', layerId, () => {
-          map.getCanvas().style.cursor = '';
-        });
-      });
-
-      clusterLayerIds.forEach((layerId) => {
-        map.on('click', layerId, async (layerEvent) => {
-          const clusterFeature = layerEvent.features?.[0] as GeoJSON.Feature | undefined;
-          const clusterId = Number((clusterFeature?.properties as Record<string, unknown> | undefined)?.cluster_id);
-
-          if (!Number.isFinite(clusterId) || clusterFeature?.geometry.type !== 'Point') {
-            return;
-          }
-
-          const source = map.getSource(mapSourceIds.eventsClustered) as
-            | (GeoJSONSource & { getClusterExpansionZoom: (clusterId: number) => Promise<number> })
-            | undefined;
-          const zoom = await source?.getClusterExpansionZoom(clusterId);
-
-          if (typeof zoom === 'number') {
-            const [longitude, latitude] = clusterFeature.geometry.coordinates as [number, number];
-            map.easeTo({ center: [longitude, latitude], zoom: zoom + 0.35, duration: 550 });
-          }
-        });
-        map.on('mouseenter', layerId, () => {
-          map.getCanvas().style.cursor = 'pointer';
-        });
-        map.on('mouseleave', layerId, () => {
-          map.getCanvas().style.cursor = '';
-        });
-      });
-    });
-
-    const handleResize = () => {
-      map.resize();
-    };
-
-    window.addEventListener('resize', handleResize);
-    mapRef.current = map;
+    void bootstrapMap();
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      map.remove();
+      cancelled = true;
+      if (loadTimeout) {
+        window.clearTimeout(loadTimeout);
+      }
+      mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [boundaryShape]);
+  }, [styleMode]);
 
   useEffect(() => {
     const map = mapRef.current;
-
     if (!map || !map.isStyleLoaded()) {
       return;
     }
@@ -823,58 +769,148 @@ export default function CampusMap({
     setSourceData(map, mapSourceIds.routes, routeShape);
     setSourceData(map, mapSourceIds.diningZones, diningZoneShape);
     setSourceData(map, mapSourceIds.buildings, buildingShape);
-    setSourceData(map, mapSourceIds.eventsClustered, eventShape);
-    setSourceData(map, mapSourceIds.eventsRaw, eventShape);
+    setSourceData(map, mapSourceIds.eventHeat, eventHeatShape);
+    setSourceData(map, mapSourceIds.eventMarkers, eventMarkerShape);
     setSourceData(map, mapSourceIds.userLocation, userLocationShape);
     setSourceData(map, mapSourceIds.wayfinding, wayfindingShape);
-  }, [buildingShape, diningZoneShape, eventShape, routeShape, userLocationShape, wayfindingShape]);
+  }, [
+    buildingShape,
+    diningZoneShape,
+    eventHeatShape,
+    eventMarkerShape,
+    routeShape,
+    userLocationShape,
+    wayfindingShape,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;
-
     if (!map || !map.isStyleLoaded()) {
       return;
     }
 
-    applySelectionHighlight(
-      map,
-      activeRouteId,
-      activeDiningZoneId,
-      activeBuildingId,
-      activeEventId,
+    setLayerVisibility(map, mapLayerIds.eventHeat, isHeatmapMode);
+    setLayerVisibility(map, mapLayerIds.eventClusterBubble, showEvents && clusterEvents);
+    setLayerVisibility(map, mapLayerIds.eventClusterLabel, showEvents && clusterEvents);
+    setLayerVisibility(map, mapLayerIds.eventMarkerHalo, showEvents);
+    setLayerVisibility(map, mapLayerIds.eventLivePulse, showEvents);
+    setLayerVisibility(map, mapLayerIds.eventMarkerCircle, showEvents);
+    setLayerVisibility(map, mapLayerIds.eventMarkerLabel, showEvents);
+    setLayerVisibility(map, mapLayerIds.buildingHalo, showBuildings);
+    setLayerVisibility(map, mapLayerIds.buildingCircle, showBuildings);
+    setLayerVisibility(map, mapLayerIds.buildingLabel, showBuildings);
+    setLayerVisibility(map, mapLayerIds.routeCasing, showWalkingRoutes);
+    setLayerVisibility(map, mapLayerIds.routeLine, showWalkingRoutes);
+    setLayerVisibility(map, mapLayerIds.diningZoneFill, showDiningZones);
+    setLayerVisibility(map, mapLayerIds.diningZoneLine, showDiningZones);
+  }, [clusterEvents, isHeatmapMode, showBuildings, showDiningZones, showEvents, showWalkingRoutes]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded() || !map.getLayer(mapLayerIds.eventLivePulse)) {
+      return;
+    }
+
+    map.setPaintProperty(
+      mapLayerIds.eventLivePulse,
+      'circle-radius',
+      ['+', ['/', ['get', 'haloSize'], 2], 3 + pulsePhase * 9],
     );
-  }, [activeBuildingId, activeDiningZoneId, activeEventId, activeRouteId]);
+    map.setPaintProperty(
+      mapLayerIds.eventLivePulse,
+      'circle-opacity',
+      Math.max(0.06, 0.24 - pulsePhase * 0.18),
+    );
+  }, [pulsePhase]);
 
   useEffect(() => {
     const map = mapRef.current;
-
     if (!map || !map.isStyleLoaded()) {
       return;
     }
 
-    setLayerVisibility(map, [mapLayerIds.routeCasing, mapLayerIds.routeLine], showWalkingRoutes);
-    setLayerVisibility(map, [mapLayerIds.diningZoneFill, mapLayerIds.diningZoneLine], showDiningZones);
-    setLayerVisibility(
-      map,
+    map.setPaintProperty(
+      mapLayerIds.buildingHalo,
+      'circle-radius',
+      ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 24, 18],
+    );
+    map.setPaintProperty(
+      mapLayerIds.buildingHalo,
+      'circle-opacity',
+      ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 0.28, 0.18],
+    );
+    map.setPaintProperty(
+      mapLayerIds.buildingCircle,
+      'circle-radius',
+      ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 16, 14],
+    );
+    map.setPaintProperty(
+      mapLayerIds.buildingCircle,
+      'circle-stroke-width',
+      ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 3, 2],
+    );
+
+    map.setPaintProperty(
+      mapLayerIds.routeCasing,
+      'line-width',
+      ['case', ['==', ['get', 'itemId'], activeRouteId ?? '__none__'], 10, 8],
+    );
+    map.setPaintProperty(
+      mapLayerIds.routeLine,
+      'line-color',
       [
-        mapLayerIds.eventClusterBubble,
-        mapLayerIds.eventClusterLabel,
-        mapLayerIds.clusteredEventHalo,
-        mapLayerIds.clusteredEventCircle,
-        mapLayerIds.clusteredEventLabel,
+        'case',
+        ['==', ['get', 'itemId'], activeRouteId ?? '__none__'],
+        colors.text.primary,
+        ['get', 'color'],
       ],
-      clusterEvents,
     );
-    setLayerVisibility(
-      map,
-      [mapLayerIds.rawEventHalo, mapLayerIds.rawEventCircle, mapLayerIds.rawEventLabel],
-      !clusterEvents,
+    map.setPaintProperty(
+      mapLayerIds.routeLine,
+      'line-width',
+      ['case', ['==', ['get', 'itemId'], activeRouteId ?? '__none__'], 5, 4],
     );
-  }, [clusterEvents, showDiningZones, showWalkingRoutes]);
+
+    map.setPaintProperty(
+      mapLayerIds.diningZoneFill,
+      'fill-opacity',
+      ['case', ['==', ['get', 'itemId'], activeDiningZoneId ?? '__none__'], 1, 0.78],
+    );
+    map.setPaintProperty(
+      mapLayerIds.diningZoneLine,
+      'line-color',
+      [
+        'case',
+        ['==', ['get', 'itemId'], activeDiningZoneId ?? '__none__'],
+        colors.text.primary,
+        ['get', 'lineColor'],
+      ],
+    );
+    map.setPaintProperty(
+      mapLayerIds.diningZoneLine,
+      'line-width',
+      ['case', ['==', ['get', 'itemId'], activeDiningZoneId ?? '__none__'], 3, 2],
+    );
+
+    map.setPaintProperty(
+      mapLayerIds.eventMarkerHalo,
+      'circle-radius',
+      [
+        'case',
+        ['==', ['get', 'itemId'], activeEventGroupId ?? '__none__'],
+        ['+', ['/', ['get', 'haloSize'], 2], 2],
+        ['/', ['get', 'haloSize'], 2],
+      ],
+    );
+    map.setPaintProperty(
+      mapLayerIds.eventMarkerCircle,
+      'circle-stroke-width',
+      ['case', ['==', ['get', 'itemId'], activeEventGroupId ?? '__none__'], 3, 2],
+    );
+  }, [activeBuildingId, activeDiningZoneId, activeEventGroupId, activeRouteId]);
 
   useEffect(() => {
     const map = mapRef.current;
-
     if (!map || !map.isStyleLoaded() || !focusRequest) {
       return;
     }
@@ -890,7 +926,7 @@ export default function CampusMap({
     if (focusRequest.centerCoordinate) {
       map.easeTo({
         center: focusRequest.centerCoordinate,
-        zoom: focusRequest.zoomLevel ?? 16.55,
+        zoom: focusRequest.zoomLevel ?? 16.2,
         duration: 650,
       });
     }
@@ -898,7 +934,7 @@ export default function CampusMap({
 
   return (
     <View style={[styles.wrapper, style]}>
-      <div ref={mapContainerRef} style={styles.mapContainer} />
+      <div ref={containerRef} style={styles.mapContainer} />
     </View>
   );
 }
@@ -917,3 +953,4 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
   } as any,
 });
+
