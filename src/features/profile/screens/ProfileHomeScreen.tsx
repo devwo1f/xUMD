@@ -75,8 +75,11 @@ export default function ProfileHomeScreen({ navigation }: Props) {
   }, [viewerUserId]);
 
   const joinedClubs = useMemo(
-    () => mockClubs.filter((club) => joinedClubIds.includes(club.id)).slice(0, 4),
-    [joinedClubIds],
+    () =>
+      mockClubs
+        .filter((club) => joinedClubIds.includes(club.id) || user.clubs.includes(club.name))
+        .slice(0, 4),
+    [joinedClubIds, user.clubs],
   );
 
   const collections = [
@@ -120,7 +123,10 @@ export default function ProfileHomeScreen({ navigation }: Props) {
   const openUserProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 
   const openClubsTab = () => {
-    navigation.getParent()?.navigate('Clubs' as never);
+    const parentNavigation = navigation.getParent();
+    if (parentNavigation) {
+      (parentNavigation as any).navigate('Campus', { screen: 'ClubsHome' });
+    }
   };
 
   const clubCards = joinedClubs.map((club) => (

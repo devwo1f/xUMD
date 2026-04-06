@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
 import CampusMap from '../../map/components/CampusMap';
 import EventBottomSheet from '../../map/components/EventBottomSheet';
+import BottomSheet from '../../../shared/components/BottomSheet';
 import Badge from '../../../shared/components/Badge';
 import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
@@ -12,19 +13,20 @@ import HeaderTag from '../../../shared/components/HeaderTag';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import UMDBrandLockup from '../../../shared/components/UMDBrandLockup';
 import { mockCampusEvents } from '../../../assets/data/mockEvents';
-import {
-  eventCategoryOptions,
-  type ExploreEventCategoryFilter,
-} from '../../map/data/campusOverlays';
-import { useMapData, type TimeFilter } from '../../map/hooks/useMapData';
-import { buildEventLocationGroups } from '../../map/utils/eventDiscovery';
+import type { ExploreStackParamList } from '../../../navigation/types';
+import { useCrossTabNavStore } from '../../../shared/stores/useCrossTabNavStore';
+import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import { useResponsive } from '../../../shared/hooks/useResponsive';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
-import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import { EventCategory, type Event } from '../../../shared/types';
-import type { ExploreStackParamList } from '../../../navigation/types';
+import MiniCalendarStrip from '../../calendar/components/MiniCalendarStrip';
+import { useCalendarEntries } from '../../calendar/hooks/useCalendarEntries';
+import type { CalendarEntry } from '../../calendar/types';
+import { eventCategoryOptions, type ExploreEventCategoryFilter } from '../../map/data/campusOverlays';
+import { useMapData, type TimeFilter } from '../../map/hooks/useMapData';
+import { buildEventLocationGroups } from '../../map/utils/eventDiscovery';
 
 type Props = NativeStackScreenProps<ExploreStackParamList, 'ExploreHome'>;
 
@@ -34,15 +36,28 @@ export default function ExploreHomeScreen({ navigation }: Props) {
   const [activeEventCategory, setActiveEventCategory] =
     useState<ExploreEventCategoryFilter>('all');
   const [activeEvent, setActiveEvent] = useState<Event | null>(null);
+  const [calendarPreviewEntry, setCalendarPreviewEntry] = useState<CalendarEntry | null>(null);
 
   const { isWide } = useResponsive();
+  const { savedEventIds, toggleSavedEvent } = useDemoAppStore();
+  const setPendingCalendarFocus = useCrossTabNavStore((state) => state.setPendingCalendarFocus);
+  const setPendingMapFocus = useCrossTabNavStore((state) => state.setPendingMapFocus);
+  const {
+    todayEntries,
+    todayConflicts,
+    miniSummary,
+  } = useCalendarEntries({
+    anchorDate: new Date(),
+    viewMode: 'day',
+  });
+
   const { events } = useMapData({
     timeFilter,
     searchQuery,
     categoryFilter:
       activeEventCategory === 'all' ? undefined : (activeEventCategory as EventCategory),
   });
-  const { savedEventIds, toggleSavedEvent } = useDemoAppStore();
+
   const eventById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
   const eventGroups = useMemo(
     () =>
@@ -95,10 +110,52 @@ export default function ExploreHomeScreen({ navigation }: Props) {
     navigation.getParent()?.navigate('Map' as never);
   };
 
+  const openFullCalendar = () => {
+    navigation.getParent()?.navigate('Calendar' as never);
+  };
+
+  const openCalendarWithConflicts = () => {
+    setPendingCalendarFocus({
+      date: new Date().toISOString(),
+      showConflicts: true,
+    });
+    openFullCalendar();
+  };
+
+  const handleCalendarEntryTap = (entry: CalendarEntry) => {
+    if ((entry.type === 'event_going' || entry.type === 'event_interested') && entry.eventId) {
+      navigation.navigate('EventDetail', { eventId: entry.eventId });
+      return;
+    }
+
+    if (entry.type === 'club_meeting' && entry.clubId) {
+      navigation.navigate('ClubDetail', { clubId: entry.clubId });
+      return;
+    }
+
+    setCalendarPreviewEntry(entry);
+  };
+
+  const openEntryOnMap = (entry: CalendarEntry) => {
+    if (typeof entry.latitude !== 'number' || typeof entry.longitude !== 'number') {
+      return;
+    }
+
+    setPendingMapFocus({
+      type: 'location',
+      locationId: entry.locationId ?? entry.sourceId,
+      label: entry.locationName,
+      latitude: entry.latitude,
+      longitude: entry.longitude,
+    });
+    setCalendarPreviewEntry(null);
+    openFullMap();
+  };
+
   return (
     <ScreenLayout
       title="Explore"
-      subtitle="A clean event-first view of what is happening around UMD right now."
+      subtitle="Discovery, events, and your day in one calm campus hub."
       headerTopContent={<UMDBrandLockup />}
       headerMetaContent={
         <HeaderTag
@@ -111,6 +168,16 @@ export default function ExploreHomeScreen({ navigation }: Props) {
       headerStyle={styles.headerShell}
     >
       <View style={styles.container}>
+        <MiniCalendarStrip
+          entries={todayEntries}
+          conflicts={todayConflicts}
+          summary={miniSummary}
+          onViewFullCalendar={openFullCalendar}
+          onEntryTap={handleCalendarEntryTap}
+          onConflictTap={openCalendarWithConflicts}
+          onEmptyTap={() => navigation.getParent()?.navigate('Search' as never)}
+        />
+
         <View style={styles.searchWrap}>
           <Ionicons name="search" size={18} color={colors.text.tertiary} />
           <TextInput
@@ -304,6 +371,37 @@ export default function ExploreHomeScreen({ navigation }: Props) {
           openFullMap();
         }}
       />
+
+      <BottomSheet
+        visible={Boolean(calendarPreviewEntry)}
+        onClose={() => setCalendarPreviewEntry(null)}
+        snapPoints={[0.4]}
+      >
+        {calendarPreviewEntry ? (
+          <View style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>{calendarPreviewEntry.title}</Text>
+            <Text style={styles.sheetSubtitle}>{calendarPreviewEntry.sourceLabel}</Text>
+            <Card style={styles.sheetInfoCard}>
+              <Text style={styles.sheetInfoLabel}>Time</Text>
+              <Text style={styles.sheetInfoValue}>{format(new Date(calendarPreviewEntry.startsAt), 'EEE, h:mm a')} - {format(new Date(calendarPreviewEntry.endsAt), 'h:mm a')}</Text>
+              <Text style={styles.sheetInfoMeta}>{calendarPreviewEntry.locationName}</Text>
+            </Card>
+            {calendarPreviewEntry.detail ? (
+              <Text style={styles.sheetBody}>{calendarPreviewEntry.detail}</Text>
+            ) : null}
+            <View style={styles.sheetButtonStack}>
+              <Button title="Open Full Calendar" onPress={() => {
+                setPendingCalendarFocus({ date: calendarPreviewEntry.startsAt, entryId: calendarPreviewEntry.id });
+                setCalendarPreviewEntry(null);
+                openFullCalendar();
+              }} fullWidth />
+              {typeof calendarPreviewEntry.latitude === 'number' && typeof calendarPreviewEntry.longitude === 'number' ? (
+                <Button title="Show on Map" variant="secondary" onPress={() => openEntryOnMap(calendarPreviewEntry)} fullWidth />
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+      </BottomSheet>
     </ScreenLayout>
   );
 }
@@ -551,11 +649,44 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.text.secondary,
   },
+  sheetContent: {
+    gap: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
+  sheetTitle: {
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  sheetSubtitle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  sheetInfoCard: {
+    gap: spacing.xs,
+  },
+  sheetInfoLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
+    textTransform: 'uppercase',
+  },
+  sheetInfoValue: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  sheetInfoMeta: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  sheetBody: {
+    fontSize: typography.fontSize.sm,
+    lineHeight: 20,
+    color: colors.text.secondary,
+  },
+  sheetButtonStack: {
+    gap: spacing.sm,
+  },
 });
-
-
-
-
-
-
-

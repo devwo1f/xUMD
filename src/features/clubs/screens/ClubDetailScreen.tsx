@@ -1,5 +1,5 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
@@ -26,12 +26,15 @@ import { colors } from '../../../shared/theme/colors';
 import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { MemberRole, MemberStatus } from '../../../shared/types';
+import { createClubUrl } from '../../../navigation/deepLinks';
 import type { ClubMemberWithUser, PostMediaItem } from '../../../shared/types';
-import type { ClubsStackParamList, ProfileStackParamList } from '../../../navigation/types';
+import type { CalendarStackParamList, CampusStackParamList, ClubsStackParamList, ExploreStackParamList, ProfileStackParamList } from '../../../navigation/types';
 import { useProfile } from '../../profile/hooks/useProfile';
+import { useAuth } from '../../auth/hooks/useAuth';
+import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import PostMediaGallery from '../../feed/components/PostMediaGallery';
 
-type Props = NativeStackScreenProps<ClubsStackParamList & ProfileStackParamList, 'ClubDetail'>;
+type Props = NativeStackScreenProps<ClubsStackParamList & ProfileStackParamList & CampusStackParamList & CalendarStackParamList & ExploreStackParamList, 'ClubDetail'>;
 type TabKey = 'About' | 'Events' | 'Media' | 'Members';
 
 interface ClubAnnouncement {
@@ -127,11 +130,13 @@ function getInitialClubState(clubId: string) {
 
 export default function ClubDetailScreen({ navigation, route }: Props) {
   const { user: profileUser } = useProfile();
+  const { user: authUser, updateProfile: updateAuthProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('About');
   const [showAnnouncementComposer, setShowAnnouncementComposer] = useState(false);
   const [showPostComposer, setShowPostComposer] = useState(false);
   const [showMediaComposer, setShowMediaComposer] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState('');
+  const { joinedClubIds, toggleJoinedClub } = useDemoAppStore();
   const [announcementBody, setAnnouncementBody] = useState('');
   const [postBody, setPostBody] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
@@ -204,6 +209,9 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     );
   }
 
+  const hasJoinedClubShortcut =
+    joinedClubIds.includes(club.id) || (authUser?.clubs ?? []).includes(club.name);
+
   const sortedMembers = [...members].sort((left, right) => {
     const roleDifference = getRoleRank(right.role) - getRoleRank(left.role);
     if (roleDifference !== 0) {
@@ -213,7 +221,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     return left.user.display_name.localeCompare(right.user.display_name);
   });
   const leader = sortedMembers.find((member) => member.role === 'president') ?? sortedMembers[0];
-  const currentMembership = sortedMembers.find((member) => member.user_id === currentUser.id) ?? null;
+  const currentMembership = sortedMembers.find((member) => member.user_id === currentUser.id) ?? (hasJoinedClubShortcut ? ({ role: MemberRole.Member } as ClubMemberWithUser) : null);
   const isJoined = Boolean(currentMembership);
   const currentRole = currentMembership?.role ?? null;
   const canManageMembers = currentRole === 'admin' || currentRole === 'president';
@@ -244,13 +252,36 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     navigation.navigate('UserProfile', { userId });
   };
 
-  const handleMembershipAction = () => {
+  const syncClubMemberships = async (nextJoined: boolean) => {
+    if (!authUser) {
+      return;
+    }
+
+    const nextClubs = new Set(authUser.clubs ?? []);
+    if (nextJoined) {
+      nextClubs.add(club.name);
+    } else {
+      nextClubs.delete(club.name);
+    }
+
+    try {
+      await updateAuthProfile({ clubs: [...nextClubs] });
+    } catch (error) {
+      console.warn('Unable to sync club membership to profile.', error);
+    }
+  };
+
+  const handleMembershipAction = async () => {
     if (currentRole === 'president' || currentRole === 'admin' || currentRole === 'officer') {
       return;
     }
 
     if (isJoined) {
       setMembers((current) => current.filter((member) => member.user_id !== currentUser.id));
+      if (hasJoinedClubShortcut) {
+        toggleJoinedClub(club.id);
+      }
+      await syncClubMemberships(false);
       return;
     }
 
@@ -265,6 +296,11 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
         user: currentUser,
       },
     ]);
+
+    if (!hasJoinedClubShortcut) {
+      toggleJoinedClub(club.id);
+    }
+    await syncClubMemberships(true);
   };
 
   const publishAnnouncement = () => {
@@ -431,6 +467,12 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     );
   };
 
+  const shareClub = async () => {
+    await Share.share({
+      message: `${club.name}\n${club.short_description}\n${createClubUrl(club.id)}`,
+    });
+  };
+
   return (
     <ScreenLayout
       title="Club"
@@ -441,7 +483,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
         </Pressable>
       }
       rightAction={
-        <Pressable style={styles.backButton}>
+        <Pressable style={styles.backButton} onPress={() => void shareClub()}>
           <Ionicons name="share-social-outline" size={20} color={colors.text.primary} />
         </Pressable>
       }
@@ -489,7 +531,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
                       ? 'Joined'
                       : 'Join Club'
             }
-            onPress={handleMembershipAction}
+            onPress={() => void handleMembershipAction()}
             fullWidth
             variant={isJoined ? 'secondary' : 'primary'}
             disabled={currentRole === 'president' || currentRole === 'admin' || currentRole === 'officer'}
@@ -973,6 +1015,8 @@ const styles = StyleSheet.create({
     color: colors.status.error,
   },
 });
+
+
 
 
 

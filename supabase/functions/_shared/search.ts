@@ -6,9 +6,22 @@ import { getRedis } from './upstash.ts';
 
 export type SearchIntent = 'keyword' | 'semantic' | 'hybrid';
 export type SearchEntityType = 'person' | 'event' | 'club' | 'location';
+export const SEARCH_CATEGORIES = [
+  'academic',
+  'social',
+  'sports',
+  'club',
+  'career',
+  'arts',
+  'food',
+  'workshop',
+  'party',
+  'other',
+] as const;
+export type SearchCategory = (typeof SEARCH_CATEGORIES)[number];
 
 export interface ExtractedSearchFilters {
-  category: string | null;
+  category: SearchCategory | null;
   timeframe: 'now' | 'today' | 'tomorrow' | 'this_week' | null;
   cost: 'free' | null;
   entity_type: SearchEntityType | null;
@@ -38,7 +51,7 @@ interface HydratedUserPreview {
 interface HydratedEventPreview {
   id: string;
   title: string;
-  category: string;
+  category: SearchCategory;
   location_name: string;
   starts_at: string;
   ends_at: string;
@@ -117,7 +130,7 @@ const INTENT_PATTERNS = [
 
 const VIBE_WORDS = ['chill', 'hype', 'fun', 'relaxing', 'exciting', 'social', 'study', 'creative', 'active', 'free food', 'meet people'];
 
-const CATEGORY_KEYWORDS: Array<{ category: string; keywords: string[] }> = [
+const CATEGORY_KEYWORDS: Array<{ category: SearchCategory; keywords: string[] }> = [
   { category: 'academic', keywords: ['academic', 'study', 'class', 'course', 'lecture', 'library', 'cs'] },
   { category: 'social', keywords: ['social', 'hangout', 'friends', 'mixer'] },
   { category: 'sports', keywords: ['sports', 'game', 'athletics', 'fitness', 'basketball'] },
@@ -219,9 +232,13 @@ function normalizeExtractedFilters(
 ): ExtractedSearchFilters {
   const validTimeframes = new Set(['now', 'today', 'tomorrow', 'this_week']);
   const validEntityTypes = new Set(['person', 'event', 'club', 'location']);
+  const validCategories = new Set<SearchCategory>(SEARCH_CATEGORIES);
 
   return {
-    category: typeof value?.category === 'string' ? value.category : fallback.category,
+    category:
+      typeof value?.category === 'string' && validCategories.has(value.category as SearchCategory)
+        ? (value.category as SearchCategory)
+        : fallback.category,
     timeframe:
       typeof value?.timeframe === 'string' && validTimeframes.has(value.timeframe)
         ? (value.timeframe as ExtractedSearchFilters['timeframe'])
@@ -319,7 +336,7 @@ async function fetchCachedQueryEmbedding(query: string) {
 }
 export function extractSearchFilters(query: string): ExtractedSearchFilters {
   const normalized = normalizeQuery(query);
-  let category: string | null = null;
+  let category: SearchCategory | null = null;
   let timeframe: ExtractedSearchFilters['timeframe'] = null;
   let entityType: SearchEntityType | null = null;
 
@@ -617,7 +634,7 @@ async function hydrateEvents(adminClient: SupabaseClient, userId: string, refs: 
   const order = new Map(refs.map((ref, index) => [ref.entityId, index]));
   const byId = new Map(refs.map((ref) => [ref.entityId, ref]));
 
-  return ((eventRows ?? []) as Array<{ id: string; title: string; category: string; location_name: string; starts_at: string; ends_at: string; status: string; attendee_count: number; cover_image_url: string | null; latitude: number | null; longitude: number | null }> )
+  return ((eventRows ?? []) as Array<{ id: string; title: string; category: SearchCategory; location_name: string; starts_at: string; ends_at: string; status: string; attendee_count: number; cover_image_url: string | null; latitude: number | null; longitude: number | null }> )
     .filter((row) => (!filters.category || row.category === filters.category) && matchesEventTimeframe(row.starts_at, row.ends_at, filters.timeframe))
     .map((row) => {
       const ref = byId.get(row.id);
@@ -669,7 +686,7 @@ async function hydrateClubs(adminClient: SupabaseClient, refs: SearchRef[]) {
         id: row.id,
         name: row.name,
         category: row.category,
-        description: row.description.length > 120 ? `${row.description.slice(0, 119).trimEnd()}…` : row.description,
+        description: row.description.length > 120 ? `${row.description.slice(0, 119).trimEnd()}...` : row.description,
         member_count: row.member_count,
         tags: row.tags ?? [],
         cover_image_url: row.cover_image_url ?? row.cover_url,
@@ -825,10 +842,10 @@ export async function runAutocomplete(adminClient: SupabaseClient, query: string
   ]);
 
   const suggestions = [
-    ...events.slice(0, 3).map((entry) => ({ type: 'event' as const, id: entry.data.id, title: entry.data.title, subtitle: `${entry.data.location_name} · ${entry.data.category}`, icon: 'calendar-outline', latitude: entry.data.latitude ?? undefined, longitude: entry.data.longitude ?? undefined })),
-    ...clubs.slice(0, 2).map((entry) => ({ type: 'club' as const, id: entry.data.id, title: entry.data.name, subtitle: `${entry.data.category} · ${entry.data.member_count} members`, icon: 'people-outline' })),
-    ...people.slice(0, 2).map((entry) => ({ type: 'person' as const, id: entry.data.id, title: entry.data.display_name, subtitle: `@${entry.data.username}${entry.data.mutual_follow_count > 0 ? ` · ${entry.data.mutual_follow_count} mutuals` : ''}`, icon: 'person-outline' })),
-    ...locations.slice(0, 2).map((entry) => ({ type: 'location' as const, id: entry.data.id, title: entry.data.name, subtitle: `${entry.data.short_name} · ${entry.data.building_type}`, icon: 'location-outline', latitude: entry.data.latitude, longitude: entry.data.longitude })),
+    ...events.slice(0, 3).map((entry) => ({ type: 'event' as const, id: entry.data.id, title: entry.data.title, subtitle: `${entry.data.location_name} | ${entry.data.category}`, icon: 'calendar-outline', latitude: entry.data.latitude ?? undefined, longitude: entry.data.longitude ?? undefined })),
+    ...clubs.slice(0, 2).map((entry) => ({ type: 'club' as const, id: entry.data.id, title: entry.data.name, subtitle: `${entry.data.category} | ${entry.data.member_count} members`, icon: 'people-outline' })),
+    ...people.slice(0, 2).map((entry) => ({ type: 'person' as const, id: entry.data.id, title: entry.data.display_name, subtitle: `@${entry.data.username}${entry.data.mutual_follow_count > 0 ? ` | ${entry.data.mutual_follow_count} mutuals` : ''}`, icon: 'person-outline' })),
+    ...locations.slice(0, 2).map((entry) => ({ type: 'location' as const, id: entry.data.id, title: entry.data.name, subtitle: `${entry.data.short_name} | ${entry.data.building_type}`, icon: 'location-outline', latitude: entry.data.latitude, longitude: entry.data.longitude })),
   ].slice(0, limit);
 
   return { suggestions } satisfies AutocompleteResponse;

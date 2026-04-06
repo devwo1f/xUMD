@@ -23,12 +23,14 @@ import HeaderTag from '../../../shared/components/HeaderTag';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import UMDBrandLockup from '../../../shared/components/UMDBrandLockup';
 import { buildings, type Building } from '../../../assets/data/buildings';
+import { useResponsive } from '../../../shared/hooks/useResponsive';
 import { useCrossTabNavStore } from '../../../shared/stores/useCrossTabNavStore';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { EventCategory, type Event } from '../../../shared/types';
+import { createEventUrl } from '../../../navigation/deepLinks';
 import type { MapStackParamList } from '../../../navigation/types';
 import { isSupabaseConfigured } from '../../../services/supabase';
 import {
@@ -207,6 +209,7 @@ function EventListItem({
 
 export default function MapHomeScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
+  const { isWide, isDesktop } = useResponsive();
   const { userLocation, isLocating, locationError, requestUserLocation } = useUserLocation();
   const {
     selectedCategories,
@@ -230,6 +233,7 @@ export default function MapHomeScreen({ navigation }: Props) {
   const { savedEventIds, goingEventIds, setEventRsvpStatus } = useDemoAppStore();
   const pendingMapFocus = useCrossTabNavStore((state) => state.pendingMapFocus);
   const clearPendingMapFocus = useCrossTabNavStore((state) => state.clearPendingMapFocus);
+  const setPendingCalendarFocus = useCrossTabNavStore((state) => state.setPendingCalendarFocus);
 
   const [showBuildings, setShowBuildings] = useState(true);
   const [showWalkingRoutes, setShowWalkingRoutes] = useState(true);
@@ -505,8 +509,10 @@ export default function MapHomeScreen({ navigation }: Props) {
   };
 
   const handleShare = async (event: Event) => {
+    const eventUrl = createEventUrl(event.id);
+
     await Share.share({
-      message: `${event.title}\n${getContextualTimeLabel(event)}\n${event.location_name}`,
+      message: `${event.title}\n${getContextualTimeLabel(event)}\n${event.location_name}\n${eventUrl}`,
     });
   };
 
@@ -524,6 +530,7 @@ export default function MapHomeScreen({ navigation }: Props) {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['map-events'] }),
           queryClient.invalidateQueries({ queryKey: ['map-event-detail', event.id] }),
+          queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
         ]);
       }
 
@@ -557,6 +564,14 @@ export default function MapHomeScreen({ navigation }: Props) {
         error instanceof Error ? error.message : 'Unable to report this event right now.';
       Alert.alert('Report unavailable', message);
     }
+  };
+
+  const openEventInCalendar = (event: Event) => {
+    setPendingCalendarFocus({
+      date: event.starts_at,
+      entryId: event.id,
+    });
+    navigation.getParent()?.navigate('Calendar' as never);
   };
 
   const handleQuickLens = async (lensId: (typeof QUICK_LENSES)[number]['id']) => {
@@ -747,8 +762,8 @@ export default function MapHomeScreen({ navigation }: Props) {
       }
     >
       <View style={styles.container}>
-        <View style={styles.topControls}>
-          <View style={styles.searchCard}>
+        <View style={[styles.topControls, isWide && styles.topControlsWide]}>
+          <View style={[styles.searchCard, isWide && styles.searchCardWide]}>
             <Ionicons name="search" size={18} color={colors.text.tertiary} />
             <TextInput
               value={searchQuery}
@@ -767,7 +782,7 @@ export default function MapHomeScreen({ navigation }: Props) {
           </View>
 
           {searchResults.length > 0 ? (
-            <Card style={styles.searchResultsCard}>
+            <Card style={[styles.searchResultsCard, isWide && styles.searchResultsCardWide]}>
               {searchResults.map((result) => (
                 <Pressable
                   key={result.id}
@@ -793,7 +808,7 @@ export default function MapHomeScreen({ navigation }: Props) {
               ))}
             </Card>
           ) : isSearchLoading ? (
-            <Card style={styles.searchResultsCard}>
+            <Card style={[styles.searchResultsCard, isWide && styles.searchResultsCardWide]}>
               <Text style={styles.helperText}>Searching campus events...</Text>
             </Card>
           ) : null}
@@ -877,7 +892,7 @@ export default function MapHomeScreen({ navigation }: Props) {
           </ScrollView>
         </View>
 
-        <View style={styles.mapShell}>
+        <View style={[styles.mapShell, isWide && styles.mapShellWide, isDesktop && styles.mapShellDesktop]}>
           <CampusMap
             style={styles.map}
             events={filteredEvents}
@@ -933,11 +948,11 @@ export default function MapHomeScreen({ navigation }: Props) {
           <Pressable onPress={handleJumpToLive} style={styles.liveCounterPill}>
             <View style={styles.liveCounterDot} />
             <Text style={styles.liveCounterText}>
-              {liveCounter.liveCount} live · {liveCounter.nextTwoHoursCount} in next 2hrs
+              {liveCounter.liveCount} live - {liveCounter.nextTwoHoursCount} in next 2hrs
             </Text>
           </Pressable>
 
-          <View style={styles.mapFabColumn}>
+          <View style={[styles.mapFabColumn, isWide && styles.mapFabColumnWide]}>
             <Pressable
               onPress={() =>
                 void requestUserLocation().then((location) => {
@@ -980,7 +995,7 @@ export default function MapHomeScreen({ navigation }: Props) {
             </Pressable>
           </View>
 
-          <View style={styles.mapLegend}>
+          <View style={[styles.mapLegend, isWide && styles.mapLegendWide]}>
             <Text style={styles.mapLegendTitle}>
               {isHeatmapMode ? 'Heatmap mode' : 'Category mode'}
             </Text>
@@ -1008,7 +1023,7 @@ export default function MapHomeScreen({ navigation }: Props) {
           <View style={styles.sheetBlock}>
             <Text style={styles.sheetTitle}>{selectedGroup.locationName}</Text>
             <Text style={styles.sheetSubtitle}>
-              {selectedGroup.eventCount} events here · {selectedGroup.densityLabel}
+              {selectedGroup.eventCount} events here - {selectedGroup.densityLabel}
             </Text>
 
             <ScrollView
@@ -1114,6 +1129,15 @@ export default function MapHomeScreen({ navigation }: Props) {
                 variant="ghost"
               />
               <Button
+                title="Show in Calendar"
+                onPress={() => openEventInCalendar(selectedEvent)}
+                style={styles.flexButton}
+                variant="ghost"
+              />
+            </View>
+
+            <View style={styles.sheetActionRow}>
+              <Button
                 title="Details"
                 onPress={() => {
                   setDetailEventId(selectedEvent.id);
@@ -1200,7 +1224,7 @@ export default function MapHomeScreen({ navigation }: Props) {
                 <Text style={styles.infoText}>
                   {detailEventQuery.data.campus_location.name}
                   {detailEventQuery.data.campus_location.address
-                    ? ` · ${detailEventQuery.data.campus_location.address}`
+                    ? ` - ${detailEventQuery.data.campus_location.address}`
                     : ''}
                 </Text>
               </Card>
@@ -1232,6 +1256,12 @@ export default function MapHomeScreen({ navigation }: Props) {
                 fullWidth
               />
               <Button
+                title="Show in Calendar"
+                onPress={() => openEventInCalendar(detailEvent)}
+                fullWidth
+                variant="secondary"
+              />
+              <Button
                 title="Get Directions"
                 onPress={() =>
                   void handleDirections(detailEvent.location_name, [
@@ -1240,7 +1270,7 @@ export default function MapHomeScreen({ navigation }: Props) {
                   ])
                 }
                 fullWidth
-                variant="secondary"
+                variant="ghost"
               />
               <Button
                 title="Share"
@@ -1339,7 +1369,7 @@ export default function MapHomeScreen({ navigation }: Props) {
           </Text>
           <Text style={styles.sheetSubtitle}>
             {wayfindingJourney
-              ? `${wayfindingJourney.durationLabel} · ${wayfindingJourney.distanceLabel}`
+              ? `${wayfindingJourney.durationLabel} - ${wayfindingJourney.distanceLabel}`
               : selectedRoute?.description ?? 'Campus walking route'}
           </Text>
           <Text style={styles.sheetDescription}>
@@ -1536,7 +1566,7 @@ export default function MapHomeScreen({ navigation }: Props) {
               <Text style={styles.cardHeading}>Nearest campus location</Text>
               {nearestCreateLocation ? (
                 <Text style={styles.infoText}>
-                  {nearestCreateLocation.building.name} ·{' '}
+                  {nearestCreateLocation.building.name} - 
                   {Math.round(nearestCreateLocation.distance)}m away
                 </Text>
               ) : (
@@ -1668,7 +1698,7 @@ export default function MapHomeScreen({ navigation }: Props) {
             </View>
 
             <Button
-              title={isSubmittingEvent ? 'Publishing…' : 'Publish Event'}
+              title={isSubmittingEvent ? 'Publishing...' : 'Publish Event'}
               onPress={() => void handleSubmitCreateEvent()}
               fullWidth
             />
@@ -1686,6 +1716,9 @@ const styles = StyleSheet.create({
   topControls: {
     gap: spacing.sm,
   },
+  topControlsWide: {
+    gap: spacing.md,
+  },
   searchCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1697,6 +1730,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand.white,
     paddingHorizontal: spacing.md,
     ...shadows.sm,
+  },
+  searchCardWide: {
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   searchInput: {
     flex: 1,
@@ -1713,6 +1750,10 @@ const styles = StyleSheet.create({
   },
   searchResultsCard: {
     paddingVertical: spacing.sm,
+  },
+  searchResultsCardWide: {
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   searchResultRow: {
     flexDirection: 'row',
@@ -1812,6 +1853,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand.white,
     ...shadows.lg,
   },
+  mapShellWide: {
+    height: 640,
+  },
+  mapShellDesktop: {
+    height: 720,
+  },
   map: {
     flex: 1,
   },
@@ -1844,6 +1891,10 @@ const styles = StyleSheet.create({
     bottom: spacing.md,
     gap: spacing.sm,
   },
+  mapFabColumnWide: {
+    right: spacing.lg,
+    bottom: spacing.lg,
+  },
   fab: {
     width: 50,
     height: 50,
@@ -1865,6 +1916,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.94)',
     padding: spacing.md,
     ...shadows.md,
+  },
+  mapLegendWide: {
+    left: spacing.lg,
+    bottom: spacing.lg,
+    maxWidth: 340,
   },
   mapLegendTitle: {
     fontSize: typography.fontSize.base,
@@ -2206,5 +2262,3 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
 });
-
-

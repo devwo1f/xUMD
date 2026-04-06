@@ -68,6 +68,9 @@ function requireConfigured() {
 }
 
 function mapEventRecord(record: Partial<Event> & Record<string, unknown>): Event {
+  const locationName = String(record.location_name ?? record.location ?? '');
+  const attendeeCount = Number(record.attendee_count ?? record.rsvp_count ?? 0);
+
   return {
     id: String(record.id),
     title: String(record.title ?? ''),
@@ -80,18 +83,18 @@ function mapEventRecord(record: Partial<Event> & Record<string, unknown>): Event
     ends_at: String(record.ends_at),
     status: (record.status as Event['status']) ?? 'upcoming',
     moderation_status: (record.moderation_status as Event['moderation_status']) ?? 'approved',
-    location_name: String(record.location_name ?? ''),
+    location_name: locationName,
     location_id: (record.location_id as string | null | undefined) ?? null,
     latitude: Number(record.latitude ?? 0),
     longitude: Number(record.longitude ?? 0),
     image_url: (record.image_url as string | null | undefined) ?? null,
-    rsvp_count: Number(record.rsvp_count ?? record.attendee_count ?? 0),
-    attendee_count: Number(record.attendee_count ?? record.rsvp_count ?? 0),
+    rsvp_count: attendeeCount,
+    attendee_count: attendeeCount,
     interested_count: Number(record.interested_count ?? 0),
     max_capacity: (record.max_capacity as number | null | undefined) ?? null,
     is_featured: Boolean(record.is_featured ?? false),
     tags: (record.tags as string[] | undefined) ?? [],
-    location: String(record.location ?? record.location_name ?? ''),
+    location: locationName,
     created_at: String(record.created_at ?? new Date().toISOString()),
     updated_at: String(record.updated_at ?? record.created_at ?? new Date().toISOString()),
   };

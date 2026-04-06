@@ -182,17 +182,21 @@ export interface Event {
   ends_at: string;
   status?: 'upcoming' | 'live' | 'completed' | 'cancelled';
   moderation_status?: 'pending' | 'approved' | 'rejected';
+  /** Canonical display location for the event. Prefer this over the legacy `location` alias. */
   location_name: string;
   location_id?: string | null;
   latitude: number | null;
   longitude: number | null;
   image_url: string | null;
+  /** @deprecated Legacy alias kept for older UI paths. Prefer `attendee_count` in new code. */
   rsvp_count: number;
-  attendee_count?: number;
+  /** Canonical count of users marked as going. */
+  attendee_count: number;
   interested_count?: number;
   max_capacity: number | null;
   is_featured: boolean;
   tags?: string[];
+  /** @deprecated Legacy alias kept for older cards. Prefer `location_name` in new code. */
   location?: string;
   created_at?: string;
   updated_at?: string;

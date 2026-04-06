@@ -134,7 +134,7 @@ function truncate(value: string, maxLength: number) {
     return value;
   }
 
-  return `${value.slice(0, maxLength - 1).trimEnd()}…`;
+  return `${value.slice(0, maxLength - 1).trimEnd()}...`;
 }
 
 function extractHashtags(value: string) {
@@ -171,10 +171,10 @@ function formatEventSubtitle(event: Event) {
   const end = new Date(event.ends_at);
 
   if (isSameDay(start, new Date())) {
-    return `Today ${format(start, 'h:mm a')} - ${format(end, 'h:mm a')} · ${event.location_name}`;
+    return `Today ${format(start, 'h:mm a')} - ${format(end, 'h:mm a')} | ${event.location_name}`;
   }
 
-  return `${format(start, 'EEE h:mm a')} · ${event.location_name}`;
+  return `${format(start, 'EEE h:mm a')} | ${event.location_name}`;
 }
 
 function buildPeopleDataset() {
@@ -644,21 +644,21 @@ function flattenToSuggestions(results: SearchResponse, limit: number) {
       type: 'club',
       id: entry.data.id,
       title: entry.data.name,
-      subtitle: `${entry.data.category} · ${entry.data.member_count} members`,
+      subtitle: `${entry.data.category} | ${entry.data.member_count} members`,
       icon: 'people-outline',
     })),
     person: results.results.people.slice(0, 2).map((entry) => ({
       type: 'person',
       id: entry.data.id,
       title: entry.data.display_name,
-      subtitle: `@${entry.data.username}${entry.data.mutual_follow_count > 0 ? ` · ${entry.data.mutual_follow_count} mutuals` : ''}`,
+      subtitle: `@${entry.data.username}${entry.data.mutual_follow_count > 0 ? ` | ${entry.data.mutual_follow_count} mutuals` : ''}`,
       icon: 'person-outline',
     })),
     location: results.results.locations.slice(0, 2).map((entry) => ({
       type: 'location',
       id: entry.data.id,
       title: entry.data.name,
-      subtitle: `${entry.data.short_name} · ${entry.data.building_type}`,
+      subtitle: `${entry.data.short_name} | ${entry.data.building_type}`,
       icon: 'location-outline',
       latitude: entry.data.latitude,
       longitude: entry.data.longitude,
@@ -804,12 +804,16 @@ export function buildLocalUnifiedSearch(query: string, viewerId = CURRENT_SOCIAL
   };
 }
 
-export function buildLocalAutocomplete(query: string, limit = 8): AutocompleteResponse {
+export function buildLocalAutocomplete(
+  query: string,
+  limit = 8,
+  viewerId = CURRENT_SOCIAL_USER_ID,
+): AutocompleteResponse {
   if (query.trim().length < 2) {
     return { suggestions: [] };
   }
 
-  const search = buildLocalUnifiedSearch(query);
+  const search = buildLocalUnifiedSearch(query, viewerId);
   return {
     suggestions: flattenToSuggestions(search, limit),
   };
@@ -844,11 +848,11 @@ export function getSearchEventById(eventId: string) {
 export function getPeopleSubtitle(user: UserPreview) {
   const handle = `@${user.username}`;
   if (user.mutual_follow_count > 0) {
-    return `${handle} · ${user.mutual_follow_count} mutual${user.mutual_follow_count === 1 ? '' : 's'}`;
+    return `${handle} | ${user.mutual_follow_count} mutual${user.mutual_follow_count === 1 ? '' : 's'}`;
   }
 
   if (user.major) {
-    return `${handle} · ${user.major}`;
+    return `${handle} | ${user.major}`;
   }
 
   return handle;
@@ -881,14 +885,14 @@ export function getEventContextLabel(event: EventPreview) {
 
 export function getLocationContextLabel(location: LocationPreview) {
   if (location.active_event_count > 0) {
-    return `${location.short_name} · ${location.active_event_count} event${location.active_event_count === 1 ? '' : 's'} today`;
+    return `${location.short_name} | ${location.active_event_count} event${location.active_event_count === 1 ? '' : 's'} today`;
   }
 
-  return `${location.short_name} · ${location.building_type}`;
+  return `${location.short_name} | ${location.building_type}`;
 }
 
 export function getClubContextLabel(club: ClubPreview) {
-  return `${club.category} · ${club.member_count} members`;
+  return `${club.category} | ${club.member_count} members`;
 }
 
 export function buildLocalSuggestedQueries(query: string) {

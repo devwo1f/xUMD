@@ -1,4 +1,4 @@
-export const trendingTopics = ['bitcamp', 'mckeldin', 'terpsbasketball', '251north'];
+﻿export const trendingTopics = ['bitcamp', 'mckeldin', 'terpsbasketball', '251north'];
 
 export const exploreHighlights = [
   {
@@ -197,6 +197,13 @@ export const campusCards = [
     tint: '#F3F4F6',
   },
   {
+    title: 'Clubs',
+    subtitle: 'Find your community',
+    icon: 'account-group-outline',
+    color: '#9C27B0',
+    tint: '#F4E8FF',
+  },
+  {
     title: 'Course Reviews',
     subtitle: 'Rate your classes',
     icon: 'star-outline',
@@ -248,5 +255,6 @@ export const profileCollections = [
     tint: '#E8F1FF',
   },
 ];
+
 
 

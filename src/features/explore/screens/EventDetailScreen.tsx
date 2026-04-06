@@ -9,11 +9,13 @@ import Card from '../../../shared/components/Card';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import { mockCampusEvents } from '../../../assets/data/mockEvents';
 import { mockClubEvents, mockClubs } from '../../../assets/data/mockClubs';
+import { useCrossTabNavStore } from '../../../shared/stores/useCrossTabNavStore';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { Event } from '../../../shared/types';
+
 type Props = NativeStackScreenProps<{ EventDetail: { eventId: string } }, 'EventDetail'>;
 
 function findEvent(eventId: string): Event | undefined {
@@ -22,7 +24,9 @@ function findEvent(eventId: string): Event | undefined {
 
 export default function EventDetailScreen({ navigation, route }: Props) {
   const event = findEvent(route.params.eventId);
-  const { savedEventIds, toggleSavedEvent } = useDemoAppStore();
+  const { savedEventIds, goingEventIds, setEventRsvpStatus } = useDemoAppStore();
+  const setPendingMapFocus = useCrossTabNavStore((state) => state.setPendingMapFocus);
+  const setPendingCalendarFocus = useCrossTabNavStore((state) => state.setPendingCalendarFocus);
 
   if (!event) {
     return (
@@ -43,7 +47,30 @@ export default function EventDetailScreen({ navigation, route }: Props) {
   }
 
   const isSaved = savedEventIds.includes(event.id);
+  const isGoing = goingEventIds.includes(event.id);
   const hostClub = event.club_id ? mockClubs.find((club) => club.id === event.club_id) : null;
+
+  const openCalendar = () => {
+    setPendingCalendarFocus({
+      date: event.starts_at,
+      entryId: event.id,
+    });
+    navigation.getParent()?.navigate('Calendar' as never);
+  };
+
+  const openMap = () => {
+    if (typeof event.latitude !== 'number' || typeof event.longitude !== 'number') {
+      return;
+    }
+
+    setPendingMapFocus({
+      type: 'event',
+      eventId: event.id,
+      latitude: event.latitude,
+      longitude: event.longitude,
+    });
+    navigation.getParent()?.navigate('Map' as never);
+  };
 
   return (
     <ScreenLayout
@@ -55,7 +82,7 @@ export default function EventDetailScreen({ navigation, route }: Props) {
         </Pressable>
       }
       rightAction={
-        <Pressable onPress={() => toggleSavedEvent(event.id)} style={styles.backButton}>
+        <Pressable onPress={() => setEventRsvpStatus(event.id, isSaved ? null : 'interested')} style={styles.backButton}>
           <Ionicons
             name={isSaved ? 'bookmark' : 'bookmark-outline'}
             size={20}
@@ -77,11 +104,26 @@ export default function EventDetailScreen({ navigation, route }: Props) {
       <Text style={styles.title}>{event.title}</Text>
       <Text style={styles.description}>{event.description}</Text>
 
-      <Button
-        title={isSaved ? 'RSVP Saved' : 'RSVP'}
-        onPress={() => toggleSavedEvent(event.id)}
-        fullWidth
-      />
+      <View style={styles.actionRow}>
+        <Button
+          title={isGoing ? 'Going' : 'Mark Going'}
+          onPress={() => setEventRsvpStatus(event.id, isGoing ? null : 'going')}
+          fullWidth
+          style={styles.flexButton}
+        />
+        <Button
+          title={isSaved ? 'Interested' : 'Save'}
+          onPress={() => setEventRsvpStatus(event.id, isSaved ? null : 'interested')}
+          variant="secondary"
+          fullWidth
+          style={styles.flexButton}
+        />
+      </View>
+
+      <View style={styles.actionRow}>
+        <Button title="Show in Calendar" onPress={openCalendar} variant="ghost" fullWidth style={styles.flexButton} />
+        <Button title="Show on Map" onPress={openMap} variant="ghost" fullWidth style={styles.flexButton} />
+      </View>
 
       <View style={styles.infoGrid}>
         <Card style={styles.infoCard}>
@@ -104,7 +146,7 @@ export default function EventDetailScreen({ navigation, route }: Props) {
 
         <Card style={styles.infoCard}>
           <Text style={styles.cardLabel}>Attendance</Text>
-          <Text style={styles.cardValue}>{event.rsvp_count.toLocaleString()} going</Text>
+          <Text style={styles.cardValue}>{(event.attendee_count ?? event.rsvp_count).toLocaleString()} going</Text>
           <Text style={styles.cardSubtle}>
             {event.max_capacity ? `${event.max_capacity.toLocaleString()} max capacity` : 'Open attendance'}
           </Text>
@@ -150,6 +192,13 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     lineHeight: 24,
     color: colors.text.secondary,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  flexButton: {
+    flex: 1,
   },
   infoGrid: {
     gap: spacing.md,

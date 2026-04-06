@@ -284,7 +284,7 @@ export const mockJoinRequests: JoinRequest[] = [
   },
 ];
 
-// ── Mock Club Events ─────────────────────────────────────────
+// Mock Club Events
 
 export const mockClubEvents: Event[] = [
   {
@@ -301,6 +301,7 @@ export const mockClubEvents: Event[] = [
     longitude: -76.9420,
     image_url: 'https://picsum.photos/seed/bitcamp/800/400',
     rsvp_count: 850,
+    attendee_count: 850,
     max_capacity: 1000,
     is_featured: true,
   },
@@ -318,6 +319,7 @@ export const mockClubEvents: Event[] = [
     longitude: -76.9365,
     image_url: null,
     rsvp_count: 45,
+    attendee_count: 45,
     max_capacity: 60,
     is_featured: false,
   },
@@ -335,12 +337,13 @@ export const mockClubEvents: Event[] = [
     longitude: -76.9447,
     image_url: 'https://picsum.photos/seed/ksashow/800/400',
     rsvp_count: 350,
+    attendee_count: 350,
     max_capacity: 500,
     is_featured: true,
   },
 ];
 
-// ── Mock Media ───────────────────────────────────────────────
+// Mock Media
 
 export interface ClubMedia {
   id: string;

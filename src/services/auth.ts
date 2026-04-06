@@ -228,6 +228,89 @@ export async function searchCourses(query: string, semester?: string): Promise<C
   }
 }
 
+export async function syncUserCoursesForUser({
+  userId,
+  courseCodes,
+  semester,
+}: {
+  userId: string;
+  courseCodes: string[];
+  semester?: string;
+}) {
+  if (!isSupabaseConfigured) {
+    return;
+  }
+
+  const activeSemester = semester?.trim() || inferCurrentSemester();
+  const normalizedCodes = Array.from(
+    new Set(
+      courseCodes
+        .map((courseCode) => courseCode.trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  );
+
+  const { error: deleteError } = await supabase
+    .from('user_courses')
+    .delete()
+    .eq('user_id', userId)
+    .eq('semester', activeSemester);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  if (normalizedCodes.length === 0) {
+    return;
+  }
+
+  const { data: courseRows, error: courseError } = await supabase
+    .from('courses')
+    .select('id, course_code, section, semester, meeting_days, start_time, end_time, building_name, room_number')
+    .eq('semester', activeSemester)
+    .in('course_code', normalizedCodes)
+    .order('course_code', { ascending: true })
+    .order('section', { ascending: true });
+
+  if (courseError) {
+    throw courseError;
+  }
+
+  const firstSectionByCode = new Map();
+  for (const row of courseRows ?? []) {
+    const code = String(row.course_code ?? '').trim().toUpperCase();
+    if (code && !firstSectionByCode.has(code)) {
+      firstSectionByCode.set(code, row);
+    }
+  }
+
+  const payload = normalizedCodes
+    .map((code) => firstSectionByCode.get(code))
+    .filter(Boolean)
+    .map((row) => ({
+      user_id: userId,
+      course_id: row.id,
+      course_code: row.course_code,
+      section: row.section,
+      semester: row.semester,
+      meeting_days: row.meeting_days ?? [],
+      start_time: row.start_time ?? null,
+      end_time: row.end_time ?? null,
+      building_name: row.building_name ?? null,
+      room_number: row.room_number ?? null,
+    }));
+
+  if (payload.length === 0) {
+    return;
+  }
+
+  const { error: insertError } = await supabase.from('user_courses').insert(payload);
+
+  if (insertError) {
+    throw insertError;
+  }
+}
+
 export async function signOut(): Promise<ServiceResult<null>> {
   const { error } = await supabase.auth.signOut();
   if (error) {

@@ -16,13 +16,13 @@ function isoFromDay(dayOffset: number, hour: number, minute = 0) {
 
 function createEvent(event: Event): Event {
   return {
-    status: 'upcoming',
-    moderation_status: 'approved',
+    ...event,
+    status: event.status ?? 'upcoming',
+    moderation_status: event.moderation_status ?? 'approved',
     attendee_count: event.attendee_count ?? event.rsvp_count,
     interested_count: event.interested_count ?? Math.max(12, Math.round(event.rsvp_count * 0.35)),
     organizer_name: event.organizer_name ?? 'xUMD',
     tags: event.tags ?? [],
-    ...event,
   };
 }
 

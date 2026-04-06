@@ -6,7 +6,7 @@ import { queryClient } from '../../../providers/AppProviders';
 import { useMapFilterStore } from '../../map/stores/useMapFilterStore';
 import { useAuthFlowStore } from '../stores/authStore';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
-import { requestOtp as requestOtpThroughServer, verifyOtp as verifyOtpThroughServer } from '../../../services/auth';
+import { requestOtp as requestOtpThroughServer, syncUserCoursesForUser, verifyOtp as verifyOtpThroughServer } from '../../../services/auth';
 import { supabase, isSupabaseConfigured, supabaseConfigError } from '../../../services/supabase';
 import type { DegreeType, UserProfile, UserProfileUpdate } from '../../../shared/types';
 
@@ -173,6 +173,19 @@ async function updateUserRow(userId: string, updates: Record<string, unknown>) {
   return data as UserProfile;
 }
 
+async function syncSelectedCourses(userId: string, courses: string[] | undefined) {
+  if (!Array.isArray(courses)) {
+    return;
+  }
+
+  try {
+    await syncUserCoursesForUser({ userId, courseCodes: courses });
+  } catch (error) {
+    console.warn('Unable to sync selected courses.', error);
+  }
+}
+
+
 export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
   user: null,
   session: null,
@@ -272,6 +285,7 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
         updated_at: new Date().toISOString(),
       };
       const nextUser = await updateUserRow(session.user.id, payload);
+      await syncSelectedCourses(session.user.id, payload.courses as string[] | undefined);
       set({ user: nextUser, loading: false, error: null });
     } catch (error) {
       const message = getAuthErrorMessage(error);
@@ -288,11 +302,13 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const nextUser = await updateUserRow(session.user.id, {
+      const payload = {
         ...updates,
         username: updates.username ? sanitizeUsername(updates.username) : undefined,
         updated_at: new Date().toISOString(),
-      });
+      };
+      const nextUser = await updateUserRow(session.user.id, payload);
+      await syncSelectedCourses(session.user.id, payload.courses as string[] | undefined);
       set({ user: nextUser, loading: false, error: null });
     } catch (error) {
       const message = getAuthErrorMessage(error);
@@ -309,7 +325,7 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const nextUser = await updateUserRow(session.user.id, {
+      const nextPayload = {
         display_name: payload.display_name,
         username: sanitizeUsername(payload.username),
         major: payload.major,
@@ -323,7 +339,9 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
         profile_completed: true,
         onboarding_step: 4,
         updated_at: new Date().toISOString(),
-      });
+      };
+      const nextUser = await updateUserRow(session.user.id, nextPayload);
+      await syncSelectedCourses(session.user.id, payload.courses);
       set({ user: nextUser, loading: false, error: null });
     } catch (error) {
       const message = getAuthErrorMessage(error);

@@ -5,15 +5,15 @@ import { colors } from '../theme/colors';
 import { spacing, borderRadius, shadows } from '../theme/spacing';
 
 export default function AppFrame({ children }: { children: React.ReactNode }) {
-  const { isDesktop } = useResponsive();
+  const { isMobile, isTablet } = useResponsive();
 
-  if (!isDesktop) {
+  if (isMobile) {
     return <View style={styles.mobile}>{children}</View>;
   }
 
   return (
-    <View style={styles.desktopOuter}>
-      <View style={styles.desktopInner}>{children}</View>
+    <View style={[styles.outer, isTablet ? styles.tabletOuter : styles.desktopOuter]}>
+      <View style={[styles.inner, isTablet ? styles.tabletInner : styles.desktopInner]}>{children}</View>
     </View>
   );
 }
@@ -23,19 +23,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.secondary,
   },
-  desktopOuter: {
+  outer: {
     flex: 1,
     backgroundColor: colors.background.tertiary,
+  },
+  tabletOuter: {
+    padding: spacing.md,
+  },
+  desktopOuter: {
     padding: spacing.lg,
   },
-  desktopInner: {
+  inner: {
     flex: 1,
     width: '100%',
-    maxWidth: 1480,
     alignSelf: 'center',
     backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.xl,
     overflow: 'hidden',
+  },
+  tabletInner: {
+    maxWidth: 1280,
+    borderRadius: borderRadius.xl,
+    ...shadows.md,
+  },
+  desktopInner: {
+    maxWidth: 1480,
+    borderRadius: borderRadius.xl,
     ...shadows.lg,
   },
 });

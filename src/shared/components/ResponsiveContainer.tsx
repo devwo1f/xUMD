@@ -1,8 +1,7 @@
 /**
  * ResponsiveContainer
  *
- * Wraps content for desktop: centers content with maxWidth, adds horizontal padding.
- * On mobile, just passes through at full width.
+ * Centers content on larger screens while keeping mobile full-width.
  */
 
 import React from 'react';
@@ -21,15 +20,15 @@ const ResponsiveContainer: React.FC<ResponsiveContainerProps> = ({
   maxWidth = 1200,
   style,
 }) => {
-  const { isMobile } = useResponsive();
+  const { isMobile, pageHorizontalPadding } = useResponsive();
 
   if (isMobile) {
     return <View style={[styles.mobileContainer, style]}>{children}</View>;
   }
 
   return (
-    <View style={styles.desktopOuter}>
-      <View style={[styles.desktopInner, { maxWidth }, style]}>{children}</View>
+    <View style={[styles.outer, { paddingHorizontal: pageHorizontalPadding }]}>
+      <View style={[styles.inner, { maxWidth }, style]}>{children}</View>
     </View>
   );
 };
@@ -38,14 +37,14 @@ const styles = StyleSheet.create({
   mobileContainer: {
     flex: 1,
   },
-  desktopOuter: {
+  outer: {
     flex: 1,
     alignItems: 'center',
   },
-  desktopInner: {
+  inner: {
     flex: 1,
     width: '100%',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
 });
 

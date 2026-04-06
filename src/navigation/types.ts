@@ -13,7 +13,7 @@ export type RootTabParamList = {
   Map: undefined;
   Feed: undefined;
   Search: undefined;
-  Clubs: undefined;
+  Calendar: undefined;
   Campus: undefined;
   Profile: undefined;
 };
@@ -21,6 +21,7 @@ export type RootTabParamList = {
 export type ExploreStackParamList = {
   ExploreHome: undefined;
   EventDetail: { eventId: string };
+  ClubDetail: { clubId: string };
 };
 
 export type MapStackParamList = {
@@ -39,6 +40,14 @@ export type SearchStackParamList = {
   EventDetail: { eventId: string };
   ClubDetail: { clubId: string };
   UserProfile: { userId: string };
+};
+
+export type CalendarStackParamList = {
+  CalendarHome: undefined;
+  AddPersonalBlock: undefined;
+  CalendarSyncSettings: undefined;
+  EventDetail: { eventId: string };
+  ClubDetail: { clubId: string };
 };
 
 export type ClubsStackParamList = {
@@ -60,6 +69,10 @@ export type QuickLinkKey = 'terpmail' | 'elms' | 'testudo' | 'shuttle-um';
 
 export type CampusStackParamList = {
   CampusHome: undefined;
+  ClubsHome: undefined;
+  ClubDetail: { clubId: string };
+  PostDetail: { postId: string };
+  UserProfile: { userId: string };
   CampusFeature: { featureKey: CampusFeatureKey };
   CampusQuickLink: { quickLinkKey: QuickLinkKey };
   LibrariesDirectory: undefined;

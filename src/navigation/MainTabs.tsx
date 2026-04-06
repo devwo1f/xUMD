@@ -14,6 +14,9 @@ import PostDetailScreen from '../features/feed/screens/PostDetailScreen';
 import ClubsHomeScreen from '../features/clubs/screens/ClubsHomeScreen';
 import ClubDetailScreen from '../features/clubs/screens/ClubDetailScreen';
 import SearchHomeScreen from '../features/search/screens/SearchHomeScreen';
+import CalendarHomeScreen from '../features/calendar/screens/CalendarHomeScreen';
+import AddPersonalBlockScreen from '../features/calendar/screens/AddPersonalBlockScreen';
+import CalendarSyncSettingsScreen from '../features/calendar/screens/CalendarSyncSettingsScreen';
 import CampusHomeScreen from '../features/campus/screens/CampusHomeScreen';
 import { CampusFeatureScreen, CampusQuickLinkScreen } from '../features/campus/screens/CampusFeatureScreen';
 import LibrariesDirectoryScreen, { LibraryProfileScreen } from '../features/campus/screens/LibrariesScreen';
@@ -24,12 +27,13 @@ import SavedEventsScreen from '../features/profile/screens/SavedEventsScreen';
 import MyPostsScreen from '../features/profile/screens/MyPostsScreen';
 import ConnectionsScreen from '../features/profile/screens/ConnectionsScreen';
 import UserProfileScreen from '../features/social/screens/UserProfileScreen';
+import { useResponsive } from '../shared/hooks/useResponsive';
 import { colors } from '../shared/theme/colors';
 import { borderRadius, shadows, spacing } from '../shared/theme/spacing';
 import { typography } from '../shared/theme/typography';
 import type {
+  CalendarStackParamList,
   CampusStackParamList,
-  ClubsStackParamList,
   ExploreStackParamList,
   FeedStackParamList,
   MapStackParamList,
@@ -43,7 +47,7 @@ const ExploreStack = createNativeStackNavigator<ExploreStackParamList>();
 const MapStack = createNativeStackNavigator<MapStackParamList>();
 const FeedStack = createNativeStackNavigator<FeedStackParamList>();
 const SearchStack = createNativeStackNavigator<SearchStackParamList>();
-const ClubsStack = createNativeStackNavigator<ClubsStackParamList>();
+const CalendarStack = createNativeStackNavigator<CalendarStackParamList>();
 const CampusStack = createNativeStackNavigator<CampusStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 
@@ -52,6 +56,7 @@ function ExploreNavigator() {
     <ExploreStack.Navigator screenOptions={{ headerShown: false }}>
       <ExploreStack.Screen name="ExploreHome" component={ExploreHomeScreen} />
       <ExploreStack.Screen name="EventDetail" component={EventDetailScreen} />
+      <ExploreStack.Screen name="ClubDetail" component={ClubDetailScreen} />
     </ExploreStack.Navigator>
   );
 }
@@ -86,14 +91,15 @@ function SearchNavigator() {
   );
 }
 
-function ClubsNavigator() {
+function CalendarNavigator() {
   return (
-    <ClubsStack.Navigator screenOptions={{ headerShown: false }}>
-      <ClubsStack.Screen name="ClubsHome" component={ClubsHomeScreen} />
-      <ClubsStack.Screen name="ClubDetail" component={ClubDetailScreen} />
-      <ClubsStack.Screen name="PostDetail" component={PostDetailScreen} />
-      <ClubsStack.Screen name="UserProfile" component={UserProfileScreen} />
-    </ClubsStack.Navigator>
+    <CalendarStack.Navigator screenOptions={{ headerShown: false }}>
+      <CalendarStack.Screen name="CalendarHome" component={CalendarHomeScreen} />
+      <CalendarStack.Screen name="AddPersonalBlock" component={AddPersonalBlockScreen} />
+      <CalendarStack.Screen name="CalendarSyncSettings" component={CalendarSyncSettingsScreen} />
+      <CalendarStack.Screen name="EventDetail" component={EventDetailScreen} />
+      <CalendarStack.Screen name="ClubDetail" component={ClubDetailScreen} />
+    </CalendarStack.Navigator>
   );
 }
 
@@ -101,6 +107,10 @@ function CampusNavigator() {
   return (
     <CampusStack.Navigator screenOptions={{ headerShown: false }}>
       <CampusStack.Screen name="CampusHome" component={CampusHomeScreen} />
+      <CampusStack.Screen name="ClubsHome" component={ClubsHomeScreen} />
+      <CampusStack.Screen name="ClubDetail" component={ClubDetailScreen} />
+      <CampusStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <CampusStack.Screen name="UserProfile" component={UserProfileScreen} />
       <CampusStack.Screen name="LibrariesDirectory" component={LibrariesDirectoryScreen} />
       <CampusStack.Screen name="LibraryProfile" component={LibraryProfileScreen} />
       <CampusStack.Screen name="CampusFeature" component={CampusFeatureScreen} />
@@ -154,8 +164,8 @@ function getTabIcon(routeName: keyof RootTabParamList, focused: boolean) {
       return focused ? 'grid' : 'grid-outline';
     case 'Search':
       return 'search';
-    case 'Clubs':
-      return focused ? 'people' : 'people-outline';
+    case 'Calendar':
+      return focused ? 'calendar' : 'calendar-outline';
     case 'Campus':
       return focused ? 'business' : 'business-outline';
     case 'Profile':
@@ -166,6 +176,9 @@ function getTabIcon(routeName: keyof RootTabParamList, focused: boolean) {
 }
 
 export default function MainTabs() {
+  const { isWide, isDesktop } = useResponsive();
+  const tabBarMaxWidth = isDesktop ? 940 : isWide ? 860 : undefined;
+
   return (
     <Tab.Navigator
       initialRouteName="Map"
@@ -178,13 +191,26 @@ export default function MainTabs() {
           height: 82,
           paddingTop: spacing.xs,
           paddingBottom: spacing.sm,
-          paddingHorizontal: spacing.xs,
+          paddingHorizontal: isWide ? spacing.md : spacing.xs,
           backgroundColor: colors.brand.white,
           borderTopColor: colors.border.light,
+          width: '100%',
+          maxWidth: tabBarMaxWidth,
+          alignSelf: 'center',
+          ...(isWide
+            ? {
+                borderTopLeftRadius: borderRadius.xl,
+                borderTopRightRadius: borderRadius.xl,
+                borderTopWidth: 1,
+              }
+            : null),
         },
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: typography.fontWeight.semiBold,
+        },
+        tabBarItemStyle: {
+          maxWidth: isWide ? 120 : undefined,
         },
         tabBarIcon: ({ color, size, focused }) =>
           route.name === 'Search' ? null : (
@@ -207,7 +233,7 @@ export default function MainTabs() {
           tabBarButton: (props) => <SearchTabButton {...props} accessibilityLabel="Search" />,
         }}
       />
-      <Tab.Screen name="Clubs" component={ClubsNavigator} />
+      <Tab.Screen name="Calendar" component={CalendarNavigator} />
       <Tab.Screen name="Campus" component={CampusNavigator} />
       <Tab.Screen name="Profile" component={ProfileNavigator} />
     </Tab.Navigator>
@@ -236,5 +262,3 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.02 }],
   },
 });
-
-

@@ -1,11 +1,20 @@
-import type { EventCategory } from '../../shared/types';
-
 export type SearchIntent = 'keyword' | 'semantic' | 'hybrid';
 export type SearchEntityType = 'person' | 'event' | 'club' | 'location';
 export type SearchResultTab = 'all' | 'people' | 'events' | 'clubs' | 'locations';
+export type SearchCategory =
+  | 'academic'
+  | 'social'
+  | 'sports'
+  | 'club'
+  | 'career'
+  | 'arts'
+  | 'food'
+  | 'workshop'
+  | 'party'
+  | 'other';
 
 export interface ExtractedSearchFilters {
-  category: EventCategory | null;
+  category: SearchCategory | null;
   timeframe: 'now' | 'today' | 'tomorrow' | 'this_week' | null;
   cost: 'free' | null;
   entity_type: SearchEntityType | null;
@@ -34,7 +43,7 @@ export interface UserPreview {
 export interface EventPreview {
   id: string;
   title: string;
-  category: string;
+  category: SearchCategory;
   location_name: string;
   starts_at: string;
   ends_at: string;
@@ -66,7 +75,7 @@ export interface LocationPreview {
   longitude: number;
 }
 
-export interface SearchResponse {
+export interface UnifiedSearchResponse {
   query: string;
   intent: SearchIntent;
   extracted_filters: ExtractedSearchFilters | null;
@@ -83,6 +92,8 @@ export interface SearchResponse {
     locations: number;
   };
 }
+
+export type SearchResponse = UnifiedSearchResponse;
 
 export interface AutocompleteSuggestion {
   type: SearchEntityType;

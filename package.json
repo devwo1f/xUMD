@@ -3,10 +3,17 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "start": "expo start --dev-client",
+    "start:dev-client": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "build:android:development": "npx eas-cli build --platform android --profile development",
+    "build:ios:development": "npx eas-cli build --platform ios --profile development",
+    "build:android:preview": "npx eas-cli build --platform android --profile preview",
+    "build:ios:preview": "npx eas-cli build --platform ios --profile preview",
+    "build:android:production": "npx eas-cli build --platform android --profile production",
+    "build:ios:production": "npx eas-cli build --platform ios --profile production"
   },
   "dependencies": {
     "@expo/metro-runtime": "55.0.8-canary-20260328-2049187",
@@ -21,6 +28,7 @@
     "date-fns": "^4.1.0",
     "expo": "55.0.10-canary-20260328-2049187",
     "expo-blur": "^55.0.11-canary-20260328-2049187",
+    "expo-dev-client": "55.0.20-canary-20260328-2049187",
     "expo-haptics": "^55.0.10-canary-20260328-2049187",
     "expo-image-manipulator": "55.0.12-canary-20260328-2049187",
     "expo-image-picker": "^55.0.15-canary-20260328-2049187",
@@ -30,6 +38,7 @@
     "expo-notifications": "^55.0.15-canary-20260328-2049187",
     "expo-secure-store": "^55.0.10-canary-20260328-2049187",
     "expo-status-bar": "55.0.5-canary-20260328-2049187",
+    "expo-updates": "55.0.17-canary-20260328-2049187",
     "expo-video": "55.0.12-canary-20260328-2049187",
     "mapbox-gl": "^3.21.0",
     "react": "19.2.0",

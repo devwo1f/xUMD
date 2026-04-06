@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -14,7 +14,7 @@ import type { CampusFeatureKey, CampusStackParamList, QuickLinkKey } from '../..
 
 type Props = NativeStackScreenProps<CampusStackParamList, 'CampusHome'>;
 
-type CampusDestination = CampusFeatureKey | 'libraries-directory';
+type CampusDestination = CampusFeatureKey | 'libraries-directory' | 'clubs-home';
 
 const featureMap: Record<string, CampusDestination> = {
   Dining: 'dining',
@@ -23,6 +23,7 @@ const featureMap: Record<string, CampusDestination> = {
   Safety: 'safety',
   'Study Spots': 'study-spots',
   'Campus Info': 'campus-info',
+  Clubs: 'clubs-home',
   'Course Reviews': 'course-reviews',
 };
 
@@ -62,11 +63,19 @@ export default function CampusHomeScreen({ navigation }: Props) {
               icon={card.icon}
               accentColor={card.color}
               tintColor={card.tint}
-              onPress={() =>
-                destination === 'libraries-directory'
-                  ? navigation.navigate('LibrariesDirectory')
-                  : navigation.navigate('CampusFeature', { featureKey: destination })
-              }
+              onPress={() => {
+                if (destination === 'libraries-directory') {
+                  navigation.navigate('LibrariesDirectory');
+                  return;
+                }
+
+                if (destination === 'clubs-home') {
+                  navigation.navigate('ClubsHome');
+                  return;
+                }
+
+                navigation.navigate('CampusFeature', { featureKey: destination });
+              }}
               style={[styles.featureCard, isLastOddCard && styles.featureCardWide]}
             />
           );

@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Keyboard,
   Pressable,
@@ -70,6 +70,11 @@ function groupSuggestions(suggestions: AutocompleteSuggestion[]) {
 
 export default function SearchHomeScreen({ navigation }: Props) {
   const { isWide, isDesktop } = useResponsive();
+  const searchContentWidthStyle = isDesktop
+    ? styles.searchContentDesktop
+    : isWide
+      ? styles.searchContentWide
+      : null;
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -244,7 +249,7 @@ export default function SearchHomeScreen({ navigation }: Props) {
     setIsFocused(false);
   };
   const renderPeopleCard = (user: UserPreview, sourceQuery: string) => (
-    <Card key={user.id} style={styles.resultCard}>
+    <Card key={user.id} style={[styles.resultCard, isWide && styles.resultCardWide]}>
       <Pressable onPress={() => void openUserProfile(user.id, sourceQuery)} style={styles.resultHeader}>
         <View style={styles.avatarPlaceholder}>
           <Ionicons name="person" size={18} color={colors.primary.main} />
@@ -267,7 +272,7 @@ export default function SearchHomeScreen({ navigation }: Props) {
   );
 
   const renderEventCard = (event: EventPreview, sourceQuery: string) => (
-    <Card key={event.id} style={styles.resultCard}>
+    <Card key={event.id} style={[styles.resultCard, isWide && styles.resultCardWide]}>
       <Pressable onPress={() => void openEventDetail(event.id, sourceQuery)} style={styles.resultCopy}>
         <View style={styles.metaChipRow}>
           <View style={styles.eventCategoryChip}>
@@ -300,7 +305,7 @@ export default function SearchHomeScreen({ navigation }: Props) {
   );
 
   const renderClubCard = (club: ClubPreview, sourceQuery: string) => (
-    <Card key={club.id} style={styles.resultCard}>
+    <Card key={club.id} style={[styles.resultCard, isWide && styles.resultCardWide]}>
       <Pressable onPress={() => void openClubDetail(club.id, sourceQuery)} style={styles.resultCopy}>
         <Text style={styles.resultTitle}>{club.name}</Text>
         <Text style={styles.resultSubtitle}>{getClubContextLabel(club)}</Text>
@@ -317,7 +322,7 @@ export default function SearchHomeScreen({ navigation }: Props) {
   );
 
   const renderLocationCard = (location: LocationPreview, sourceQuery: string) => (
-    <Card key={location.id} style={styles.resultCard}>
+    <Card key={location.id} style={[styles.resultCard, isWide && styles.resultCardWide]}>
       <Pressable onPress={() => void openLocationOnMap(location, sourceQuery)} style={styles.resultCopy}>
         <Text style={styles.resultTitle}>{location.name}</Text>
         <Text style={styles.resultSubtitle}>{getLocationContextLabel(location)}</Text>
@@ -342,7 +347,7 @@ export default function SearchHomeScreen({ navigation }: Props) {
           <Text style={styles.groupTitle}>{title}</Text>
           <Text style={styles.groupCount}>{count}</Text>
         </View>
-        <View style={styles.groupList}>{items}</View>
+        <View style={[styles.groupList, isWide && styles.groupListWide]}>{items}</View>
       </View>
     );
   };
@@ -454,7 +459,7 @@ export default function SearchHomeScreen({ navigation }: Props) {
     );
   };
   const renderDiscovery = () => (
-    <View style={styles.discoveryShell}>
+    <View style={[styles.discoveryShell, isWide && styles.discoveryShellWide]}>
       {discoveryLoading && !discoveryData ? (
         <Card style={styles.resultCard}>
           <View style={styles.skeletonLineWide} />
@@ -471,7 +476,11 @@ export default function SearchHomeScreen({ navigation }: Props) {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
               {discoveryData.trending_events.map((event) => (
-                <Card key={event.id} onPress={() => void openEventDetail(event.id, event.title)} style={[styles.discoveryEventCard, isWide && styles.discoveryEventCardWide]}>
+                <Card
+                  key={event.id}
+                  onPress={() => void openEventDetail(event.id, event.title)}
+                  style={[styles.discoveryEventCard, isWide && styles.discoveryEventCardWide]}
+                >
                   <View style={styles.discoveryBadgeWrap}>
                     {event.badge ? (
                       <View style={styles.discoveryBadge}>
@@ -532,8 +541,14 @@ export default function SearchHomeScreen({ navigation }: Props) {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
               {discoveryData.people_you_may_know.map((entry) => (
-                <Card key={entry.data.id} style={[styles.personDiscoveryCard, isDesktop && styles.personDiscoveryCardWide]}>
-                  <Pressable onPress={() => void openUserProfile(entry.data.id, entry.data.display_name)} style={styles.personDiscoveryHeader}>
+                <Card
+                  key={entry.data.id}
+                  style={[styles.personDiscoveryCard, isDesktop && styles.personDiscoveryCardWide]}
+                >
+                  <Pressable
+                    onPress={() => void openUserProfile(entry.data.id, entry.data.display_name)}
+                    style={styles.personDiscoveryHeader}
+                  >
                     <View style={styles.avatarPlaceholderLarge}>
                       <Ionicons name="person" size={22} color={colors.primary.main} />
                     </View>
@@ -555,53 +570,58 @@ export default function SearchHomeScreen({ navigation }: Props) {
         </>
       ) : null}
 
-      <Card style={styles.categoryCard}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Browse by Category</Text>
-          <Text style={styles.sectionMeta}>Quick discovery</Text>
-        </View>
-        <View style={styles.categoryGrid}>
-          {getBrowseCategoryQueries().map((entry) => (
-            <Pressable
-              key={entry.label}
-              onPress={() => void handleSubmitSearch(entry.label)}
-              style={styles.categoryChip}
-            >
-              <Text style={styles.categoryChipLabel}>{entry.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </Card>
-
-      <Card style={styles.recentCard}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Recent Searches</Text>
-          {recentSearches.length > 0 ? (
-            <Pressable onPress={() => void clearAll()}>
-              <Text style={styles.clearLabel}>Clear All</Text>
-            </Pressable>
-          ) : null}
-        </View>
-        {hydrated && recentSearches.length > 0 ? (
-          <View style={styles.recentList}>
-            {recentSearches.map((entry) => (
-              <View key={`${entry.query}-${entry.timestamp}`} style={styles.recentRow}>
-                <Pressable onPress={() => void handleSubmitSearch(entry.query)} style={styles.recentPrimaryAction}>
-                  <Ionicons name="time-outline" size={16} color={colors.text.secondary} />
-                  <Text style={styles.recentQueryLabel}>{entry.query}</Text>
-                </Pressable>
-                <Pressable onPress={() => void removeSearch(entry.query)} accessibilityLabel={`Remove ${entry.query} from recent searches`}>
-                  <Ionicons name="close" size={18} color={colors.text.tertiary} />
-                </Pressable>
-              </View>
+      <View style={[styles.utilityGrid, isWide && styles.utilityGridWide]}>
+        <Card style={[styles.categoryCard, isWide && styles.utilityCardWide]}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Browse by Category</Text>
+            <Text style={styles.sectionMeta}>Quick discovery</Text>
+          </View>
+          <View style={styles.categoryGrid}>
+            {getBrowseCategoryQueries().map((entry) => (
+              <Pressable
+                key={entry.label}
+                onPress={() => void handleSubmitSearch(entry.label)}
+                style={styles.categoryChip}
+              >
+                <Text style={styles.categoryChipLabel}>{entry.label}</Text>
+              </Pressable>
             ))}
           </View>
-        ) : (
-          <Text style={styles.emptyBody}>
-            Recent searches will stay on this device so it is quick to jump back into what you were exploring.
-          </Text>
-        )}
-      </Card>
+        </Card>
+
+        <Card style={[styles.recentCard, isWide && styles.utilityCardWide]}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Recent Searches</Text>
+            {recentSearches.length > 0 ? (
+              <Pressable onPress={() => void clearAll()}>
+                <Text style={styles.clearLabel}>Clear All</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {hydrated && recentSearches.length > 0 ? (
+            <View style={styles.recentList}>
+              {recentSearches.map((entry) => (
+                <View key={`${entry.query}-${entry.timestamp}`} style={styles.recentRow}>
+                  <Pressable onPress={() => void handleSubmitSearch(entry.query)} style={styles.recentPrimaryAction}>
+                    <Ionicons name="time-outline" size={16} color={colors.text.secondary} />
+                    <Text style={styles.recentQueryLabel}>{entry.query}</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void removeSearch(entry.query)}
+                    accessibilityLabel={`Remove ${entry.query} from recent searches`}
+                  >
+                    <Ionicons name="close" size={18} color={colors.text.tertiary} />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.emptyBody}>
+              Recent searches will stay on this device so it is quick to jump back into what you were exploring.
+            </Text>
+          )}
+        </Card>
+      </View>
     </View>
   );
 
@@ -623,80 +643,90 @@ export default function SearchHomeScreen({ navigation }: Props) {
       contentContainerStyle={styles.screenBody}
     >
       <View style={styles.searchShell}>
-        <View style={styles.searchBarCard}>
-          <Ionicons name="search" size={20} color={colors.text.secondary} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => {
-              setTimeout(() => setIsFocused(false), 120);
-            }}
-            onSubmitEditing={() => {
-              setIsFocused(false);
-              void handleSubmitSearch();
-            }}
-            placeholder="Search people, events, clubs, places..."
-            placeholderTextColor={colors.text.tertiary}
-            returnKeyType="search"
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={[
-              styles.searchInput,
-              Platform.OS === 'web'
-                ? ({ outlineWidth: 0, outlineStyle: 'none', borderWidth: 0, boxShadow: 'none' } as any)
-                : null,
-            ]}
-            accessibilityLabel="Search xUMD"
-            accessibilityHint="Search across people, events, clubs, and campus locations"
-          />
-          {query.length > 0 ? (
-            <Pressable
-              onPress={() => {
-                setQuery('');
-                setSubmittedQuery('');
-                setActiveTab('all');
+        <View style={[styles.searchShellInner, searchContentWidthStyle]}>
+          <View style={styles.searchBarCard}>
+            <Ionicons name="search" size={20} color={colors.text.secondary} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => {
+                setTimeout(() => setIsFocused(false), 120);
               }}
-              accessibilityLabel="Clear search"
-            >
-              <Ionicons name="close-circle" size={18} color={colors.text.tertiary} />
-            </Pressable>
-          ) : SEARCH_FEATURE_FLAGS.voiceSearch ? (
-            <Pressable accessibilityLabel="Voice search" style={styles.controlButton}>
-              <Ionicons name="mic-outline" size={18} color={colors.text.secondary} />
-            </Pressable>
+              onSubmitEditing={() => {
+                setIsFocused(false);
+                void handleSubmitSearch();
+              }}
+              placeholder="Search people, events, clubs, places..."
+              placeholderTextColor={colors.text.tertiary}
+              returnKeyType="search"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[
+                styles.searchInput,
+                Platform.OS === 'web'
+                  ? ({ outlineWidth: 0, outlineStyle: 'none', borderWidth: 0, boxShadow: 'none' } as any)
+                  : null,
+              ]}
+              accessibilityLabel="Search xUMD"
+              accessibilityHint="Search across people, events, clubs, and campus locations"
+            />
+            {query.length > 0 ? (
+              <Pressable
+                onPress={() => {
+                  setQuery('');
+                  setSubmittedQuery('');
+                  setActiveTab('all');
+                }}
+                accessibilityLabel="Clear search"
+              >
+                <Ionicons name="close-circle" size={18} color={colors.text.tertiary} />
+              </Pressable>
+            ) : SEARCH_FEATURE_FLAGS.voiceSearch ? (
+              <Pressable accessibilityLabel="Voice search" style={styles.controlButton}>
+                <Ionicons name="mic-outline" size={18} color={colors.text.secondary} />
+              </Pressable>
+            ) : null}
+          </View>
+
+          {showAutocomplete ? (
+            <Card style={styles.autocompleteDropdown}>
+              {suggestionSections.map((section) => (
+                <View key={section.type} style={styles.autocompleteSection}>
+                  <Text style={styles.autocompleteTitle}>{section.title}</Text>
+                  {section.items.map((item) => (
+                    <Pressable
+                      key={`${item.type}-${item.id}`}
+                      onPress={() => handleSuggestionPress(item)}
+                      style={styles.autocompleteRow}
+                    >
+                      <View style={styles.autocompleteIconWrap}>
+                        <Ionicons
+                          name={item.icon as keyof typeof Ionicons.glyphMap}
+                          size={16}
+                          color={colors.primary.main}
+                        />
+                      </View>
+                      <View style={styles.resultCopy}>
+                        <Text style={styles.autocompleteRowTitle}>{item.title}</Text>
+                        <Text style={styles.autocompleteRowSubtitle}>{item.subtitle}</Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              ))}
+              <Pressable onPress={() => void handleSubmitSearch(query)} style={styles.fullResultsRow}>
+                <Text style={styles.fullResultsLabel}>Press Enter for full results</Text>
+                <Ionicons name="arrow-forward" size={16} color={colors.primary.main} />
+              </Pressable>
+            </Card>
           ) : null}
         </View>
-
-        {showAutocomplete ? (
-          <Card style={styles.autocompleteDropdown}>
-            {suggestionSections.map((section) => (
-              <View key={section.type} style={styles.autocompleteSection}>
-                <Text style={styles.autocompleteTitle}>{section.title}</Text>
-                {section.items.map((item) => (
-                  <Pressable key={`${item.type}-${item.id}`} onPress={() => handleSuggestionPress(item)} style={styles.autocompleteRow}>
-                    <View style={styles.autocompleteIconWrap}>
-                      <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={16} color={colors.primary.main} />
-                    </View>
-                    <View style={styles.resultCopy}>
-                      <Text style={styles.autocompleteRowTitle}>{item.title}</Text>
-                      <Text style={styles.autocompleteRowSubtitle}>{item.subtitle}</Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            ))}
-            <Pressable onPress={() => void handleSubmitSearch(query)} style={styles.fullResultsRow}>
-              <Text style={styles.fullResultsLabel}>Press Enter for full results</Text>
-              <Ionicons name="arrow-forward" size={16} color={colors.primary.main} />
-            </Pressable>
-          </Card>
-        ) : null}
       </View>
 
       <ScrollView
         style={styles.flexFill}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, searchContentWidthStyle]}
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
       >
@@ -728,6 +758,20 @@ const styles = StyleSheet.create({
     zIndex: 4,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
+  },
+  searchShellInner: {
+    width: '100%',
+    alignSelf: 'center',
+  },
+  searchContentWide: {
+    width: '100%',
+    maxWidth: 920,
+    alignSelf: 'center',
+  },
+  searchContentDesktop: {
+    width: '100%',
+    maxWidth: 1080,
+    alignSelf: 'center',
   },
   searchBarCard: {
     flexDirection: 'row',
@@ -820,6 +864,9 @@ const styles = StyleSheet.create({
   },
   discoveryShell: {
     gap: spacing.lg,
+  },
+  discoveryShellWide: {
+    gap: spacing.xl,
   },
   resultsShell: {
     gap: spacing.lg,
@@ -932,6 +979,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary.lightest,
+  },
+  utilityGrid: {
+    gap: spacing.lg,
+  },
+  utilityGridWide: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  utilityCardWide: {
+    flex: 1,
   },
   categoryCard: {
     gap: spacing.md,
@@ -1051,10 +1108,20 @@ const styles = StyleSheet.create({
   groupList: {
     gap: spacing.md,
   },
+  groupListWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'stretch',
+  },
   resultCard: {
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border.light,
+  },
+  resultCardWide: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    minWidth: 320,
   },
   resultHeader: {
     flexDirection: 'row',
@@ -1226,8 +1293,3 @@ const styles = StyleSheet.create({
     width: '60%',
   },
 });
-
-
-
-
-
