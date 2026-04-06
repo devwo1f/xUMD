@@ -35,6 +35,14 @@ export async function moderateText(input: string) {
     };
   }
 
+  const env = getEnv();
+  if (!env.openAiApiKey) {
+    return {
+      flagged: false,
+      categories: {},
+    };
+  }
+
   const payload = await callOpenAi<{
     results: Array<{
       flagged: boolean;
@@ -50,6 +58,11 @@ export async function moderateText(input: string) {
 
 export async function embedText(input: string) {
   if (!input.trim()) {
+    return null;
+  }
+
+  const env = getEnv();
+  if (!env.openAiApiKey) {
     return null;
   }
 

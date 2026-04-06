@@ -40,20 +40,37 @@ export function useCampusFeed() {
     }
 
     try {
-      const [feed, trending] = await Promise.all([
+      const [feedResult, trendingResult] = await Promise.allSettled([
         fetchRemoteFeed(remoteMode, cursor, 20),
         activeTab === 'Trending' || hashtags.length === 0 ? fetchTrendingSnapshot() : Promise.resolve(null),
       ]);
 
-      hydratePosts(feed.items);
-      setPosts((current) => (replace ? feed.items : [...current, ...feed.items]));
-      setNextCursor(feed.nextCursor);
-      if (trending) {
-        setHashtags(trending.hashtags);
+      if (trendingResult.status === 'fulfilled' && trendingResult.value) {
+        setHashtags(trendingResult.value.hashtags);
       }
-      setError(null);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Unable to load your feed right now.');
+
+      if (feedResult.status === 'fulfilled') {
+        const feed = feedResult.value;
+        const fallbackItems = replace && feed.items.length === 0 && activeTab !== 'Following' ? demo.posts : feed.items;
+
+        if (feed.items.length > 0) {
+          hydratePosts(feed.items);
+        }
+
+        setPosts((current) => (replace ? fallbackItems : [...current, ...feed.items]));
+        setNextCursor(feed.nextCursor);
+        setError(null);
+        return;
+      }
+
+      if (replace && activeTab !== 'Following') {
+        setPosts(demo.posts);
+        setNextCursor(null);
+        setError(null);
+        return;
+      }
+
+      setError(feedResult.reason instanceof Error ? feedResult.reason.message : 'Unable to load your feed right now.');
     } finally {
       setLoading(false);
       setRefreshing(false);

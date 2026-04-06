@@ -124,7 +124,7 @@ export function useCampusSocialGraph(userId: string = CURRENT_SOCIAL_USER_ID) {
     following,
     followers,
     mutualConnections,
-    recommendations,
+    recommendations: recommendations.length > 0 ? recommendations : demo.recommendations,
     loading,
     error,
     isFollowingUser: (targetId: string) => remoteFollowingIds.includes(targetId),

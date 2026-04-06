@@ -185,6 +185,241 @@ function mapRemotePost(raw: RawRemotePost): Post & { suggested_reason?: string |
   };
 }
 
+function unique(values: string[]) {
+  return Array.from(new Set(values));
+}
+
+async function fetchUsersByIdsDirect(userIds: string[]) {
+  if (userIds.length === 0) {
+    return new Map<string, RawRemoteProfile>();
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, username, display_name, avatar_url, bio, major, graduation_year, clubs, courses, follower_count, following_count')
+    .in('id', unique(userIds));
+
+  if (error) {
+    throw error;
+  }
+
+  return new Map(
+    (data ?? []).map((row) => {
+      const profile = mapDbUserRow(row as DbUserRow);
+      return [profile.id, profile];
+    }),
+  );
+}
+
+async function hydrateDbPosts(
+  rows: DbPostRow[],
+  metadataById: Record<string, { score?: number; suggestedReason?: string | null } | undefined> = {},
+) {
+  const authorsById = await fetchUsersByIdsDirect(rows.map((row) => row.user_id));
+
+  return Promise.all(
+    rows.map(async (row) => {
+      const mediaUrls = await signMediaUrls(row.media_urls ?? []);
+      const author = authorsById.get(row.user_id);
+
+      return mapRemotePost({
+        id: row.id,
+        userId: row.user_id,
+        contentText: row.content_text,
+        mediaUrls,
+        mediaType: row.media_type,
+        hashtags: row.hashtags ?? [],
+        likeCount: row.like_count,
+        commentCount: row.comment_count,
+        shareCount: row.share_count,
+        createdAt: row.created_at,
+        author: author ?? {
+          id: row.user_id,
+          username: 'terp',
+          displayName: 'UMD Student',
+          avatarUrl: null,
+          bio: null,
+          major: null,
+          graduationYear: null,
+          clubs: [],
+          courses: [],
+          followerCount: 0,
+          followingCount: 0,
+        },
+        suggestedReason: metadataById[row.id]?.suggestedReason ?? null,
+        score: metadataById[row.id]?.score,
+      });
+    }),
+  );
+}
+
+async function fetchRemoteFeedFallback(mode: RemoteFeedMode, limit = 20): Promise<RemoteFeedResponse> {
+  requireConfigured();
+
+  const currentUserId = await fetchCurrentRemoteUserId();
+  if (!currentUserId) {
+    throw new Error('You need to be signed in to load the feed.');
+  }
+
+  const { data: followingRows, error: followingError } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', currentUserId);
+
+  if (followingError) {
+    throw followingError;
+  }
+
+  const followingIds = (followingRows ?? []).map((row: { following_id: string }) => row.following_id);
+  const followingSet = new Set(followingIds);
+
+  if (mode === 'following' && followingIds.length === 0) {
+    return {
+      items: [],
+      nextCursor: null,
+      generatedAt: new Date().toISOString(),
+      source: 'client-fallback',
+    };
+  }
+
+  let query = supabase
+    .from('posts')
+    .select('id, user_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, moderation_status, created_at')
+    .eq('moderation_status', 'approved')
+    .order('created_at', { ascending: false })
+    .limit(Math.max(limit * 3, 40));
+
+  if (mode === 'following') {
+    query = query.in('user_id', followingIds);
+  } else if (mode === 'trending') {
+    query = query.gte('created_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString());
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw error;
+  }
+
+  let rows = (data ?? []) as DbPostRow[];
+  if (mode === 'trending') {
+    rows = [...rows].sort((left, right) => {
+      const leftScore = left.like_count + left.comment_count * 2 + left.share_count * 3;
+      const rightScore = right.like_count + right.comment_count * 2 + right.share_count * 3;
+      return rightScore - leftScore;
+    });
+  }
+
+  const metadataById = Object.fromEntries(
+    rows.map((row) => [
+      row.id,
+      {
+        score:
+          mode === 'trending'
+            ? row.like_count + row.comment_count * 2 + row.share_count * 3
+            : new Date(row.created_at).getTime(),
+        suggestedReason:
+          mode === 'trending'
+            ? 'Trending across campus'
+            : !followingSet.has(row.user_id) && row.user_id !== currentUserId
+              ? 'Fresh on campus'
+              : null,
+      },
+    ]),
+  );
+
+  const items = await hydrateDbPosts(rows.slice(0, limit), metadataById);
+
+  return {
+    items,
+    nextCursor: null,
+    generatedAt: new Date().toISOString(),
+    source: 'client-fallback',
+  };
+}
+
+async function fetchTrendingSnapshotFallback() {
+  requireConfigured();
+
+  const { data, error } = await supabase
+    .from('posts')
+    .select('id, user_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, moderation_status, created_at')
+    .eq('moderation_status', 'approved')
+    .gte('created_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = (data ?? []) as DbPostRow[];
+  const metadataById = Object.fromEntries(
+    rows.map((row) => [
+      row.id,
+      {
+        score: row.like_count + row.comment_count * 2 + row.share_count * 3,
+        suggestedReason: 'Trending across campus',
+      },
+    ]),
+  );
+
+  const hashtagScores = new Map<string, number>();
+  rows.forEach((row) => {
+    (row.hashtags ?? []).forEach((tag) => {
+      hashtagScores.set(tag, (hashtagScores.get(tag) ?? 0) + 1);
+    });
+  });
+
+  return {
+    posts: await hydrateDbPosts(rows, metadataById),
+    hashtags: Array.from(hashtagScores.entries())
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 10)
+      .map(([tag, score]) => ({ tag, score })),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+async function fetchRemoteRecommendationsFallback(limit = 10) {
+  requireConfigured();
+
+  const currentUserId = await fetchCurrentRemoteUserId();
+  if (!currentUserId) {
+    return [] satisfies RemoteRecommendation[];
+  }
+
+  const { data: rows, error } = await supabase
+    .from('people_recommendations')
+    .select('recommended_user_id, score, reason')
+    .eq('user_id', currentUserId)
+    .order('score', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  const usersById = await fetchUsersByIdsDirect(
+    (rows ?? []).map((row: { recommended_user_id: string }) => row.recommended_user_id),
+  );
+
+  return (rows ?? [])
+    .map((row: { recommended_user_id: string; score: number; reason: string }) => {
+      const profile = usersById.get(row.recommended_user_id);
+      if (!profile) {
+        return null;
+      }
+
+      return {
+        recommendedUserId: row.recommended_user_id,
+        score: row.score,
+        reason: row.reason,
+        profile: mapRemoteUserToSocialProfile(profile),
+      };
+    })
+    .filter(Boolean) as RemoteRecommendation[];
+}
+
 async function signMediaUrls(mediaUrls: string[]) {
   const storagePaths = mediaUrls.filter((value) => value && !/^https?:\/\//i.test(value));
   if (storagePaths.length === 0) {
@@ -223,45 +458,57 @@ export async function fetchCurrentRemoteUserId() {
 }
 
 export async function fetchRemoteFeed(mode: RemoteFeedMode, cursor?: string | null, limit = 20) {
-  const response = await invokeFunction<
-    { mode: RemoteFeedMode; cursor?: string | null; limit?: number },
-    { items: RawRemotePost[]; nextCursor: string | null; generatedAt: string; source: string }
-  >('get-feed', {
-    mode,
-    cursor,
-    limit,
-  });
+  try {
+    const response = await invokeFunction<
+      { mode: RemoteFeedMode; cursor?: string | null; limit?: number },
+      { items: RawRemotePost[]; nextCursor: string | null; generatedAt: string; source: string }
+    >('get-feed', {
+      mode,
+      cursor,
+      limit,
+    });
 
-  return {
-    items: response.items.map(mapRemotePost),
-    nextCursor: response.nextCursor,
-    generatedAt: response.generatedAt,
-    source: response.source,
-  } satisfies RemoteFeedResponse;
+    return {
+      items: response.items.map(mapRemotePost),
+      nextCursor: response.nextCursor,
+      generatedAt: response.generatedAt,
+      source: response.source,
+    } satisfies RemoteFeedResponse;
+  } catch {
+    return fetchRemoteFeedFallback(mode, limit);
+  }
 }
 
 export async function fetchRemoteRecommendations(limit = 10) {
-  const response = await invokeFunction<
-    { limit?: number },
-    { items: Array<{ recommendedUserId: string; score: number; reason: string; profile: RawRemoteProfile }> }
-  >('get-recommendations', { limit });
+  try {
+    const response = await invokeFunction<
+      { limit?: number },
+      { items: Array<{ recommendedUserId: string; score: number; reason: string; profile: RawRemoteProfile }> }
+    >('get-recommendations', { limit });
 
-  return response.items.map((entry) => ({
-    recommendedUserId: entry.recommendedUserId,
-    score: entry.score,
-    reason: entry.reason,
-    profile: mapRemoteUserToSocialProfile(entry.profile),
-  })) satisfies RemoteRecommendation[];
+    return response.items.map((entry) => ({
+      recommendedUserId: entry.recommendedUserId,
+      score: entry.score,
+      reason: entry.reason,
+      profile: mapRemoteUserToSocialProfile(entry.profile),
+    })) satisfies RemoteRecommendation[];
+  } catch {
+    return fetchRemoteRecommendationsFallback(limit);
+  }
 }
 
 export async function fetchTrendingSnapshot() {
-  const response = await invokeFunction<void, { posts: RawRemotePost[]; hashtags: RemoteTrendingHashtag[]; generatedAt: string }>('get-trending');
+  try {
+    const response = await invokeFunction<void, { posts: RawRemotePost[]; hashtags: RemoteTrendingHashtag[]; generatedAt: string }>('get-trending');
 
-  return {
-    posts: response.posts.map(mapRemotePost),
-    hashtags: response.hashtags,
-    generatedAt: response.generatedAt,
-  };
+    return {
+      posts: response.posts.map(mapRemotePost),
+      hashtags: response.hashtags,
+      generatedAt: response.generatedAt,
+    };
+  } catch {
+    return fetchTrendingSnapshotFallback();
+  }
 }
 
 async function getProfilesByIds(userIds: string[]) {
