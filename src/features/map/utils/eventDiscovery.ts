@@ -5,6 +5,7 @@ import { EventCategory, type Event } from '../../../shared/types';
 import type {
   EventLocationGroup,
   MapCoordinate,
+  MapMarkerCategoryKey,
   MapSortOption,
   MapTimeFilter,
   MapUserLocation,
@@ -50,7 +51,15 @@ export const CATEGORY_GLYPHS: Record<EventCategory, string> = {
   [EventCategory.Food]: 'F',
   [EventCategory.Workshop]: 'W',
   [EventCategory.Party]: 'P',
-  [EventCategory.Other]: '•',
+  [EventCategory.Other]: '?',
+};
+
+const MAP_PIN_COLORS: Record<MapMarkerCategoryKey, string> = {
+  social: '#E21833',
+  academic: '#1E88E5',
+  sports: '#16A34A',
+  featured: '#FFD200',
+  other: '#607D8B',
 };
 
 export interface EventFilterOptions {
@@ -114,6 +123,30 @@ export function getCategoryColor(category: Event['category']) {
   );
 }
 
+export function getMapCategoryKeyForEvent(event: Pick<Event, 'category' | 'is_featured'>): MapMarkerCategoryKey {
+  if (event.is_featured) {
+    return 'featured';
+  }
+
+  if (event.category === EventCategory.Social || event.category === EventCategory.Party) {
+    return 'social';
+  }
+
+  if (event.category === EventCategory.Academic) {
+    return 'academic';
+  }
+
+  if (event.category === EventCategory.Sports) {
+    return 'sports';
+  }
+
+  return 'other';
+}
+
+export function getMapPinColor(categoryKey: MapMarkerCategoryKey) {
+  return MAP_PIN_COLORS[categoryKey];
+}
+
 export function getDensityColor(density: number) {
   for (let index = HEATMAP_STOPS.length - 1; index >= 0; index -= 1) {
     if (density >= HEATMAP_STOPS[index].threshold) {
@@ -143,11 +176,24 @@ export function getDensityOpacity(density: number) {
     return 0.9;
   }
 
-  return 0.75;
+  return 0.8;
 }
 
 export function getDensityMarkerSize(density: number) {
-  return 32 + Math.min(density, 10) * 2;
+  return 34 + Math.min(density, 8) * 2;
+}
+
+export function buildActivityWeightMap(events: Event[]) {
+  return Object.fromEntries(
+    events.map((event) => {
+      const attendeeWeight = Math.min(4, (event.attendee_count ?? event.rsvp_count ?? 0) / 40);
+      const interestedWeight = Math.min(2, (event.interested_count ?? 0) / 60);
+      const liveBoost = isEventLive(event) ? 2.2 : 0.6;
+      const featuredBoost = event.is_featured ? 1.4 : 0;
+      const weight = Math.max(0.6, 1 + attendeeWeight + interestedWeight + liveBoost + featuredBoost);
+      return [event.id, Number(weight.toFixed(2))] as const;
+    }),
+  );
 }
 
 export function getContextualTimeLabel(event: Event, now = new Date()) {
@@ -155,20 +201,44 @@ export function getContextualTimeLabel(event: Event, now = new Date()) {
   const endsAt = new Date(event.ends_at);
 
   if (isEventLive(event, now)) {
-    return `Happening now · until ${format(endsAt, 'h:mm a')}`;
+    return `Today ${format(startsAt, 'h:mm a')} - ${format(endsAt, 'h:mm a')}`;
   }
 
   const timeRange = `${format(startsAt, 'h:mm a')} - ${format(endsAt, 'h:mm a')}`;
 
   if (isSameDay(startsAt, now)) {
-    return `Today · ${timeRange}`;
+    return `Today ${timeRange}`;
   }
 
   if (isTomorrow(startsAt)) {
-    return `Tomorrow · ${format(startsAt, 'h:mm a')}`;
+    return `Tomorrow ${format(startsAt, 'h:mm a')}`;
   }
 
-  return `${format(startsAt, 'EEE, MMM d')} · ${timeRange}`;
+  return `${format(startsAt, 'EEE, MMM d')} - ${timeRange}`;
+}
+
+export function getUpcomingTimeLabel(event: Event, now = new Date()) {
+  const startsAt = new Date(event.starts_at);
+  const deltaMs = startsAt.getTime() - now.getTime();
+
+  if (deltaMs <= 0 && isEventLive(event, now)) {
+    return 'Happening now';
+  }
+
+  const minutesAway = Math.round(deltaMs / (60 * 1000));
+  if (minutesAway > 0 && minutesAway < 60) {
+    return `In ${minutesAway} min`;
+  }
+
+  if (isSameDay(startsAt, now)) {
+    return `Today ${format(startsAt, 'h:mm a')}`;
+  }
+
+  if (isTomorrow(startsAt)) {
+    return `Tomorrow ${format(startsAt, 'h:mm a')}`;
+  }
+
+  return format(startsAt, 'EEE h:mm a');
 }
 
 function getLocationKey(event: Event) {
@@ -231,7 +301,7 @@ function matchesSearch(event: Event, query: string) {
     return true;
   }
 
-  const haystack = `${event.title} ${event.location_name} ${event.description} ${event.tags?.join(' ') ?? ''}`.toLowerCase();
+  const haystack = `${event.title} ${event.location_name} ${event.description} ${event.organizer_name ?? ''} ${event.tags?.join(' ') ?? ''}`.toLowerCase();
   return haystack.includes(needle);
 }
 
@@ -241,7 +311,8 @@ export function filterAndSortEvents(events: Event[], options: EventFilterOptions
       return false;
     }
 
-    if (getEventStatus(event) === 'cancelled') {
+    const status = getEventStatus(event);
+    if (status === 'cancelled' || status === 'completed') {
       return false;
     }
 
@@ -287,6 +358,7 @@ export function filterAndSortEvents(events: Event[], options: EventFilterOptions
 export function buildEventLocationGroups(
   events: Event[],
   mode: MarkerVisualMode,
+  viewerRsvpIds: Set<string> = new Set(),
 ): EventLocationGroup[] {
   const grouped = new Map<
     string,
@@ -337,29 +409,38 @@ export function buildEventLocationGroups(
       return getDistanceMeters(coordinate, eventCoordinate) <= DENSITY_RADIUS_METERS ? count + 1 : count;
     }, 0);
 
-    const categoryCounts = new Map<Event['category'], number>();
+    const categoryCounts = new Map<MapMarkerCategoryKey, number>();
     group.events.forEach((event) => {
-      categoryCounts.set(event.category, (categoryCounts.get(event.category) ?? 0) + 1);
+      const key = getMapCategoryKeyForEvent(event);
+      categoryCounts.set(key, (categoryCounts.get(key) ?? 0) + 1);
     });
 
+    const categoryKey =
+      [...categoryCounts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? 'other';
     const primaryCategory =
-      [...categoryCounts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? EventCategory.Other;
+      group.events[0]?.category ?? EventCategory.Other;
     const topAttendance = Math.max(
       ...group.events.map((event) => event.attendee_count ?? event.rsvp_count),
       0,
     );
     const isLive = group.events.some((event) => isEventLive(event));
-    const markerColor = mode === 'heatmap' ? getDensityColor(density) : getCategoryColor(primaryCategory);
-    const markerSize =
-      mode === 'heatmap'
+    const containsFeatured = group.events.some((event) => event.is_featured);
+    const hasRsvpdEvents = group.events.some((event) => viewerRsvpIds.has(event.id));
+    const markerColor = mode === 'heatmap' ? getDensityColor(density) : getMapPinColor(categoryKey);
+    const markerSize = containsFeatured
+      ? 44
+      : mode === 'heatmap'
         ? getDensityMarkerSize(density)
-        : Math.round(36 * (topAttendance > 20 ? 1.2 : 1));
-    const glyph =
-      mode === 'heatmap'
-        ? density >= 2
-          ? String(density)
-          : '•'
-        : CATEGORY_GLYPHS[primaryCategory] ?? CATEGORY_GLYPHS[EventCategory.Other];
+        : Math.round(36 * (topAttendance > 20 ? 1.16 : 1));
+
+    let glyph = CATEGORY_GLYPHS[primaryCategory] ?? CATEGORY_GLYPHS[EventCategory.Other];
+    if (group.events.length > 1) {
+      glyph = String(group.events.length);
+    } else if (containsFeatured) {
+      glyph = '\u2605';
+    } else if (hasRsvpdEvents) {
+      glyph = '\u2713';
+    }
 
     return {
       id: `group-${locationKey}-${index}`,
@@ -373,17 +454,26 @@ export function buildEventLocationGroups(
           id: event.id,
           title: event.title,
           category: event.category,
+          clubId: event.club_id ?? null,
+          organizerName: event.organizer_name ?? 'xUMD',
+          imageUrl: event.image_url ?? null,
           startsAt: event.starts_at,
           endsAt: event.ends_at,
           locationName: event.location_name,
           attendeeCount: event.attendee_count ?? event.rsvp_count,
           interestedCount: event.interested_count ?? 0,
           isLive: isEventLive(event),
+          isGoing: viewerRsvpIds.has(event.id),
+          isFeatured: event.is_featured,
         })),
       primaryCategory,
+      categoryKey,
       density,
       eventCount: group.events.length,
       isLive,
+      hasRsvpdEvents,
+      containsFeatured,
+      pulse: containsFeatured || isLive,
       markerColor,
       markerSize,
       markerOpacity: mode === 'heatmap' ? getDensityOpacity(density) : 1,
@@ -448,7 +538,7 @@ export function buildCampusSearchResults(
       id: `event-${event.id}`,
       type: 'event' as const,
       title: event.title,
-      subtitle: `${event.location_name} · ${getContextualTimeLabel(event)}`,
+      subtitle: `${event.location_name} - ${getContextualTimeLabel(event)}`,
       coordinate: [event.longitude as number, event.latitude as number] as MapCoordinate,
       eventIds: [event.id],
     }));
@@ -464,7 +554,7 @@ export function buildCampusSearchResults(
       id: `location-${building.id}`,
       type: 'location' as const,
       title: building.name,
-      subtitle: `${building.code} · ${building.building_type}`,
+      subtitle: `${building.code} - ${building.building_type}`,
       coordinate: [building.longitude, building.latitude] as MapCoordinate,
       eventIds: events
         .filter((event) => normalizeText(event.location_name).includes(normalizeText(building.name)))

@@ -11,7 +11,7 @@ import {
   ShapeSource,
   SymbolLayer,
 } from '@rnmapbox/maps';
-import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
+import MapView, { Marker, Polygon } from 'react-native-maps';
 import type { Building } from '../../../assets/data/buildings';
 import type { Event } from '../../../shared/types';
 import { colors } from '../../../shared/theme/colors';
@@ -26,12 +26,7 @@ import {
   mapboxAccessToken,
   hasUsableMapboxToken,
 } from '../config/campusMapStyle';
-import {
-  campusRoutes,
-  diningZones,
-  type CampusRoute,
-  type DiningZone,
-} from '../data/campusOverlays';
+import { buildingFootprints, campusMaskHoles } from '../data/campusGeometry';
 import type {
   EventLocationGroup,
   MapCoordinate,
@@ -42,10 +37,9 @@ import type {
 import {
   createBuildingFeatureCollection,
   createCampusBoundaryFeatureCollection,
-  createDiningZoneFeatureCollection,
+  createCampusMaskFeatureCollection,
   createEventHeatFeatureCollection,
   createEventMarkerFeatureCollection,
-  createRouteFeatureCollection,
   createUserLocationFeatureCollection,
   createWayfindingFeatureCollection,
   getFeatureItemId,
@@ -63,6 +57,7 @@ interface CampusMapProps {
   showDiningZones?: boolean;
   clusterEvents?: boolean;
   isHeatmapMode?: boolean;
+  showActivityHeatmap?: boolean;
   activeBuildingId?: string | null;
   activeEventGroupId?: string | null;
   activeRouteId?: string | null;
@@ -72,8 +67,8 @@ interface CampusMapProps {
   wayfindingJourney?: WayfindingJourney | null;
   onSelectEventGroup: (group: EventLocationGroup) => void;
   onSelectBuilding: (building: Building) => void;
-  onSelectRoute?: (route: CampusRoute) => void;
-  onSelectDiningZone?: (zone: DiningZone) => void;
+  onSelectRoute?: () => void;
+  onSelectDiningZone?: () => void;
   onLongPressCoordinate?: (coordinate: MapCoordinate) => void;
 }
 
@@ -86,46 +81,12 @@ const canRenderNativeMapbox = Boolean(
 
 const clusterFilter = ['has', 'point_count'] as any;
 const unclusteredFilter = ['!', ['has', 'point_count']] as any;
-const liveMarkerFilter = ['all', unclusteredFilter, ['==', ['get', 'isLive'], true]] as any;
-const selectedMarkerFilter = ['all', unclusteredFilter] as any;
-
-const boundaryFillStyle = {
-  fillColor: colors.primary.main,
-  fillOpacity: 0.08,
-} as any;
-
-const boundaryLineStyle = {
-  lineColor: colors.primary.main,
-  lineOpacity: 0.4,
-  lineWidth: 2,
-  lineDasharray: [2, 2],
-} as any;
-
-const wayfindingCasingStyle = {
-  lineColor: colors.brand.white,
-  lineOpacity: 0.98,
-  lineWidth: 10,
-} as any;
-
-const wayfindingLineStyle = {
-  lineColor: ['get', 'color'],
-  lineOpacity: 1,
-  lineWidth: 5,
-  lineDasharray: [1.2, 0.8],
-} as any;
-
-const userLocationHaloStyle = {
-  circleColor: colors.status.info,
-  circleRadius: 18,
-  circleOpacity: 0.2,
-} as any;
-
-const userLocationCircleStyle = {
-  circleColor: colors.brand.white,
-  circleRadius: 8,
-  circleStrokeColor: colors.status.info,
-  circleStrokeWidth: 3,
-} as any;
+const rsvpFilter = ['all', unclusteredFilter, ['==', ['get', 'isGoing'], true]] as any;
+const pulseFilter = [
+  'all',
+  unclusteredFilter,
+  ['any', ['==', ['get', 'isLive'], true], ['==', ['get', 'isFeatured'], true]],
+] as any;
 
 function regionFromCenter(longitude: number, latitude: number) {
   return {
@@ -134,6 +95,17 @@ function regionFromCenter(longitude: number, latitude: number) {
     latitudeDelta: 0.007,
     longitudeDelta: 0.007,
   };
+}
+
+function fallbackMaskPolygon() {
+  const paddingLongitude = 0.015;
+  const paddingLatitude = 0.012;
+  return [
+    { latitude: campusMapBounds.sw[1] - paddingLatitude, longitude: campusMapBounds.sw[0] - paddingLongitude },
+    { latitude: campusMapBounds.ne[1] + paddingLatitude, longitude: campusMapBounds.sw[0] - paddingLongitude },
+    { latitude: campusMapBounds.ne[1] + paddingLatitude, longitude: campusMapBounds.ne[0] + paddingLongitude },
+    { latitude: campusMapBounds.sw[1] - paddingLatitude, longitude: campusMapBounds.ne[0] + paddingLongitude },
+  ];
 }
 
 function FallbackMarker({
@@ -145,24 +117,24 @@ function FallbackMarker({
   selected: boolean;
   onPress: () => void;
 }) {
-  const diameter = Math.max(28, Math.round(group.markerSize));
+  const diameter = Math.max(30, Math.round(group.markerSize));
 
   return (
     <Marker
       coordinate={{ latitude: group.coordinate[1], longitude: group.coordinate[0] }}
       onPress={onPress}
-      tracksViewChanges={false}
+      tracksViewChanges={group.containsFeatured || group.hasRsvpdEvents}
     >
       <View style={styles.fallbackMarkerWrap}>
         <View
           style={[
             styles.fallbackHalo,
             {
-              width: diameter + 10,
-              height: diameter + 10,
-              borderRadius: (diameter + 10) / 2,
+              width: diameter + 12,
+              height: diameter + 12,
+              borderRadius: (diameter + 12) / 2,
               backgroundColor: group.markerColor,
-              opacity: group.isLive ? 0.28 : 0.16,
+              opacity: group.pulse ? 0.22 : 0.12,
             },
           ]}
         />
@@ -180,6 +152,11 @@ function FallbackMarker({
           ]}
         >
           <Text style={styles.fallbackMarkerText}>{group.glyph}</Text>
+          {group.hasRsvpdEvents ? (
+            <View style={styles.fallbackBadge}>
+              <Text style={styles.fallbackBadgeText}>{'\u2713'}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </Marker>
@@ -194,21 +171,15 @@ export default function CampusMap({
   buildings,
   showEvents,
   showBuildings,
-  showWalkingRoutes = true,
-  showDiningZones = true,
   clusterEvents = true,
-  isHeatmapMode = true,
+  showActivityHeatmap = true,
   activeBuildingId,
   activeEventGroupId,
-  activeRouteId,
-  activeDiningZoneId,
   userLocation,
   focusRequest,
   wayfindingJourney,
   onSelectEventGroup,
   onSelectBuilding,
-  onSelectRoute,
-  onSelectDiningZone,
   onLongPressCoordinate,
 }: CampusMapProps) {
   const mapViewRef = useRef<MapView | null>(null);
@@ -225,9 +196,9 @@ export default function CampusMap({
   }, []);
 
   useEffect(() => {
-    const hasLiveMarkers = eventGroups.some((group) => group.isLive);
+    const hasPulseMarkers = eventGroups.some((group) => group.pulse);
 
-    if (!hasLiveMarkers) {
+    if (!hasPulseMarkers) {
       setPulsePhase(0);
       return;
     }
@@ -239,32 +210,22 @@ export default function CampusMap({
     return () => clearInterval(interval);
   }, [eventGroups]);
 
-  const activeRouteKey = activeRouteId ?? '';
-  const activeDiningZoneKey = activeDiningZoneId ?? '';
   const activeBuildingKey = activeBuildingId ?? '';
   const activeEventGroupKey = activeEventGroupId ?? '';
-
-  const densityMap = useMemo(() => new Map(Object.entries(densityByEventId)), [densityByEventId]);
+  const weightMap = useMemo(() => new Map(Object.entries(densityByEventId)), [densityByEventId]);
+  const maskShape = useMemo(() => createCampusMaskFeatureCollection(), []);
   const boundaryShape = useMemo(() => createCampusBoundaryFeatureCollection(), []);
-  const routeShape = useMemo(
-    () => createRouteFeatureCollection(showWalkingRoutes ? campusRoutes : []),
-    [showWalkingRoutes],
-  );
-  const diningZoneShape = useMemo(
-    () => createDiningZoneFeatureCollection(showDiningZones ? diningZones : []),
-    [showDiningZones],
-  );
   const buildingShape = useMemo(
     () => createBuildingFeatureCollection(showBuildings ? buildings : []),
     [buildings, showBuildings],
   );
   const eventMarkerShape = useMemo(
-    () => createEventMarkerFeatureCollection(showEvents ? eventGroups : [], isHeatmapMode ? 'heatmap' : 'category'),
-    [eventGroups, isHeatmapMode, showEvents],
+    () => createEventMarkerFeatureCollection(showEvents ? eventGroups : [], 'category'),
+    [eventGroups, showEvents],
   );
   const eventHeatShape = useMemo(
-    () => createEventHeatFeatureCollection(showEvents ? events : [], densityMap),
-    [densityMap, events, showEvents],
+    () => createEventHeatFeatureCollection(showEvents ? events : [], weightMap),
+    [events, showEvents, weightMap],
   );
   const userLocationShape = useMemo(() => createUserLocationFeatureCollection(userLocation ?? null), [userLocation]);
   const wayfindingShape = useMemo(
@@ -272,88 +233,40 @@ export default function CampusMap({
     [wayfindingJourney],
   );
 
-  const buildingHaloStyle = useMemo(
+  const buildingFillStyle = useMemo(
     () => ({
-      circleColor: ['get', 'color'],
-      circleRadius: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 24, 18],
-      circleOpacity: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 0.28, 0.18],
+      fillColor: colors.primary.main,
+      fillOpacity: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 0.16, 0.1],
     }),
     [activeBuildingKey],
   ) as any;
 
-  const buildingCircleStyle = useMemo(
+  const buildingLineStyle = useMemo(
     () => ({
-      circleColor: colors.brand.white,
-      circleRadius: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 16, 14],
-      circleStrokeColor: ['get', 'color'],
-      circleStrokeWidth: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 3, 2],
+      lineColor: colors.primary.main,
+      lineOpacity: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 0.95, 0.42],
+      lineWidth: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 2.4, 1.1],
     }),
     [activeBuildingKey],
-  ) as any;
-
-  const routeCasingStyle = useMemo(
-    () => ({
-      lineColor: colors.brand.white,
-      lineOpacity: 0.92,
-      lineWidth: ['case', ['==', ['get', 'itemId'], activeRouteKey], 10, 8],
-    }),
-    [activeRouteKey],
-  ) as any;
-
-  const routeLineStyle = useMemo(
-    () => ({
-      lineColor: ['case', ['==', ['get', 'itemId'], activeRouteKey], colors.text.primary, ['get', 'color']],
-      lineOpacity: 0.98,
-      lineWidth: ['case', ['==', ['get', 'itemId'], activeRouteKey], 5, 4],
-    }),
-    [activeRouteKey],
-  ) as any;
-
-  const diningZoneFillStyle = useMemo(
-    () => ({
-      fillColor: ['get', 'fillColor'],
-      fillOpacity: ['case', ['==', ['get', 'itemId'], activeDiningZoneKey], 1, 0.78],
-    }),
-    [activeDiningZoneKey],
-  ) as any;
-
-  const diningZoneLineStyle = useMemo(
-    () => ({
-      lineColor: [
-        'case',
-        ['==', ['get', 'itemId'], activeDiningZoneKey],
-        colors.text.primary,
-        ['get', 'lineColor'],
-      ],
-      lineOpacity: 0.94,
-      lineWidth: ['case', ['==', ['get', 'itemId'], activeDiningZoneKey], 3, 2],
-    }),
-    [activeDiningZoneKey],
   ) as any;
 
   const clusterCountExpression = ['coalesce', ['get', 'totalEvents'], ['get', 'point_count']];
+  const maxClusterExpression = ['max', ['get', 'featuredCount'], ['get', 'socialCount'], ['get', 'academicCount'], ['get', 'sportsCount'], ['get', 'otherCount']];
   const clusterColorExpression = [
-    'step',
-    clusterCountExpression,
-    '#90A4AE',
-    2,
-    '#42A5F5',
-    3,
-    '#26A69A',
-    5,
-    '#FFA726',
-    7,
-    '#FF5722',
-    10,
-    '#D32F2F',
+    'case',
+    ['==', ['get', 'featuredCount'], maxClusterExpression], '#FFD200',
+    ['==', ['get', 'socialCount'], maxClusterExpression], '#E21833',
+    ['==', ['get', 'academicCount'], maxClusterExpression], '#1E88E5',
+    ['==', ['get', 'sportsCount'], maxClusterExpression], '#16A34A',
+    '#607D8B',
   ];
 
   const eventClusterBubbleStyle = useMemo(
     () => ({
       circleColor: clusterColorExpression,
-      circleRadius: ['step', clusterCountExpression, 20, 6, 24, 12, 28, 20, 32],
+      circleRadius: ['step', clusterCountExpression, 22, 8, 26, 16, 31, 24, 35],
       circleStrokeColor: colors.brand.white,
-      circleStrokeWidth: 2,
+      circleStrokeWidth: 3,
       circleOpacity: 0.96,
     }),
     [],
@@ -368,16 +281,18 @@ export default function CampusMap({
     textIgnorePlacement: true,
   } as any;
 
+  const eventMarkerShadowStyle = {
+    circleColor: 'rgba(15, 23, 42, 0.18)',
+    circleRadius: ['+', ['/', ['get', 'markerSize'], 2], 2],
+    circleTranslate: [0, 4],
+    circleBlur: 0.25,
+  } as any;
+
   const eventMarkerHaloStyle = useMemo(
     () => ({
       circleColor: ['get', 'color'],
-      circleRadius: [
-        'case',
-        ['==', ['get', 'itemId'], activeEventGroupKey],
-        ['+', ['/', ['get', 'haloSize'], 2], 2],
-        ['/', ['get', 'haloSize'], 2],
-      ],
-      circleOpacity: ['get', 'haloOpacity'],
+      circleRadius: ['/', ['get', 'haloSize'], 2],
+      circleOpacity: ['case', ['==', ['get', 'itemId'], activeEventGroupKey], 0.24, 0.14],
     }),
     [activeEventGroupKey],
   ) as any;
@@ -385,8 +300,8 @@ export default function CampusMap({
   const eventLivePulseStyle = useMemo(
     () => ({
       circleColor: ['get', 'color'],
-      circleRadius: ['+', ['/', ['get', 'haloSize'], 2], 3 + pulsePhase * 9],
-      circleOpacity: Math.max(0.06, 0.24 - pulsePhase * 0.18),
+      circleRadius: ['+', ['/', ['get', 'haloSize'], 2], 3 + pulsePhase * 10],
+      circleOpacity: Math.max(0.04, 0.2 - pulsePhase * 0.16),
     }),
     [pulsePhase],
   ) as any;
@@ -396,46 +311,37 @@ export default function CampusMap({
       circleColor: ['get', 'color'],
       circleRadius: ['/', ['get', 'markerSize'], 2],
       circleStrokeColor: colors.brand.white,
-      circleStrokeWidth: ['case', ['==', ['get', 'itemId'], activeEventGroupKey], 3, 2],
+      circleStrokeWidth: ['case', ['==', ['get', 'itemId'], activeEventGroupKey], 3.4, 2.4],
       circleOpacity: ['get', 'markerOpacity'],
     }),
     [activeEventGroupKey],
   ) as any;
 
-  const eventLabelStyle = useMemo(
-    () => ({
-      textField: ['get', 'glyph'],
-      textColor: colors.brand.white,
-      textSize: ['case', ['>=', ['get', 'markerSize'], 40], 13, 11],
-      textFont: ['Open Sans Bold'],
-      textAllowOverlap: true,
-      textIgnorePlacement: true,
-    }),
-    [],
-  ) as any;
+  const eventLabelStyle = {
+    textField: ['get', 'glyph'],
+    textColor: colors.brand.white,
+    textSize: ['case', ['>=', ['get', 'markerSize'], 42], 14, 11],
+    textFont: ['Open Sans Bold'],
+    textAllowOverlap: true,
+    textIgnorePlacement: true,
+  } as any;
 
   const eventHeatStyle = {
-    heatmapRadius: ['interpolate', ['linear'], ['zoom'], 14, 28, 18, 44],
-    heatmapOpacity: ['interpolate', ['linear'], ['zoom'], 14, 0.36, 17.5, 0],
-    heatmapIntensity: ['interpolate', ['linear'], ['zoom'], 14, 0.55, 18, 1.45],
+    heatmapRadius: ['interpolate', ['linear'], ['zoom'], 14, 28, 16.5, 48, 19, 22],
+    heatmapOpacity: ['interpolate', ['linear'], ['zoom'], 14, 0.46, 17.6, 0.28, 19, 0.14],
+    heatmapIntensity: ['interpolate', ['linear'], ['zoom'], 14, 0.8, 16.8, 1.35, 18.8, 1.75],
     heatmapColor: [
       'interpolate',
       ['linear'],
       ['heatmap-density'],
-      0,
-      'rgba(0,0,0,0)',
-      0.2,
-      '#42A5F5',
-      0.4,
-      '#26A69A',
-      0.6,
-      '#FFA726',
-      0.8,
-      '#FF5722',
-      1,
-      '#D32F2F',
+      0, 'rgba(0,0,0,0)',
+      0.14, 'rgba(255, 224, 130, 0.18)',
+      0.34, 'rgba(255, 183, 77, 0.34)',
+      0.58, 'rgba(255, 112, 67, 0.46)',
+      0.8, 'rgba(239, 68, 68, 0.56)',
+      1, 'rgba(185, 28, 28, 0.68)',
     ],
-    heatmapWeight: ['interpolate', ['linear'], ['get', 'density'], 1, 0.3, 10, 1],
+    heatmapWeight: ['interpolate', ['linear'], ['get', 'weight'], 0.5, 0.2, 6, 1],
   } as any;
 
   useEffect(() => {
@@ -444,7 +350,6 @@ export default function CampusMap({
     }
 
     const mapView = mapViewRef.current;
-
     if (!mapView) {
       return;
     }
@@ -496,6 +401,8 @@ export default function CampusMap({
   }, [focusRequest?.id]);
 
   if (!canRenderNativeMapbox) {
+    const campusHoles = campusMaskHoles.map((ring) => ring.map(([longitude, latitude]) => ({ latitude, longitude })));
+
     return (
       <MapView
         ref={mapViewRef}
@@ -508,53 +415,42 @@ export default function CampusMap({
           onLongPressCoordinate?.([longitude, latitude]);
         }}
       >
-        {showDiningZones
-          ? diningZones.map((zone) => (
-              <Polygon
-                key={zone.id}
-                coordinates={zone.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }))}
-                fillColor={activeDiningZoneId === zone.id ? 'rgba(255, 210, 0, 0.28)' : zone.fillColor}
-                strokeColor={activeDiningZoneId === zone.id ? colors.text.primary : zone.lineColor}
-                strokeWidth={activeDiningZoneId === zone.id ? 3 : 2}
-                tappable
-                onPress={() => onSelectDiningZone?.(zone)}
-              />
-            ))
-          : null}
-
-        {showWalkingRoutes
-          ? campusRoutes.map((route) => (
-              <Polyline
-                key={route.id}
-                coordinates={route.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }))}
-                strokeColor={activeRouteId === route.id ? colors.text.primary : route.color}
-                strokeWidth={activeRouteId === route.id ? 6 : 4}
-                tappable
-                onPress={() => onSelectRoute?.(route)}
-              />
-            ))
-          : null}
-
-        {wayfindingJourney ? (
-          <Polyline
-            coordinates={wayfindingJourney.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }))}
-            strokeColor={wayfindingJourney.color}
-            strokeWidth={6}
-            lineDashPattern={[10, 6]}
-          />
-        ) : null}
-
+        <Polygon
+          coordinates={fallbackMaskPolygon()}
+          holes={campusHoles}
+          fillColor="rgba(17,24,39,0.55)"
+          strokeColor="transparent"
+          strokeWidth={0}
+        />
         {showBuildings
-          ? buildings.map((building) => (
-              <Marker
-                key={building.id}
-                coordinate={{ latitude: building.latitude, longitude: building.longitude }}
-                pinColor={activeBuildingId === building.id ? colors.text.primary : colors.gray[700]}
-                onPress={() => onSelectBuilding(building)}
-                title={building.name}
-                description={building.description}
-              />
-            ))
+          ? buildings.map((building) => {
+              const footprint = buildingFootprints[building.id];
+              if (!footprint) {
+                return null;
+              }
+
+              return (
+                <React.Fragment key={building.id}>
+                  <Polygon
+                    coordinates={footprint.map(([longitude, latitude]) => ({ latitude, longitude }))}
+                    fillColor={activeBuildingId === building.id ? 'rgba(226,24,51,0.16)' : 'rgba(226,24,51,0.1)'}
+                    strokeColor={activeBuildingId === building.id ? 'rgba(226,24,51,0.9)' : 'rgba(226,24,51,0.4)'}
+                    strokeWidth={activeBuildingId === building.id ? 2.4 : 1.1}
+                    tappable
+                    onPress={() => onSelectBuilding(building)}
+                  />
+                  <Marker
+                    coordinate={{ latitude: building.latitude, longitude: building.longitude }}
+                    tracksViewChanges={false}
+                    onPress={() => onSelectBuilding(building)}
+                  >
+                    <View style={styles.fallbackBuildingLabel}>
+                      <Text style={styles.fallbackBuildingLabelText}>{building.code}</Text>
+                    </View>
+                  </Marker>
+                </React.Fragment>
+              );
+            })
           : null}
 
         {showEvents
@@ -571,9 +467,12 @@ export default function CampusMap({
         {userLocation ? (
           <Marker
             coordinate={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
-            pinColor={colors.status.info}
-            title="You are here"
-          />
+            tracksViewChanges={false}
+          >
+            <View style={styles.fallbackUserDotOuter}>
+              <View style={styles.fallbackUserDotInner} />
+            </View>
+          </Marker>
         ) : null}
       </MapView>
     );
@@ -607,54 +506,35 @@ export default function CampusMap({
         maxBounds={campusMapBounds}
       />
 
+      <ShapeSource id={mapSourceIds.campusMask} shape={maskShape}>
+        <FillLayer
+          id={mapLayerIds.boundaryMask}
+          style={{ fillColor: 'rgba(17,24,39,0.56)', fillOpacity: 1 } as any}
+        />
+      </ShapeSource>
+
       <ShapeSource id={mapSourceIds.campusBoundary} shape={boundaryShape}>
-        <FillLayer id={mapLayerIds.boundaryFill} style={boundaryFillStyle} />
-        <LineLayer id={mapLayerIds.boundaryLine} style={boundaryLineStyle} />
+        <FillLayer id={mapLayerIds.boundaryFill} style={{ fillColor: colors.primary.main, fillOpacity: 0 } as any} />
+        <LineLayer
+          id={mapLayerIds.boundaryLine}
+          style={{
+            lineColor: colors.primary.main,
+            lineOpacity: 0,
+            lineWidth: 0.5,
+          } as any}
+        />
       </ShapeSource>
 
-      <ShapeSource id={mapSourceIds.wayfinding} shape={wayfindingShape}>
-        <LineLayer id={mapLayerIds.wayfindingCasing} style={wayfindingCasingStyle} />
-        <LineLayer id={mapLayerIds.wayfindingLine} style={wayfindingLineStyle} />
-      </ShapeSource>
-
-      <ShapeSource
-        id={mapSourceIds.routes}
-        shape={routeShape}
-        hitbox={{ width: 44, height: 24 }}
-        onPress={(pressEvent) => {
-          const routeId = getFeatureItemId(pressEvent.features[0]);
-          const route = campusRoutes.find((item) => item.id === routeId);
-
-          if (route) {
-            onSelectRoute?.(route);
-          }
-        }}
-      >
-        <LineLayer id={mapLayerIds.routeCasing} style={routeCasingStyle} />
-        <LineLayer id={mapLayerIds.routeLine} style={routeLineStyle} />
-      </ShapeSource>
-
-      <ShapeSource
-        id={mapSourceIds.diningZones}
-        shape={diningZoneShape}
-        hitbox={{ width: 44, height: 44 }}
-        onPress={(pressEvent) => {
-          const zoneId = getFeatureItemId(pressEvent.features[0]);
-          const zone = diningZones.find((item) => item.id === zoneId);
-
-          if (zone) {
-            onSelectDiningZone?.(zone);
-          }
-        }}
-      >
-        <FillLayer id={mapLayerIds.diningZoneFill} style={diningZoneFillStyle} />
-        <LineLayer id={mapLayerIds.diningZoneLine} style={diningZoneLineStyle} />
-      </ShapeSource>
+      {showActivityHeatmap ? (
+        <ShapeSource id={mapSourceIds.eventHeat} shape={eventHeatShape}>
+          <HeatmapLayer id={mapLayerIds.eventHeat} style={eventHeatStyle} />
+        </ShapeSource>
+      ) : null}
 
       <ShapeSource
         id={mapSourceIds.buildings}
         shape={buildingShape}
-        hitbox={{ width: 30, height: 30 }}
+        hitbox={{ width: 44, height: 44 }}
         onPress={(pressEvent) => {
           const buildingId = getFeatureItemId(pressEvent.features[0]);
           const building = buildings.find((item) => item.id === buildingId);
@@ -664,115 +544,95 @@ export default function CampusMap({
           }
         }}
       >
-        <CircleLayer id={mapLayerIds.buildingHalo} style={buildingHaloStyle} />
-        <CircleLayer id={mapLayerIds.buildingCircle} style={buildingCircleStyle} />
+        <FillLayer id={mapLayerIds.buildingFill} style={buildingFillStyle} />
+        <LineLayer id={mapLayerIds.buildingLine} style={buildingLineStyle} />
         <SymbolLayer
           id={mapLayerIds.buildingLabel}
           style={{
             textField: ['get', 'code'],
             textColor: colors.text.primary,
-            textSize: 11,
+            textSize: 10,
             textFont: ['Open Sans Bold'],
-            textAllowOverlap: true,
-            textIgnorePlacement: true,
-          }}
+            textAllowOverlap: false,
+            textHaloColor: 'rgba(255,255,255,0.85)',
+            textHaloWidth: 1.2,
+          } as any}
         />
       </ShapeSource>
 
       {showEvents ? (
-        <>
-          {isHeatmapMode ? (
-            <ShapeSource id={mapSourceIds.eventHeat} shape={eventHeatShape}>
-              <HeatmapLayer id={mapLayerIds.eventHeat} style={eventHeatStyle} />
-            </ShapeSource>
-          ) : null}
+        <ShapeSource
+          ref={clusteredEventSourceRef}
+          id={mapSourceIds.eventMarkers}
+          shape={eventMarkerShape}
+          cluster={clusterEvents}
+          clusterRadius={58}
+          clusterMaxZoomLevel={16}
+          clusterProperties={{
+            totalEvents: ['+', ['get', 'eventCount']],
+            featuredCount: ['+', ['case', ['boolean', ['get', 'isFeatured'], false], ['get', 'eventCount'], 0]],
+            socialCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'social'], ['get', 'eventCount'], 0]],
+            academicCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'academic'], ['get', 'eventCount'], 0]],
+            sportsCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'sports'], ['get', 'eventCount'], 0]],
+            otherCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'other'], ['get', 'eventCount'], 0]],
+          }}
+          hitbox={{ width: 48, height: 48 }}
+          onPress={async (pressEvent) => {
+            const feature = pressEvent.features[0];
+            const properties = feature?.properties as Record<string, unknown> | undefined;
 
-          <ShapeSource
-            ref={clusteredEventSourceRef}
-            id={mapSourceIds.eventMarkers}
-            shape={eventMarkerShape}
-            cluster={clusterEvents}
-            clusterRadius={52}
-            clusterMaxZoomLevel={16}
-            clusterProperties={{
-              totalEvents: ['+', ['get', 'eventCount']],
-              maxDensity: ['max', ['get', 'density']],
-              hasLive: ['max', ['case', ['boolean', ['get', 'isLive'], false], 1, 0]],
-            }}
-            hitbox={{ width: 44, height: 44 }}
-            onPress={async (pressEvent) => {
-              const feature = pressEvent.features[0];
-              const properties = feature?.properties as Record<string, unknown> | undefined;
-
-              if (properties?.cluster) {
-                const zoomLevel = await clusteredEventSourceRef.current?.getClusterExpansionZoom(feature);
-                if (feature.geometry.type !== 'Point') {
-                  return;
-                }
-
-                const [longitude, latitude] = feature.geometry.coordinates as [number, number];
-
-                if (typeof zoomLevel === 'number') {
-                  cameraRef.current?.setCamera({
-                    centerCoordinate: [longitude, latitude],
-                    zoomLevel: zoomLevel + 0.4,
-                    animationDuration: 550,
-                  });
-                }
+            if (properties?.cluster) {
+              const zoomLevel = await clusteredEventSourceRef.current?.getClusterExpansionZoom(feature);
+              if (feature.geometry.type !== 'Point') {
                 return;
               }
 
-              const groupId = getFeatureItemId(feature);
-              const group = eventGroups.find((item) => item.id === groupId);
+              const [longitude, latitude] = feature.geometry.coordinates as [number, number];
 
-              if (group) {
-                onSelectEventGroup(group);
+              if (typeof zoomLevel === 'number') {
+                cameraRef.current?.setCamera({
+                  centerCoordinate: [longitude, latitude],
+                  zoomLevel: zoomLevel + 0.4,
+                  animationDuration: 550,
+                });
               }
-            }}
-          >
+              return;
+            }
+
+            const groupId = getFeatureItemId(feature);
+            const group = eventGroups.find((item) => item.id === groupId);
+
+            if (group) {
+              onSelectEventGroup(group);
+            }
+          }}
+        >
+          <>
             {clusterEvents ? (
-              <>
-                <CircleLayer
-                  id={mapLayerIds.eventClusterBubble}
-                  filter={clusterFilter}
-                  style={eventClusterBubbleStyle}
-                />
-                <SymbolLayer
-                  id={mapLayerIds.eventClusterLabel}
-                  filter={clusterFilter}
-                  style={eventClusterLabelStyle}
-                />
-              </>
-            ) : (
-              <></>
-            )}
-            <CircleLayer
-              id={mapLayerIds.eventMarkerHalo}
-              filter={clusterEvents ? unclusteredFilter : undefined}
-              style={eventMarkerHaloStyle}
-            />
-            <CircleLayer
-              id={mapLayerIds.eventLivePulse}
-              filter={clusterEvents ? liveMarkerFilter : ['==', ['get', 'isLive'], true]}
-              style={eventLivePulseStyle}
-            />
-            <CircleLayer
-              id={mapLayerIds.eventMarkerCircle}
-              filter={clusterEvents ? unclusteredFilter : undefined}
-              style={eventMarkerCircleStyle}
-            />
-            <SymbolLayer
-              id={mapLayerIds.eventMarkerLabel}
-              filter={clusterEvents ? unclusteredFilter : undefined}
-              style={eventLabelStyle}
-            />
-          </ShapeSource>
-        </>
+              <CircleLayer id={mapLayerIds.eventClusterBubble} filter={clusterFilter} style={eventClusterBubbleStyle} />
+            ) : null}
+            {clusterEvents ? (
+              <SymbolLayer id={mapLayerIds.eventClusterLabel} filter={clusterFilter} style={eventClusterLabelStyle} />
+            ) : null}
+          </>
+          <CircleLayer id={mapLayerIds.eventMarkerShadow} filter={clusterEvents ? unclusteredFilter : undefined} style={eventMarkerShadowStyle} />
+          <CircleLayer id={mapLayerIds.eventMarkerHalo} filter={clusterEvents ? unclusteredFilter : undefined} style={eventMarkerHaloStyle} />
+          <CircleLayer id={mapLayerIds.eventLivePulse} filter={clusterEvents ? pulseFilter : ['any', ['==', ['get', 'isLive'], true], ['==', ['get', 'isFeatured'], true]]} style={eventLivePulseStyle} />
+          <CircleLayer id={mapLayerIds.eventMarkerCircle} filter={clusterEvents ? unclusteredFilter : undefined} style={eventMarkerCircleStyle} />
+          <SymbolLayer id={mapLayerIds.eventMarkerLabel} filter={clusterEvents ? unclusteredFilter : undefined} style={eventLabelStyle} />
+          <CircleLayer id={mapLayerIds.eventRsvpBadge} filter={rsvpFilter} style={{ circleColor: colors.brand.white, circleRadius: 7, circleStrokeColor: '#0F172A', circleStrokeWidth: 1.2, circleTranslate: [12, -10] } as any} />
+          <SymbolLayer id={mapLayerIds.eventRsvpLabel} filter={rsvpFilter} style={{ textField: '\u2713', textColor: '#0F766E', textSize: 10, textFont: ['Open Sans Bold'], textAllowOverlap: true, textIgnorePlacement: true, textOffset: [1.15, -0.95] } as any} />
+        </ShapeSource>
       ) : null}
 
       <ShapeSource id={mapSourceIds.userLocation} shape={userLocationShape}>
-        <CircleLayer id={mapLayerIds.userLocationHalo} style={userLocationHaloStyle} />
-        <CircleLayer id={mapLayerIds.userLocationCircle} style={userLocationCircleStyle} />
+        <CircleLayer id={mapLayerIds.userLocationHalo} style={{ circleColor: colors.status.info, circleRadius: 18, circleOpacity: 0.2 } as any} />
+        <CircleLayer id={mapLayerIds.userLocationCircle} style={{ circleColor: colors.brand.white, circleRadius: 8, circleStrokeColor: colors.status.info, circleStrokeWidth: 3 } as any} />
+      </ShapeSource>
+
+      <ShapeSource id={mapSourceIds.wayfinding} shape={wayfindingShape}>
+        <LineLayer id={mapLayerIds.wayfindingCasing} style={{ lineColor: colors.brand.white, lineOpacity: 0.98, lineWidth: 10 } as any} />
+        <LineLayer id={mapLayerIds.wayfindingLine} style={{ lineColor: ['get', 'color'], lineOpacity: 1, lineWidth: 5, lineDasharray: [1.2, 0.8] } as any} />
       </ShapeSource>
     </MapboxMapView>
   );
@@ -795,6 +655,54 @@ const styles = StyleSheet.create({
     color: colors.brand.white,
     fontWeight: '700',
     fontSize: 12,
+  },
+  fallbackBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.brand.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#0F172A',
+  },
+  fallbackBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#0F766E',
+  },
+  fallbackBuildingLabel: {
+    minWidth: 30,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(226,24,51,0.14)',
+  },
+  fallbackBuildingLabelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  fallbackUserDotOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(37,99,235,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fallbackUserDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.status.info,
+    borderWidth: 2,
+    borderColor: colors.brand.white,
   },
   wrapper: {
     flex: 1,

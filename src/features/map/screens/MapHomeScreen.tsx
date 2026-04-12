@@ -1,216 +1,296 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Alert,
-  Image,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Image, Linking, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import Avatar from '../../../shared/components/Avatar';
 import Badge from '../../../shared/components/Badge';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
-import HeaderTag from '../../../shared/components/HeaderTag';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import UMDBrandLockup from '../../../shared/components/UMDBrandLockup';
 import { buildings, type Building } from '../../../assets/data/buildings';
+import { mockClubs } from '../../../assets/data/mockClubs';
+import { useAuth } from '../../auth/hooks/useAuth';
+import { useProfile } from '../../profile/hooks/useProfile';
 import { useResponsive } from '../../../shared/hooks/useResponsive';
 import { useCrossTabNavStore } from '../../../shared/stores/useCrossTabNavStore';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
-import { EventCategory, type Event } from '../../../shared/types';
+import { EventCategory, type Event, type EventSearchResult } from '../../../shared/types';
 import { createEventUrl } from '../../../navigation/deepLinks';
 import type { MapStackParamList } from '../../../navigation/types';
 import { isSupabaseConfigured } from '../../../services/supabase';
-import {
-  createMapEventRemote,
-  reportMapEventRemote,
-  submitEventRsvpRemote,
-} from '../../../services/mapEvents';
-import CampusMap from '../components/CampusMap';
 import { campusMapCenter } from '../config/campusMapStyle';
-import {
-  buildingTypeMeta,
-  campusRoutes,
-  diningZones,
-  type CampusRoute,
-  type DiningZone,
-} from '../data/campusOverlays';
+import CampusMap from '../components/CampusMap';
+import { buildingDirectoryProfiles } from '../data/campusGeometry';
 import { useMapData } from '../hooks/useMapData';
 import { useMapEventDetail } from '../hooks/useMapEventDetail';
 import { useMapSearchResults } from '../hooks/useMapSearchResults';
 import { useUserLocation } from '../hooks/useUserLocation';
 import { useMapFilterStore } from '../stores/useMapFilterStore';
-import type {
-  EventLocationGroup,
-  MapCoordinate,
-  MapFocusRequest,
-  MapTimeFilter,
-  WayfindingJourney,
-} from '../types';
-import {
-  MAP_CATEGORY_OPTIONS,
-  buildEventLocationGroups,
-  filterAndSortEvents,
-  getContextualTimeLabel,
-  getLiveEventCounter,
-  getNearestLiveEvent,
-  isEventLive,
-} from '../utils/eventDiscovery';
-import {
-  buildFocusRequestForCoordinate,
-  buildFocusRequestFromCoordinates,
-  buildWayfindingJourney,
-  getDistanceMeters,
-  toMapCoordinate,
-} from '../utils/wayfinding';
+import type { EventLocationGroup, MapCoordinate, MapFocusRequest, MapTimeFilter } from '../types';
+import { buildActivityWeightMap, buildEventLocationGroups, filterAndSortEvents, getContextualTimeLabel, getLiveEventCounter, getNearestLiveEvent, getUpcomingTimeLabel, isEventLive } from '../utils/eventDiscovery';
+import { buildFocusRequestForCoordinate, getDistanceMeters } from '../utils/wayfinding';
+import { createMapEventRemote, reportMapEventRemote, submitEventRsvpRemote } from '../../../services/mapEvents';
 
 type Props = NativeStackScreenProps<MapStackParamList, 'MapHome'>;
+type SheetMode = 'group' | 'event' | 'building' | 'create' | null;
+type RsvpStatus = 'going' | 'interested' | null;
 
-const QUICK_LENSES = [
-  { id: 'open_now', label: 'Open now', icon: 'flash-outline' as const },
-  { id: 'food', label: 'Food', icon: 'restaurant-outline' as const },
-  { id: 'study', label: 'Study', icon: 'book-outline' as const },
-  { id: 'tonight', label: 'Tonight', icon: 'moon-outline' as const },
-] as const;
-
-const TIME_FILTER_OPTIONS: Array<{ value: MapTimeFilter; label: string }> = [
-  { value: 'happening_now', label: 'Happening Now' },
-  { value: 'next_2_hours', label: 'Next 2 Hours' },
-  { value: 'today', label: 'Today' },
-  { value: 'this_week', label: 'This Week' },
-];
-
-type CreateEventDraft = {
+type DraftEvent = {
   title: string;
   description: string;
   category: EventCategory;
   startsAt: string;
   endsAt: string;
   maxCapacity: string;
-  tags: string;
 };
 
-function buildCreateEventDraft(): CreateEventDraft {
-  const now = new Date();
-  const startsAt = new Date(now.getTime() + 60 * 60 * 1000);
-  const endsAt = new Date(startsAt.getTime() + 2 * 60 * 60 * 1000);
+const TIME_CHIPS: Array<{ value: MapTimeFilter; label: string; pulse?: boolean }> = [
+  { value: 'happening_now', label: 'Happening Now', pulse: true },
+  { value: 'today', label: 'Today' },
+  { value: 'this_week', label: 'This Week' },
+];
 
+const CATEGORY_CHIPS: Array<{ value: EventCategory; label: string; color: string }> = [
+  { value: EventCategory.Academic, label: 'Academic', color: '#1E88E5' },
+  { value: EventCategory.Social, label: 'Social', color: '#E21833' },
+  { value: EventCategory.Sports, label: 'Sports', color: '#16A34A' },
+];
+
+function makeNextDraft(): DraftEvent {
+  const start = new Date(Date.now() + 60 * 60 * 1000);
+  const end = new Date(start.getTime() + 90 * 60 * 1000);
   return {
     title: '',
     description: '',
-    category: EventCategory.Other,
-    startsAt: startsAt.toISOString().slice(0, 16),
-    endsAt: endsAt.toISOString().slice(0, 16),
+    category: EventCategory.Social,
+    startsAt: start.toISOString().slice(0, 16),
+    endsAt: end.toISOString().slice(0, 16),
     maxCapacity: '',
-    tags: '',
   };
 }
 
-function getMapsUrl(label: string, coordinate: MapCoordinate) {
+function buildDirectionsUrl(label: string, coordinate: MapCoordinate) {
   const [longitude, latitude] = coordinate;
-  const query = encodeURIComponent(label);
+  const encodedLabel = encodeURIComponent(label);
 
   if (Platform.OS === 'ios') {
-    return `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=w&q=${query}`;
+    return `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=w&q=${encodedLabel}`;
   }
 
   return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=walking&dir_action=navigate`;
 }
 
-function findNearestBuilding(coordinate: MapCoordinate) {
-  return buildings
-    .map((building) => ({
-      building,
-      distance: getDistanceMeters(coordinate, [building.longitude, building.latitude]),
-    }))
-    .sort((left, right) => left.distance - right.distance)[0] ?? null;
+function createFocusRequest(id: string, coordinate: MapCoordinate, zoomLevel = 16.45): MapFocusRequest {
+  return {
+    ...buildFocusRequestForCoordinate(`${id}-${Date.now()}`, coordinate, zoomLevel),
+  };
 }
 
-function findBuildingEvents(target: Building, events: Event[]) {
-  const buildingCoordinate: MapCoordinate = [target.longitude, target.latitude];
-
-  return events.filter((event) => {
-    if (event.latitude === null || event.longitude === null) {
-      return false;
-    }
-
-    const byDistance =
-      getDistanceMeters(buildingCoordinate, [event.longitude, event.latitude]) <= 135;
-    const byName = event.location_name.toLowerCase().includes(target.name.toLowerCase());
-
-    return byDistance || byName;
-  });
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
-function getDensityMap(events: Event[]) {
-  return Object.fromEntries(
-    events.map((event) => {
-      if (event.latitude === null || event.longitude === null) {
-        return [event.id, 1] as const;
-      }
+function buildSheetSnapPoint(
+  viewportHeight: number,
+  options: { preferredHeight: number; minHeight: number; maxHeight: number },
+) {
+  const maxAllowedHeight = Math.min(options.maxHeight, viewportHeight * 0.92);
+  const resolvedHeight = clamp(options.preferredHeight, options.minHeight, maxAllowedHeight);
+  return Number((resolvedHeight / viewportHeight).toFixed(3));
+}
 
-      const coordinate: MapCoordinate = [event.longitude, event.latitude];
-      const density = events.reduce((count, otherEvent) => {
-        if (otherEvent.latitude === null || otherEvent.longitude === null) {
-          return count;
-        }
+function getCurrentRsvpStatus(eventId: string, goingEventIds: string[], savedEventIds: string[]): RsvpStatus {
+  if (goingEventIds.includes(eventId)) {
+    return 'going';
+  }
 
-        const otherCoordinate: MapCoordinate = [otherEvent.longitude, otherEvent.latitude];
-        return getDistanceMeters(coordinate, otherCoordinate) <= 100 ? count + 1 : count;
-      }, 0);
+  if (savedEventIds.includes(eventId)) {
+    return 'interested';
+  }
 
-      return [event.id, density] as const;
-    }),
+  return null;
+}
+
+function patchEventRsvpCounts<T extends Partial<Event> & { id: string }>(
+  event: T,
+  previousStatus: RsvpStatus,
+  nextStatus: RsvpStatus,
+): T {
+  let attendeeCount = Number(event.attendee_count ?? event.rsvp_count ?? 0);
+  let interestedCount = Number(event.interested_count ?? 0);
+
+  if (previousStatus === 'going') {
+    attendeeCount = Math.max(0, attendeeCount - 1);
+  }
+
+  if (previousStatus === 'interested') {
+    interestedCount = Math.max(0, interestedCount - 1);
+  }
+
+  if (nextStatus === 'going') {
+    attendeeCount += 1;
+  }
+
+  if (nextStatus === 'interested') {
+    interestedCount += 1;
+  }
+
+  return {
+    ...event,
+    attendee_count: attendeeCount,
+    rsvp_count: attendeeCount,
+    interested_count: interestedCount,
+  };
+}
+
+function resolveNearestBuilding(coordinate: MapCoordinate) {
+  return (
+    buildings
+      .map((building) => ({
+        building,
+        distanceMeters: getDistanceMeters(coordinate, [building.longitude, building.latitude]),
+      }))
+      .sort((left, right) => left.distanceMeters - right.distanceMeters)[0] ?? null
   );
 }
 
-function EventListItem({
+function findBuildingEvents(building: Building, events: Event[]) {
+  const anchor: MapCoordinate = [building.longitude, building.latitude];
+
+  return events
+    .filter((event) => {
+      if (event.latitude === null || event.longitude === null) {
+        return false;
+      }
+
+      const isNearby = getDistanceMeters(anchor, [event.longitude, event.latitude]) <= 135;
+      const sameNamedLocation = event.location_name.toLowerCase().includes(building.name.toLowerCase());
+      return isNearby || sameNamedLocation;
+    })
+    .sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime());
+}
+
+function getCategoryIconName(category: EventCategory) {
+  switch (category) {
+    case EventCategory.Academic:
+      return 'school-outline';
+    case EventCategory.Social:
+      return 'account-group-outline';
+    case EventCategory.Sports:
+      return 'basketball';
+    case EventCategory.Career:
+      return 'briefcase-outline';
+    case EventCategory.Arts:
+      return 'palette-outline';
+    case EventCategory.Food:
+      return 'silverware-fork-knife';
+    case EventCategory.Workshop:
+      return 'hammer-wrench';
+    case EventCategory.Party:
+      return 'party-popper';
+    case EventCategory.Club:
+      return 'flag-outline';
+    default:
+      return 'map-marker-outline';
+  }
+}
+
+function SearchResultRow({
+  result,
+  onPress,
+}: {
+  result: EventSearchResult;
+  onPress: () => void;
+}) {
+  const isEvent = result.type === 'event';
+
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.searchResultRow, pressed ? styles.pressed : null]}>
+      <View style={[styles.searchResultIcon, { backgroundColor: isEvent ? colors.primary.lightest : '#EEF2FF' }]}>
+        <MaterialCommunityIcons
+          name={isEvent ? 'calendar-star' : 'office-building-outline'}
+          size={18}
+          color={isEvent ? colors.primary.main : colors.text.primary}
+        />
+      </View>
+      <View style={styles.searchResultCopy}>
+        <Text style={styles.searchResultTitle} numberOfLines={1}>
+          {result.title}
+        </Text>
+        <Text style={styles.searchResultSubtitle} numberOfLines={1}>
+          {result.subtitle}
+        </Text>
+      </View>
+      <Ionicons name="arrow-forward" size={14} color={colors.text.tertiary} />
+    </Pressable>
+  );
+}
+
+function FilterChip({
+  label,
+  active,
+  onPress,
+  accentColor,
+  pulse,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  accentColor?: string;
+  pulse?: boolean;
+}) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.filterChip, active ? styles.filterChipActive : null, pressed ? styles.pressed : null]}>
+      {accentColor ? <View style={[styles.filterChipDot, { backgroundColor: accentColor }]} /> : null}
+      {pulse ? <View style={styles.filterChipPulse} /> : null}
+      <Text style={[styles.filterChipText, active ? styles.filterChipTextActive : null]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function EventMiniCard({
   event,
-  isSaved,
   isGoing,
   onPress,
 }: {
   event: Event;
-  isSaved: boolean;
   isGoing: boolean;
   onPress: () => void;
 }) {
-  const categoryColor =
-    colors.eventCategory[event.category as keyof typeof colors.eventCategory] ??
-    colors.eventCategory.other;
-
   return (
-    <Pressable onPress={onPress} style={styles.eventListItem}>
-      <View style={styles.eventListHeader}>
-        <Badge label={event.category} color={categoryColor} />
-        <View style={styles.eventStateRow}>
-          {isGoing ? <Text style={styles.goingText}>Going</Text> : null}
-          {isSaved ? <Text style={styles.savedText}>Interested</Text> : null}
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.miniEventCard, pressed ? styles.pressed : null]}>
+      {event.image_url ? <Image source={{ uri: event.image_url }} style={styles.miniEventImage} /> : null}
+      <View style={styles.miniEventBody}>
+        <View style={styles.miniEventHeader}>
+          <Text style={styles.miniEventTitle} numberOfLines={2}>
+            {event.title}
+          </Text>
+          {isGoing ? <Badge label="Going" color={colors.status.success} /> : null}
         </View>
+        <Text style={styles.miniEventMeta}>{getUpcomingTimeLabel(event)}</Text>
+        <Text style={styles.miniEventMeta} numberOfLines={1}>
+          {event.organizer_name ?? 'xUMD'}
+        </Text>
       </View>
-      <Text style={styles.eventListTitle}>{event.title}</Text>
-      <Text style={styles.eventListMeta}>{getContextualTimeLabel(event)}</Text>
-      <Text style={styles.eventListMeta}>{event.location_name}</Text>
     </Pressable>
   );
 }
 
 export default function MapHomeScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
-  const { isWide, isDesktop } = useResponsive();
+  const { isWide, height: viewportHeight } = useResponsive();
+  const { user: authUser } = useAuth();
+  const { user: profileUser } = useProfile();
   const { userLocation, isLocating, locationError, requestUserLocation } = useUserLocation();
+  const pendingMapFocus = useCrossTabNavStore((state) => state.pendingMapFocus);
+  const clearPendingMapFocus = useCrossTabNavStore((state) => state.clearPendingMapFocus);
+  const setPendingCalendarFocus = useCrossTabNavStore((state) => state.setPendingCalendarFocus);
   const {
     selectedCategories,
     timeFilter,
@@ -218,49 +298,35 @@ export default function MapHomeScreen({ navigation }: Props) {
     customRange,
     onlyFriendsAttending,
     searchQuery,
-    isFilterModalOpen,
+    showActivityLayer,
     setSearchQuery,
     setTimeFilter,
-    setSortBy,
-    setOnlyFriendsAttending,
-    setFilterModalOpen,
     toggleCategory,
-    reset,
+    setShowActivityLayer,
   } = useMapFilterStore();
-  const { rawEvents, loading, refetch: refetchMapData } = useMapData({
-    onlyFriendsAttending,
-  });
+  const { rawEvents, loading, refetch } = useMapData({ onlyFriendsAttending });
   const { savedEventIds, goingEventIds, setEventRsvpStatus } = useDemoAppStore();
-  const pendingMapFocus = useCrossTabNavStore((state) => state.pendingMapFocus);
-  const clearPendingMapFocus = useCrossTabNavStore((state) => state.clearPendingMapFocus);
-  const setPendingCalendarFocus = useCrossTabNavStore((state) => state.setPendingCalendarFocus);
 
-  const [showBuildings, setShowBuildings] = useState(true);
-  const [showWalkingRoutes, setShowWalkingRoutes] = useState(true);
-  const [showDiningZones, setShowDiningZones] = useState(true);
-  const [showListView, setShowListView] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [selectedEventGroupId, setSelectedEventGroupId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
-  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
-  const [selectedDiningZoneId, setSelectedDiningZoneId] = useState<string | null>(null);
-  const [detailEventId, setDetailEventId] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState<MapFocusRequest | null>(null);
-  const [wayfindingJourney, setWayfindingJourney] = useState<WayfindingJourney | null>(null);
-  const [createEventCoordinate, setCreateEventCoordinate] =
-    useState<MapCoordinate | null>(null);
-  const [createEventDraft, setCreateEventDraft] = useState<CreateEventDraft>(
-    buildCreateEventDraft,
-  );
-  const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
-  const detailEventQuery = useMapEventDetail(detailEventId);
-  const { results: searchResults, isLoading: isSearchLoading } = useMapSearchResults({
+  const [showEventDetails, setShowEventDetails] = useState(false);
+  const [createCoordinate, setCreateCoordinate] = useState<MapCoordinate | null>(null);
+  const [draftEvent, setDraftEvent] = useState<DraftEvent>(makeNextDraft);
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  const [isPeekCollapsed, setIsPeekCollapsed] = useState(false);
+
+  const detailQuery = useMapEventDetail(selectedEventId);
+  const { results: searchResults, isLoading: searchLoading } = useMapSearchResults({
     query: searchQuery,
     events: rawEvents,
     buildings,
   });
 
-  const isHeatmapMode = selectedCategories.length === 0;
+  const currentViewerId = authUser?.id ?? profileUser.id;
+  const currentViewerName = authUser?.display_name ?? profileUser.displayName ?? 'xUMD student';
+  const viewerRsvpIds = useMemo(() => new Set([...goingEventIds, ...savedEventIds]), [goingEventIds, savedEventIds]);
   const filteredEvents = useMemo(
     () =>
       filterAndSortEvents(rawEvents, {
@@ -272,77 +338,143 @@ export default function MapHomeScreen({ navigation }: Props) {
         onlyFriendsAttending: onlyFriendsAttending && !isSupabaseConfigured,
         userLocation,
       }),
-    [
-      customRange,
-      onlyFriendsAttending,
-      rawEvents,
-      searchQuery,
-      selectedCategories,
-      sortBy,
-      timeFilter,
-      userLocation,
-    ],
+    [customRange, onlyFriendsAttending, rawEvents, searchQuery, selectedCategories, sortBy, timeFilter, userLocation],
   );
-  const eventById = useMemo(
-    () => new Map(rawEvents.map((event) => [event.id, event])),
-    [rawEvents],
-  );
+  const eventsById = useMemo(() => new Map(rawEvents.map((event) => [event.id, event])), [rawEvents]);
   const eventGroups = useMemo(
-    () => buildEventLocationGroups(filteredEvents, isHeatmapMode ? 'heatmap' : 'category'),
-    [filteredEvents, isHeatmapMode],
+    () => buildEventLocationGroups(filteredEvents, 'category', viewerRsvpIds),
+    [filteredEvents, viewerRsvpIds],
   );
-  const densityByEventId = useMemo(() => getDensityMap(filteredEvents), [filteredEvents]);
+  const activityWeights = useMemo(() => buildActivityWeightMap(filteredEvents), [filteredEvents]);
   const liveCounter = useMemo(() => getLiveEventCounter(filteredEvents), [filteredEvents]);
-
   const selectedGroup = useMemo(
-    () => eventGroups.find((group) => group.id === selectedEventGroupId) ?? null,
-    [eventGroups, selectedEventGroupId],
+    () => eventGroups.find((group) => group.id === selectedGroupId) ?? null,
+    [eventGroups, selectedGroupId],
   );
   const selectedEvent = useMemo(
-    () => (selectedEventId ? eventById.get(selectedEventId) ?? null : null),
-    [eventById, selectedEventId],
-  );
-  const detailEvent = useMemo(
-    () =>
-      detailEventQuery.data?.event ??
-      (detailEventId ? eventById.get(detailEventId) ?? null : null),
-    [detailEventId, detailEventQuery.data?.event, eventById],
+    () => detailQuery.data?.event ?? (selectedEventId ? eventsById.get(selectedEventId) ?? null : null),
+    [detailQuery.data?.event, eventsById, selectedEventId],
   );
   const selectedBuilding = useMemo(
     () => buildings.find((building) => building.id === selectedBuildingId) ?? null,
     [selectedBuildingId],
   );
-  const selectedRoute = useMemo(
-    () => campusRoutes.find((route) => route.id === selectedRouteId) ?? null,
-    [selectedRouteId],
+  const selectedBuildingProfile = useMemo(
+    () => (selectedBuilding ? buildingDirectoryProfiles[selectedBuilding.id] ?? null : null),
+    [selectedBuilding],
   );
-  const selectedDiningZone = useMemo(
-    () => diningZones.find((zone) => zone.id === selectedDiningZoneId) ?? null,
-    [selectedDiningZoneId],
-  );
-  const selectedBuildingEvents = useMemo(
+  const buildingEvents = useMemo(
     () => (selectedBuilding ? findBuildingEvents(selectedBuilding, filteredEvents) : []),
     [filteredEvents, selectedBuilding],
   );
-  const nearestCreateLocation = useMemo(
-    () => (createEventCoordinate ? findNearestBuilding(createEventCoordinate) : null),
-    [createEventCoordinate],
+  const nearestCreateBuilding = useMemo(
+    () => (createCoordinate ? resolveNearestBuilding(createCoordinate) : null),
+    [createCoordinate],
+  );
+  const relatedClubEvents = useMemo(() => {
+    if (!selectedEvent?.club_id) {
+      return [];
+    }
+
+    return rawEvents
+      .filter(
+        (event) =>
+          event.club_id === selectedEvent.club_id &&
+          event.id !== selectedEvent.id &&
+          new Date(event.ends_at).getTime() > Date.now(),
+      )
+      .sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime())
+      .slice(0, 5);
+  }, [rawEvents, selectedEvent?.club_id, selectedEvent?.id]);
+  const upcomingEvents = useMemo(
+    () =>
+      filteredEvents
+        .filter((event) => new Date(event.ends_at).getTime() > Date.now())
+        .sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime())
+        .slice(0, 3),
+    [filteredEvents],
+  );
+  const selectedEventStats = detailQuery.data?.rsvp_stats ?? {
+    going: selectedEvent?.attendee_count ?? selectedEvent?.rsvp_count ?? 0,
+    interested: selectedEvent?.interested_count ?? 0,
+  };
+  const selectedEventRsvp = selectedEvent
+    ? getCurrentRsvpStatus(selectedEvent.id, goingEventIds, savedEventIds)
+    : null;
+  const eventHostClub = selectedEvent?.club_id
+    ? mockClubs.find((club) => club.id === selectedEvent.club_id) ?? null
+    : null;
+  const hasSearchQuery = searchQuery.trim().length >= 2;
+  const isAllChipActive = selectedCategories.length === 0 && timeFilter === 'this_week';
+  const activeSheet: SheetMode = createCoordinate
+    ? 'create'
+    : selectedBuilding
+      ? 'building'
+      : selectedEvent
+        ? 'event'
+        : selectedGroup && selectedGroup.events.length > 1
+          ? 'group'
+          : null;
+  const sharedSheetMinHeight = isWide ? 380 : 320;
+  const groupSheetSnapPoints = useMemo(
+    () => [
+      buildSheetSnapPoint(viewportHeight, {
+        preferredHeight: viewportHeight * 0.56,
+        minHeight: sharedSheetMinHeight,
+        maxHeight: isWide ? 620 : 520,
+      }),
+    ],
+    [isWide, sharedSheetMinHeight, viewportHeight],
+  );
+  const buildingSheetSnapPoints = useMemo(
+    () => [
+      buildSheetSnapPoint(viewportHeight, {
+        preferredHeight: viewportHeight * 0.64,
+        minHeight: isWide ? 440 : 360,
+        maxHeight: isWide ? 760 : 620,
+      }),
+    ],
+    [isWide, viewportHeight],
+  );
+  const eventSheetSnapPoints = useMemo(
+    () => [
+      buildSheetSnapPoint(viewportHeight, {
+        preferredHeight: showEventDetails
+          ? viewportHeight * (isWide ? 0.8 : 0.82)
+          : viewportHeight * (isWide ? 0.58 : 0.56),
+        minHeight: showEventDetails ? (isWide ? 620 : 520) : isWide ? 430 : 360,
+        maxHeight: showEventDetails ? viewportHeight * 0.9 : isWide ? 620 : 540,
+      }),
+    ],
+    [isWide, showEventDetails, viewportHeight],
+  );
+  const createSheetSnapPoints = useMemo(
+    () => [
+      buildSheetSnapPoint(viewportHeight, {
+        preferredHeight: viewportHeight * 0.76,
+        minHeight: isWide ? 560 : 460,
+        maxHeight: viewportHeight * 0.9,
+      }),
+    ],
+    [isWide, viewportHeight],
+  );
+  const sheetContentStyle = useMemo(
+    () => [styles.sheetContent, isWide ? styles.sheetContentWide : null],
+    [isWide],
   );
 
-  useEffect(() => {
-    if (selectedEventId && !filteredEvents.some((event) => event.id === selectedEventId)) {
-      setSelectedEventId(null);
-    }
-  }, [filteredEvents, selectedEventId]);
-
-  useEffect(() => {
-    if (
-      selectedEventGroupId &&
-      !eventGroups.some((group) => group.id === selectedEventGroupId)
-    ) {
-      setSelectedEventGroupId(null);
-    }
-  }, [eventGroups, selectedEventGroupId]);
+  const peekPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 8,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 20) {
+          setIsPeekCollapsed(true);
+        } else if (gestureState.dy < -20) {
+          setIsPeekCollapsed(false);
+        }
+      },
+    }),
+  ).current;
 
   useEffect(() => {
     if (locationError) {
@@ -351,1414 +483,1099 @@ export default function MapHomeScreen({ navigation }: Props) {
   }, [locationError]);
 
   useEffect(() => {
-    if (createEventCoordinate) {
-      setCreateEventDraft(buildCreateEventDraft());
-    }
-  }, [createEventCoordinate]);
-
-  const clearSelections = () => {
-    setSelectedEventId(null);
-    setSelectedEventGroupId(null);
-    setSelectedBuildingId(null);
-    setSelectedRouteId(null);
-    setSelectedDiningZoneId(null);
-    setDetailEventId(null);
-    setWayfindingJourney(null);
-  };
-
-  const focusEvent = (event: Event) => {
-    const group = eventGroups.find((item) =>
-      item.events.some((groupEvent) => groupEvent.id === event.id),
-    );
-    setSelectedBuildingId(null);
-    setSelectedRouteId(null);
-    setSelectedDiningZoneId(null);
-    setWayfindingJourney(null);
-    setSelectedEventGroupId(group?.id ?? null);
-    setSelectedEventId(event.id);
-    setShowListView(false);
-    setFocusRequest(
-      buildFocusRequestForCoordinate(
-        `event-${event.id}`,
-        group?.coordinate ?? [
-          event.longitude ?? campusMapCenter[0],
-          event.latitude ?? campusMapCenter[1],
-        ],
-        16.65,
-      ),
-    );
-  };
-
-  const focusGroup = (group: EventLocationGroup) => {
-    setSelectedBuildingId(null);
-    setSelectedRouteId(null);
-    setSelectedDiningZoneId(null);
-    setWayfindingJourney(null);
-    setSelectedEventGroupId(group.id);
-    setFocusRequest(buildFocusRequestForCoordinate(`group-${group.id}`, group.coordinate, 16.35));
-
-    if (group.events.length === 1) {
-      setSelectedEventId(group.events[0].id);
-      setShowListView(false);
-      return;
-    }
-
-    setSelectedEventId(null);
-    setShowListView(false);
-  };
-
-  useEffect(() => {
     if (!pendingMapFocus) {
       return;
     }
 
     if (pendingMapFocus.type === 'event') {
-      const event = eventById.get(pendingMapFocus.eventId);
+      const event = eventsById.get(pendingMapFocus.eventId);
       if (event) {
-        focusEvent(event);
+        openEvent(event);
       } else {
-        clearSelections();
-        setShowListView(false);
-        setDetailEventId(pendingMapFocus.eventId);
+        clearSelection();
+        setSelectedEventId(pendingMapFocus.eventId);
         setFocusRequest(
-          buildFocusRequestForCoordinate(
-            `event-${pendingMapFocus.eventId}`,
+          createFocusRequest(
+            `pending-event-${pendingMapFocus.eventId}`,
             [pendingMapFocus.longitude, pendingMapFocus.latitude],
-            16.65,
+            16.5,
           ),
         );
       }
-
-      clearPendingMapFocus();
-      return;
+    } else {
+      const building =
+        buildings.find((item) => item.id === pendingMapFocus.locationId) ??
+        buildings.find((item) => item.name === pendingMapFocus.label) ??
+        null;
+      if (building) {
+        openBuilding(building);
+      }
     }
 
-    const building =
-      buildings.find((candidate) => candidate.id === pendingMapFocus.locationId) ??
-      buildings.find((candidate) => candidate.name === pendingMapFocus.label) ??
-      null;
+    clearPendingMapFocus();
+  }, [clearPendingMapFocus, eventsById, pendingMapFocus]);
 
-    clearSelections();
-    setShowListView(false);
-    setSelectedBuildingId(building?.id ?? null);
+  useEffect(() => {
+    setShowEventDetails(false);
+  }, [selectedEventId, selectedBuildingId, selectedGroupId]);
+
+  function clearSelection() {
+    setSelectedEventId(null);
+    setSelectedGroupId(null);
+    setSelectedBuildingId(null);
+    setCreateCoordinate(null);
+    setShowEventDetails(false);
+  }
+
+  function openEvent(event: Event) {
+    const group = eventGroups.find((candidate) => candidate.events.some((item) => item.id === event.id));
+    setSelectedBuildingId(null);
+    setCreateCoordinate(null);
+    setSelectedGroupId(group?.id ?? null);
+    setSelectedEventId(event.id);
     setFocusRequest(
-      buildFocusRequestForCoordinate(
-        `location-${pendingMapFocus.locationId}`,
-        [pendingMapFocus.longitude, pendingMapFocus.latitude],
-        16.45,
+      createFocusRequest(
+        `event-${event.id}`,
+        group?.coordinate ?? [event.longitude ?? campusMapCenter[0], event.latitude ?? campusMapCenter[1]],
+        16.55,
       ),
     );
-    clearPendingMapFocus();
-  }, [clearPendingMapFocus, eventById, pendingMapFocus]);
+  }
 
-  const handleRouteToEvent = async (event: Event) => {
-    if (event.latitude === null || event.longitude === null) {
+  function openGroup(group: EventLocationGroup) {
+    if (group.events.length === 1) {
+      const event = eventsById.get(group.events[0].id);
+      if (event) {
+        openEvent(event);
+      }
       return;
     }
 
-    const origin = userLocation ?? (await requestUserLocation());
-    const journey = buildWayfindingJourney({
-      destinationId: event.id,
-      destinationType: 'event',
-      destinationLabel: event.title,
-      destinationCoordinate: [event.longitude, event.latitude],
-      subtitle: event.location_name,
-      originCoordinate: origin ? toMapCoordinate(origin) : undefined,
-      startLabel: origin ? 'Your location' : undefined,
-    });
+    setSelectedBuildingId(null);
+    setCreateCoordinate(null);
+    setSelectedEventId(null);
+    setSelectedGroupId(group.id);
+    setFocusRequest(createFocusRequest(`group-${group.id}`, group.coordinate, 16.25));
+  }
 
-    setWayfindingJourney(journey);
-    setFocusRequest(
-      buildFocusRequestFromCoordinates(journey.id, journey.coordinates, {
-        padding: 72,
-        zoomLevel: 16.2,
-      }),
-    );
-  };
+  function openBuilding(building: Building) {
+    setSelectedEventId(null);
+    setSelectedGroupId(null);
+    setCreateCoordinate(null);
+    setSelectedBuildingId(building.id);
+    setFocusRequest(createFocusRequest(`building-${building.id}`, [building.longitude, building.latitude], 16.35));
+  }
 
-  const handleRouteToBuilding = async (building: Building) => {
-    const origin = userLocation ?? (await requestUserLocation());
-    const journey = buildWayfindingJourney({
-      destinationId: building.id,
-      destinationType: 'building',
-      destinationLabel: building.name,
-      destinationCoordinate: [building.longitude, building.latitude],
-      subtitle: building.description,
-      originCoordinate: origin ? toMapCoordinate(origin) : undefined,
-      startLabel: origin ? 'Your location' : undefined,
-    });
+  function openCreateEvent(coordinate: MapCoordinate) {
+    setSelectedEventId(null);
+    setSelectedGroupId(null);
+    setSelectedBuildingId(null);
+    setCreateCoordinate(coordinate);
+    setDraftEvent(makeNextDraft());
+    setFocusRequest(createFocusRequest('create-event', coordinate, 16.45));
+  }
 
-    setWayfindingJourney(journey);
-    setFocusRequest(
-      buildFocusRequestFromCoordinates(journey.id, journey.coordinates, {
-        padding: 72,
-        zoomLevel: 16.2,
-      }),
-    );
-  };
+  async function openDirections(label: string, coordinate: MapCoordinate) {
+    const url = buildDirectionsUrl(label, coordinate);
+    const supported = await Linking.canOpenURL(url);
 
-  const handleDirections = async (label: string, coordinate: MapCoordinate) => {
-    const url = getMapsUrl(label, coordinate);
-
-    if (!(await Linking.canOpenURL(url))) {
-      Alert.alert('Unable to open directions', 'No maps app was available for this action.');
+    if (!supported) {
+      Alert.alert('Directions unavailable', 'No maps application was available for this action.');
       return;
     }
 
     await Linking.openURL(url);
-  };
+  }
 
-  const handleShare = async (event: Event) => {
-    const eventUrl = createEventUrl(event.id);
+  function patchEventQueryCaches(eventId: string, previousStatus: RsvpStatus, nextStatus: RsvpStatus) {
+    queryClient.setQueriesData({ queryKey: ['map-events'] }, (current: any) => {
+      if (!current?.items) {
+        return current;
+      }
 
-    await Share.share({
-      message: `${event.title}\n${getContextualTimeLabel(event)}\n${event.location_name}\n${eventUrl}`,
+      return {
+        ...current,
+        items: current.items.map((event: Event) =>
+          event.id === eventId ? patchEventRsvpCounts(event, previousStatus, nextStatus) : event,
+        ),
+      };
     });
-  };
 
-  const handleRsvpAction = async (
-    event: Event,
-    status: 'going' | 'interested',
-  ) => {
+    queryClient.setQueryData(['map-event-detail', eventId], (current: any) => {
+      if (!current?.event) {
+        return current;
+      }
+
+      return {
+        ...current,
+        event: patchEventRsvpCounts(current.event, previousStatus, nextStatus),
+        current_user_rsvp: nextStatus,
+        rsvp_stats: {
+          going:
+            Math.max(
+              0,
+              Number(current.rsvp_stats?.going ?? current.event.attendee_count ?? current.event.rsvp_count ?? 0) -
+                (previousStatus === 'going' ? 1 : 0) +
+                (nextStatus === 'going' ? 1 : 0),
+            ),
+          interested:
+            Math.max(
+              0,
+              Number(current.rsvp_stats?.interested ?? current.event.interested_count ?? 0) -
+                (previousStatus === 'interested' ? 1 : 0) +
+                (nextStatus === 'interested' ? 1 : 0),
+            ),
+        },
+      };
+    });
+  }
+
+  async function handleRsvpChange(event: Event, nextStatus: RsvpStatus) {
+    const previousStatus = getCurrentRsvpStatus(event.id, goingEventIds, savedEventIds);
+
+    if (previousStatus === nextStatus) {
+      return;
+    }
+
+    setEventRsvpStatus(event.id, nextStatus);
+    patchEventQueryCaches(event.id, previousStatus, nextStatus);
+
     try {
       if (isSupabaseConfigured) {
         await submitEventRsvpRemote({
           eventId: event.id,
-          status,
-          action: 'upsert',
+          status: nextStatus ?? undefined,
+          action: nextStatus ? 'upsert' : 'remove',
         });
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['map-events'] }),
-          queryClient.invalidateQueries({ queryKey: ['map-event-detail', event.id] }),
-          queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
-        ]);
       }
 
-      setEventRsvpStatus(event.id, status);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unable to update your RSVP right now.';
-      Alert.alert('RSVP unavailable', message);
-    }
-  };
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['map-events'] }),
+        queryClient.invalidateQueries({ queryKey: ['map-event-detail', event.id] }),
+        queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
+      ]);
 
-  const handleReportEvent = async (eventId: string) => {
+      if (nextStatus === 'going') {
+        Alert.alert(
+          'Added to your schedule',
+          'This event is now in your shared xUMD schedule. You can sync it to Apple Calendar or Google Calendar from the calendar tab.',
+          [
+            { text: 'Later', style: 'cancel' },
+            {
+              text: 'Open My Schedule',
+              onPress: () => {
+                setPendingCalendarFocus({ date: event.starts_at, entryId: event.id });
+                navigation.getParent()?.navigate('Calendar' as never);
+              },
+            },
+          ],
+        );
+      }
+    } catch (error) {
+      setEventRsvpStatus(event.id, previousStatus);
+      patchEventQueryCaches(event.id, nextStatus, previousStatus);
+      Alert.alert(
+        'RSVP unavailable',
+        error instanceof Error ? error.message : 'Unable to update your RSVP right now.',
+      );
+    }
+  }
+
+  async function handleShareEvent(event: Event) {
+    await Share.share({
+      message: `${event.title}\n${getContextualTimeLabel(event)}\n${event.location_name}\n${createEventUrl(event.id)}`,
+    });
+  }
+
+  async function handleReportEvent(eventId: string) {
     if (!isSupabaseConfigured) {
       Alert.alert(
-        'Report event',
-        'Reporting is ready on the backend once Supabase is configured for this app.',
+        'Report queued',
+        'The live moderation flow will work once Supabase is configured for this project.',
       );
       return;
     }
 
     try {
-      await reportMapEventRemote({
-        eventId,
-        reason: 'misleading',
-      });
+      await reportMapEventRemote({ eventId, reason: 'misleading' });
       await queryClient.invalidateQueries({ queryKey: ['map-event-detail', eventId] });
-
-      Alert.alert('Report sent', 'Thanks. The moderation queue has been updated.');
+      Alert.alert('Report sent', 'Thanks. This event was sent to moderation review.');
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unable to report this event right now.';
-      Alert.alert('Report unavailable', message);
+      Alert.alert(
+        'Report unavailable',
+        error instanceof Error ? error.message : 'Unable to send this report right now.',
+      );
     }
-  };
+  }
 
-  const openEventInCalendar = (event: Event) => {
-    setPendingCalendarFocus({
-      date: event.starts_at,
-      entryId: event.id,
-    });
-    navigation.getParent()?.navigate('Calendar' as never);
-  };
-
-  const handleQuickLens = async (lensId: (typeof QUICK_LENSES)[number]['id']) => {
-    if (lensId === 'open_now') {
-      useMapFilterStore.setState({
-        selectedCategories: [],
-        timeFilter: 'happening_now',
-        searchQuery: '',
-      });
-      return;
-    }
-
-    if (lensId === 'food') {
-      useMapFilterStore.setState({
-        selectedCategories: [EventCategory.Food],
-        timeFilter: 'today',
-        searchQuery: '',
-      });
-      return;
-    }
-
-    if (lensId === 'study') {
-      useMapFilterStore.setState({
-        selectedCategories: [],
-        timeFilter: 'today',
-        searchQuery: 'study',
-      });
-      return;
-    }
-
+  async function handleLocateMe() {
     const location = userLocation ?? (await requestUserLocation());
-    useMapFilterStore.setState({
-      selectedCategories: [
-        EventCategory.Party,
-        EventCategory.Social,
-        EventCategory.Arts,
-      ],
-      timeFilter: 'today',
-      sortBy: location ? 'nearest' : 'soonest',
-      searchQuery: '',
-    });
-  };
-
-  const handleSearchResult = (resultId: string) => {
-    const result = searchResults.find((item) => item.id === resultId);
-
-    if (!result) {
+    if (!location) {
       return;
     }
 
+    setFocusRequest(createFocusRequest('me', [location.longitude, location.latitude], 16.2));
+  }
+
+  function resolveSearchBuilding(result: EventSearchResult) {
+    const directId = result.id.replace('location-', '');
+    return (
+      buildings.find((building) => building.id === directId) ??
+      buildings.find((building) => building.name.toLowerCase() === result.title.toLowerCase()) ??
+      buildings.find((building) => building.code.toLowerCase() === result.title.toLowerCase())
+    );
+  }
+
+  function handleSearchResultPress(result: EventSearchResult) {
     setSearchQuery('');
 
-    if (result.type === 'event') {
-      const eventId = result.event_ids[0];
-      const event = eventId ? eventById.get(eventId) : null;
-      if (event) {
-        focusEvent(event);
+    if (result.type === 'location') {
+      const building = resolveSearchBuilding(result);
+      if (building) {
+        openBuilding(building);
         return;
       }
 
-      clearSelections();
-      setDetailEventId(eventId ?? null);
-      setFocusRequest(
-        buildFocusRequestForCoordinate(result.id, [result.longitude, result.latitude], 16.55),
-      );
+      setFocusRequest(createFocusRequest(result.id, [result.longitude, result.latitude], 16.2));
       return;
     }
 
-    const building =
-      buildings.find((item) => item.id === result.id.replace(/^location-/, '')) ??
-      buildings.find((item) => item.name === result.title);
-
-    if (building) {
-      clearSelections();
-      setSelectedBuildingId(building.id);
-      setFocusRequest(
-        buildFocusRequestForCoordinate(
-          `building-${building.id}`,
-          [result.longitude, result.latitude],
-          16.5,
-        ),
-      );
+    const event = result.event_ids[0] ? eventsById.get(result.event_ids[0]) : null;
+    if (event) {
+      openEvent(event);
       return;
     }
 
-    clearSelections();
-    setFocusRequest(
-      buildFocusRequestForCoordinate(result.id, [result.longitude, result.latitude], 16.3),
-    );
-  };
+    setSelectedBuildingId(null);
+    setSelectedGroupId(null);
+    setSelectedEventId(result.event_ids[0] ?? result.id.replace('event-', ''));
+    setFocusRequest(createFocusRequest(result.id, [result.longitude, result.latitude], 16.45));
+  }
 
-  const handleJumpToLive = () => {
-    const event = getNearestLiveEvent(filteredEvents, userLocation);
+  function handleSelectAllFilter() {
+    if (selectedCategories.length > 0) {
+      toggleCategory('all');
+    }
+    setTimeFilter('this_week');
+  }
 
-    if (!event) {
-      Alert.alert('No live events', 'There are no live events matching your current filters.');
+  function handleSelectLiveCounter() {
+    const nearestLiveEvent = getNearestLiveEvent(filteredEvents, userLocation);
+    if (!nearestLiveEvent) {
       return;
     }
 
-    focusEvent(event);
-  };
+    openEvent(nearestLiveEvent);
+  }
 
-  const handleCreateFromLongPress = (coordinate: MapCoordinate) => {
-    clearSelections();
-    setCreateEventCoordinate(coordinate);
-  };
-
-  const handleSubmitCreateEvent = async () => {
-    if (!createEventCoordinate) {
+  async function handleCreateEvent() {
+    if (!createCoordinate) {
       return;
     }
 
-    if (!isSupabaseConfigured) {
-      Alert.alert(
-        'Supabase required',
-        'Event creation is ready on the backend, but this app still needs your Supabase env vars and auth session to publish events.',
-      );
+    if (!draftEvent.title.trim() || !draftEvent.description.trim()) {
+      Alert.alert('Missing details', 'Add a title and description before publishing your event.');
       return;
     }
 
-    if (!createEventDraft.title.trim()) {
-      Alert.alert('Missing title', 'Give your event a title before publishing it.');
+    const startsAt = new Date(draftEvent.startsAt);
+    const endsAt = new Date(draftEvent.endsAt);
+
+    if (!Number.isFinite(startsAt.getTime()) || !Number.isFinite(endsAt.getTime()) || endsAt <= startsAt) {
+      Alert.alert('Invalid time', 'Choose a valid start and end time for this event.');
       return;
     }
 
-    const startsAt = new Date(createEventDraft.startsAt);
-    const endsAt = new Date(createEventDraft.endsAt);
-    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) {
-      Alert.alert(
-        'Invalid time',
-        'Make sure the end time is after the start time and both fields are valid.',
-      );
-      return;
-    }
+    setIsCreatingEvent(true);
 
-    setIsSubmittingEvent(true);
+    const snappedLocation = nearestCreateBuilding?.building ?? null;
+    const newEvent: Event = {
+      id: `evt-local-${Date.now()}`,
+      title: draftEvent.title.trim(),
+      description: draftEvent.description.trim(),
+      club_id: null,
+      created_by: currentViewerId,
+      organizer_name: currentViewerName,
+      category: draftEvent.category,
+      starts_at: startsAt.toISOString(),
+      ends_at: endsAt.toISOString(),
+      status: startsAt <= new Date() && endsAt > new Date() ? 'live' : 'upcoming',
+      moderation_status: 'approved',
+      location_name: snappedLocation?.name ?? 'Pinned campus location',
+      location_id: null,
+      latitude: createCoordinate[1],
+      longitude: createCoordinate[0],
+      image_url: null,
+      rsvp_count: 0,
+      attendee_count: 0,
+      interested_count: 0,
+      max_capacity: draftEvent.maxCapacity ? Number(draftEvent.maxCapacity) : null,
+      is_featured: false,
+      tags: [],
+      location: snappedLocation?.name ?? 'Pinned campus location',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
     try {
-      const result = await createMapEventRemote({
-        title: createEventDraft.title.trim(),
-        description: createEventDraft.description.trim(),
-        category: createEventDraft.category,
-        locationName: nearestCreateLocation?.building.name,
-        latitude: createEventCoordinate[1],
-        longitude: createEventCoordinate[0],
-        startsAt: startsAt.toISOString(),
-        endsAt: endsAt.toISOString(),
-        maxCapacity: createEventDraft.maxCapacity
-          ? Number(createEventDraft.maxCapacity)
-          : null,
-        tags: createEventDraft.tags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-      });
+      let createdEvent = newEvent;
 
-      setCreateEventCoordinate(null);
-      setCreateEventDraft(buildCreateEventDraft());
-      await queryClient.invalidateQueries({ queryKey: ['map-events'] });
-      await refetchMapData();
-      Alert.alert(
-        'Event created',
-        `${result.event.title} is now pinned on the map${
-          result.snappedLocation ? ` near ${result.snappedLocation.name}` : ''
-        }.`,
-      );
+      if (isSupabaseConfigured) {
+        const response = await createMapEventRemote({
+          title: newEvent.title,
+          description: newEvent.description,
+          category: newEvent.category,
+          locationName: newEvent.location_name,
+          locationId: newEvent.location_id ?? null,
+          latitude: newEvent.latitude ?? createCoordinate[1],
+          longitude: newEvent.longitude ?? createCoordinate[0],
+          startsAt: newEvent.starts_at,
+          endsAt: newEvent.ends_at,
+          maxCapacity: newEvent.max_capacity,
+          tags: [],
+          coverImage: null,
+        });
+        createdEvent = response.event;
+      } else {
+        queryClient.setQueriesData({ queryKey: ['map-events'] }, (current: any) => {
+          if (!current?.items) {
+            return current;
+          }
+
+          return {
+            ...current,
+            items: [createdEvent, ...current.items],
+          };
+        });
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['map-events'] }),
+        queryClient.invalidateQueries({ queryKey: ['map-search'] }),
+      ]);
+
+      setCreateCoordinate(null);
+      setDraftEvent(makeNextDraft());
+      openEvent(createdEvent);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unable to publish the event right now.';
-      Alert.alert('Create event unavailable', message);
+      Alert.alert(
+        'Create event unavailable',
+        error instanceof Error ? error.message : 'Unable to publish your event right now.',
+      );
     } finally {
-      setIsSubmittingEvent(false);
+      setIsCreatingEvent(false);
     }
-  };
+  }
+
+  const headerRight = (
+    <View style={styles.headerPill}>
+      <MaterialCommunityIcons name="layers-outline" size={16} color={colors.primary.main} />
+      <Text style={styles.headerPillText}>Campus layers</Text>
+    </View>
+  );
 
   return (
     <ScreenLayout
-      title="Map"
-      subtitle="Live campus pulse, density hotspots, and event discovery across UMD."
+      title="Campus Map"
+      subtitle="Buildings, live events, and the pulse of campus in one shared view."
+      scroll={false}
       headerTopContent={<UMDBrandLockup />}
-      headerMetaContent={
-        <HeaderTag
-          icon="map-outline"
-          label="Campus Pulse"
-          color={colors.primary.main}
-          tintColor={colors.primary.lightest}
-        />
-      }
+      rightAction={headerRight}
+      contentContainerStyle={styles.layoutBody}
     >
-      <View style={styles.container}>
-        <View style={[styles.topControls, isWide && styles.topControlsWide]}>
-          <View style={[styles.searchCard, isWide && styles.searchCardWide]}>
-            <Ionicons name="search" size={18} color={colors.text.tertiary} />
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search events or campus places"
-              placeholderTextColor={colors.text.tertiary}
-              style={styles.searchInput}
-              accessibilityLabel="Search campus events and locations"
-            />
-            <Pressable
-              onPress={() => setFilterModalOpen(true)}
-              style={styles.controlIconButton}
-            >
-              <Ionicons name="options-outline" size={18} color={colors.text.primary} />
-            </Pressable>
-          </View>
-
-          {searchResults.length > 0 ? (
-            <Card style={[styles.searchResultsCard, isWide && styles.searchResultsCardWide]}>
-              {searchResults.map((result) => (
-                <Pressable
-                  key={result.id}
-                  onPress={() => handleSearchResult(result.id)}
-                  style={styles.searchResultRow}
-                >
-                  <View style={styles.searchResultIcon}>
-                    <Ionicons
-                      name={
-                        result.type === 'event'
-                          ? 'sparkles-outline'
-                          : 'business-outline'
-                      }
-                      size={16}
-                      color={colors.primary.main}
-                    />
-                  </View>
-                  <View style={styles.searchResultCopy}>
-                    <Text style={styles.searchResultTitle}>{result.title}</Text>
-                    <Text style={styles.searchResultSubtitle}>{result.subtitle}</Text>
-                  </View>
-                </Pressable>
-              ))}
-            </Card>
-          ) : isSearchLoading ? (
-            <Card style={[styles.searchResultsCard, isWide && styles.searchResultsCardWide]}>
-              <Text style={styles.helperText}>Searching campus events...</Text>
-            </Card>
-          ) : null}
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickLensRow}
-          >
-            {QUICK_LENSES.map((lens) => (
-              <Pressable
-                key={lens.id}
-                onPress={() => void handleQuickLens(lens.id)}
-                style={styles.quickLensChip}
-              >
-                <Ionicons name={lens.icon} size={14} color={colors.text.primary} />
-                <Text style={styles.quickLensLabel}>{lens.label}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryRow}
-          >
-            <Pressable
-              onPress={() => useMapFilterStore.setState({ selectedCategories: [] })}
-              style={[styles.categoryChip, isHeatmapMode && styles.allChipActive]}
-            >
-              <View style={styles.allChipDots}>
-                {['#42A5F5', '#26A69A', '#FFA726', '#FF5722', '#D32F2F'].map(
-                  (color) => (
-                    <View key={color} style={[styles.allChipDot, { backgroundColor: color }]} />
-                  ),
-                )}
-              </View>
-              <Text
-                style={[
-                  styles.categoryChipLabel,
-                  isHeatmapMode && styles.categoryChipLabelDark,
-                ]}
-              >
-                All
-              </Text>
-            </Pressable>
-
-            {MAP_CATEGORY_OPTIONS.filter((option) => option.value !== 'all').map((option) => {
-              const selected = selectedCategories.includes(option.value as EventCategory);
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => toggleCategory(option.value as EventCategory)}
-                  style={[
-                    styles.categoryChip,
-                    { borderColor: option.color },
-                    selected && { backgroundColor: option.color },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.categoryDot,
-                      {
-                        backgroundColor: selected
-                          ? colors.brand.white
-                          : option.color,
-                      },
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.categoryChipLabel,
-                      selected && styles.categoryChipLabelActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        <View style={[styles.mapShell, isWide && styles.mapShellWide, isDesktop && styles.mapShellDesktop]}>
+      <View style={styles.screen}>
+        <View style={[styles.mapShell, isWide ? styles.mapShellWide : null]}>
           <CampusMap
             style={styles.map}
             events={filteredEvents}
             eventGroups={eventGroups}
-            densityByEventId={densityByEventId}
+            densityByEventId={activityWeights}
             buildings={buildings}
             showEvents
-            showBuildings={showBuildings}
-            showWalkingRoutes={showWalkingRoutes}
-            showDiningZones={showDiningZones}
+            showBuildings
             clusterEvents
-            isHeatmapMode={isHeatmapMode}
+            isHeatmapMode={false}
+            showActivityHeatmap={showActivityLayer}
             activeBuildingId={selectedBuildingId}
-            activeEventGroupId={selectedEventGroupId}
-            activeRouteId={selectedRouteId}
-            activeDiningZoneId={selectedDiningZoneId}
+            activeEventGroupId={selectedGroupId}
             userLocation={userLocation}
             focusRequest={focusRequest}
-            wayfindingJourney={wayfindingJourney}
-            onSelectEventGroup={focusGroup}
-            onSelectBuilding={(building) => {
-              clearSelections();
-              setSelectedBuildingId(building.id);
-              setFocusRequest(
-                buildFocusRequestForCoordinate(
-                  `building-${building.id}`,
-                  [building.longitude, building.latitude],
-                  16.5,
-                ),
-              );
-            }}
-            onSelectRoute={(route) => {
-              clearSelections();
-              setSelectedRouteId(route.id);
-              setFocusRequest(
-                buildFocusRequestFromCoordinates(`route-${route.id}`, route.coordinates, {
-                  padding: 72,
-                }),
-              );
-            }}
-            onSelectDiningZone={(zone) => {
-              clearSelections();
-              setSelectedDiningZoneId(zone.id);
-              setFocusRequest(
-                buildFocusRequestFromCoordinates(`zone-${zone.id}`, zone.coordinates, {
-                  padding: 72,
-                }),
-              );
-            }}
-            onLongPressCoordinate={handleCreateFromLongPress}
+            onSelectEventGroup={openGroup}
+            onSelectBuilding={openBuilding}
+            onLongPressCoordinate={openCreateEvent}
           />
 
-          <Pressable onPress={handleJumpToLive} style={styles.liveCounterPill}>
-            <View style={styles.liveCounterDot} />
-            <Text style={styles.liveCounterText}>
-              {liveCounter.liveCount} live - {liveCounter.nextTwoHoursCount} in next 2hrs
-            </Text>
-          </Pressable>
+          <View pointerEvents="box-none" style={styles.overlayRoot}>
+            <View style={styles.topOverlay}>
+              <View style={styles.searchShell}>
+                <Ionicons name="search" size={18} color={colors.text.secondary} />
+                <TextInput
+                  accessibilityLabel="Search buildings and events"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  placeholder="Search buildings, events..."
+                  placeholderTextColor={colors.text.tertiary}
+                  returnKeyType="search"
+                  selectionColor={colors.primary.main}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  style={styles.searchInput}
+                />
+                {searchQuery.length > 0 ? (
+                  <Pressable onPress={() => setSearchQuery('')} style={styles.clearSearchButton}>
+                    <Ionicons name="close" size={16} color={colors.text.secondary} />
+                  </Pressable>
+                ) : null}
+              </View>
 
-          <View style={[styles.mapFabColumn, isWide && styles.mapFabColumnWide]}>
-            <Pressable
-              onPress={() =>
-                void requestUserLocation().then((location) => {
-                  if (!location) {
-                    return;
-                  }
-                  setFocusRequest(
-                    buildFocusRequestForCoordinate(
-                      `user-${Date.now()}`,
-                      [location.longitude, location.latitude],
-                      16.5,
-                    ),
-                  );
-                })
-              }
-              style={styles.fab}
-              accessibilityLabel="Center map on my location"
-            >
-              <Ionicons
-                name={isLocating ? 'locate' : 'locate-outline'}
-                size={20}
-                color={colors.text.primary}
-              />
-            </Pressable>
-
-            <Pressable
-              onPress={() => setShowListView(true)}
-              style={styles.fab}
-              accessibilityLabel="Open event list view"
-            >
-              <Ionicons name="list-outline" size={20} color={colors.text.primary} />
-            </Pressable>
-
-            <Pressable
-              onPress={() => setCreateEventCoordinate(campusMapCenter)}
-              style={[styles.fab, styles.primaryFab]}
-              accessibilityLabel="Create event"
-            >
-              <Ionicons name="add" size={22} color={colors.brand.white} />
-            </Pressable>
-          </View>
-
-          <View style={[styles.mapLegend, isWide && styles.mapLegendWide]}>
-            <Text style={styles.mapLegendTitle}>
-              {isHeatmapMode ? 'Heatmap mode' : 'Category mode'}
-            </Text>
-            <Text style={styles.mapLegendBody}>
-              {isHeatmapMode
-                ? 'Marker color and size reflect nearby event density. Tap a hotspot to unpack what is happening there.'
-                : 'Markers switch to category colors when you filter, so each pin tells you what kind of event it represents.'}
-            </Text>
-          </View>
-        </View>
-
-        {loading ? (
-          <Card>
-            <Text style={styles.helperText}>Loading today's campus activity...</Text>
-          </Card>
-        ) : null}
-      </View>
-
-      <BottomSheet
-        visible={Boolean(selectedGroup && !selectedEvent && selectedGroup.events.length > 1)}
-        onClose={() => setSelectedEventGroupId(null)}
-        snapPoints={[0.46]}
-      >
-        {selectedGroup ? (
-          <View style={styles.sheetBlock}>
-            <Text style={styles.sheetTitle}>{selectedGroup.locationName}</Text>
-            <Text style={styles.sheetSubtitle}>
-              {selectedGroup.eventCount} events here - {selectedGroup.densityLabel}
-            </Text>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.sheetList}
-            >
-              {selectedGroup.events.map((summary) => {
-                const event = eventById.get(summary.id);
-                if (!event) {
-                  return null;
-                }
-
-                return (
-                  <EventListItem
-                    key={event.id}
-                    event={event}
-                    isSaved={savedEventIds.includes(event.id)}
-                    isGoing={goingEventIds.includes(event.id)}
-                    onPress={() => focusEvent(event)}
-                  />
-                );
-              })}
-            </ScrollView>
-          </View>
-        ) : null}
-      </BottomSheet>
-
-      <BottomSheet
-        visible={Boolean(selectedEvent)}
-        onClose={() => setSelectedEventId(null)}
-        snapPoints={[0.35]}
-      >
-        {selectedEvent ? (
-          <View style={styles.sheetBlock}>
-            <View style={styles.previewHeader}>
-              <View style={styles.previewCopy}>
-                <View style={styles.previewBadges}>
-                  <Badge
-                    label={selectedEvent.category}
-                    color={
-                      colors.eventCategory[
-                        selectedEvent.category as keyof typeof colors.eventCategory
-                      ] ?? colors.primary.main
-                    }
-                  />
-                  {isEventLive(selectedEvent) ? (
-                    <View style={styles.liveBadge}>
-                      <View style={styles.liveBadgeDot} />
-                      <Text style={styles.liveBadgeText}>Happening Now</Text>
-                    </View>
+              {hasSearchQuery ? (
+                <Card style={styles.searchResultsCard}>
+                  {searchLoading ? <Text style={styles.searchFeedback}>Finding the best matches...</Text> : null}
+                  {!searchLoading && searchResults.length === 0 ? (
+                    <Text style={styles.searchFeedback}>No buildings or upcoming events matched that search.</Text>
                   ) : null}
-                </View>
-                <Text style={styles.previewTitle}>{selectedEvent.title}</Text>
-                <Text style={styles.previewMeta}>
-                  {getContextualTimeLabel(selectedEvent)}
-                </Text>
-                <Text style={styles.previewMeta}>{selectedEvent.location_name}</Text>
-              </View>
-            </View>
+                  {!searchLoading
+                    ? searchResults.map((result) => (
+                        <SearchResultRow
+                          key={`${result.type}-${result.id}`}
+                          result={result}
+                          onPress={() => handleSearchResultPress(result)}
+                        />
+                      ))
+                    : null}
+                </Card>
+              ) : null}
 
-            <View style={styles.metricRow}>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricValue}>
-                  {(
-                    selectedEvent.attendee_count ?? selectedEvent.rsvp_count
-                  ).toLocaleString()}
-                </Text>
-                <Text style={styles.metricLabel}>Going</Text>
-              </View>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricValue}>
-                  {(selectedEvent.interested_count ?? 0).toLocaleString()}
-                </Text>
-                <Text style={styles.metricLabel}>Interested</Text>
-              </View>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricValue}>
-                  {selectedEvent.organizer_name ?? 'xUMD'}
-                </Text>
-                <Text style={styles.metricLabel}>Organizer</Text>
-              </View>
-            </View>
-
-            <View style={styles.sheetActionRow}>
-              <Button
-                title="Going"
-                onPress={() => void handleRsvpAction(selectedEvent, 'going')}
-                style={styles.flexButton}
-              />
-              <Button
-                title="Interested"
-                onPress={() => void handleRsvpAction(selectedEvent, 'interested')}
-                style={styles.flexButton}
-                variant="secondary"
-              />
-            </View>
-
-            <View style={styles.sheetActionRow}>
-              <Button
-                title="Route"
-                onPress={() => void handleRouteToEvent(selectedEvent)}
-                style={styles.flexButton}
-                variant="ghost"
-              />
-              <Button
-                title="Show in Calendar"
-                onPress={() => openEventInCalendar(selectedEvent)}
-                style={styles.flexButton}
-                variant="ghost"
-              />
-            </View>
-
-            <View style={styles.sheetActionRow}>
-              <Button
-                title="Details"
-                onPress={() => {
-                  setDetailEventId(selectedEvent.id);
-                  setSelectedEventId(null);
-                }}
-                style={styles.flexButton}
-                variant="secondary"
-              />
-            </View>
-          </View>
-        ) : null}
-      </BottomSheet>
-
-      <BottomSheet
-        visible={Boolean(detailEvent)}
-        onClose={() => setDetailEventId(null)}
-        snapPoints={[0.82]}
-      >
-        {detailEvent ? (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.detailSheetContent}
-          >
-            {detailEvent.image_url ? (
-              <Image source={{ uri: detailEvent.image_url }} style={styles.detailHeroImage} />
-            ) : null}
-
-            <View style={styles.previewBadges}>
-              <Badge
-                label={detailEvent.category}
-                color={
-                  colors.eventCategory[
-                    detailEvent.category as keyof typeof colors.eventCategory
-                  ] ?? colors.primary.main
-                }
-              />
-              <Text style={styles.detailOrganizer}>
-                Hosted by{' '}
-                {detailEventQuery.data?.organizer?.display_name ??
-                  detailEvent.organizer_name ??
-                  'xUMD'}
-              </Text>
-            </View>
-
-            <Text style={styles.detailTitle}>{detailEvent.title}</Text>
-            <Text style={styles.detailMeta}>{getContextualTimeLabel(detailEvent)}</Text>
-            <Text style={styles.detailMeta}>{detailEvent.location_name}</Text>
-            {detailEventQuery.isLoading ? (
-              <Text style={styles.detailMeta}>Loading live event details...</Text>
-            ) : null}
-            <Text style={styles.detailDescription}>{detailEvent.description}</Text>
-
-            {detailEvent.tags?.length ? (
-              <View style={styles.tagRow}>
-                {detailEvent.tags.map((tag) => (
-                  <View key={tag} style={styles.tagChip}>
-                    <Text style={styles.tagLabel}>#{tag}</Text>
-                  </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipRow}
+              >
+                <FilterChip label="All" active={isAllChipActive} onPress={handleSelectAllFilter} accentColor={colors.primary.main} />
+                <FilterChip
+                  label="Activity"
+                  active={showActivityLayer}
+                  onPress={() => setShowActivityLayer(!showActivityLayer)}
+                  accentColor="#FF8A00"
+                />
+                {TIME_CHIPS.map((chip) => (
+                  <FilterChip
+                    key={chip.value}
+                    label={chip.label}
+                    active={timeFilter === chip.value}
+                    onPress={() => setTimeFilter(chip.value)}
+                    pulse={chip.pulse}
+                  />
                 ))}
-              </View>
-            ) : null}
-
-            <Card style={styles.detailInfoCard}>
-              <Text style={styles.cardHeading}>People pulse</Text>
-              <Text style={styles.infoText}>
-                {(
-                  detailEventQuery.data?.rsvp_stats.going ??
-                  detailEvent.attendee_count ??
-                  detailEvent.rsvp_count
-                ).toLocaleString()}{' '}
-                Terps marked going and{' '}
-                {(
-                  detailEventQuery.data?.rsvp_stats.interested ??
-                  detailEvent.interested_count ??
-                  0
-                ).toLocaleString()}{' '}
-                are interested.
-              </Text>
-            </Card>
-
-            {detailEventQuery.data?.campus_location ? (
-              <Card style={styles.detailInfoCard}>
-                <Text style={styles.cardHeading}>Pinned building</Text>
-                <Text style={styles.infoText}>
-                  {detailEventQuery.data.campus_location.name}
-                  {detailEventQuery.data.campus_location.address
-                    ? ` - ${detailEventQuery.data.campus_location.address}`
-                    : ''}
-                </Text>
-              </Card>
-            ) : null}
-
-            {detailEventQuery.data?.friends_attending?.length ? (
-              <Card style={styles.detailInfoCard}>
-                <Text style={styles.cardHeading}>Friends attending</Text>
-                <View style={styles.inlineList}>
-                  {detailEventQuery.data.friends_attending.map((friend) => (
-                    <View key={friend.id} style={styles.inlineEventRow}>
-                      <View style={styles.inlineEventDot} />
-                      <View style={styles.inlineEventCopy}>
-                        <Text style={styles.inlineEventTitle}>{friend.display_name}</Text>
-                        <Text style={styles.inlineEventMeta}>
-                          {friend.major ?? 'UMD community'}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </Card>
-            ) : null}
-
-            <View style={styles.detailButtonGrid}>
-              <Button
-                title="Open full event"
-                onPress={() => navigation.navigate('EventDetail', { eventId: detailEvent.id })}
-                fullWidth
-              />
-              <Button
-                title="Show in Calendar"
-                onPress={() => openEventInCalendar(detailEvent)}
-                fullWidth
-                variant="secondary"
-              />
-              <Button
-                title="Get Directions"
-                onPress={() =>
-                  void handleDirections(detailEvent.location_name, [
-                    detailEvent.longitude ?? campusMapCenter[0],
-                    detailEvent.latitude ?? campusMapCenter[1],
-                  ])
-                }
-                fullWidth
-                variant="ghost"
-              />
-              <Button
-                title="Share"
-                onPress={() => void handleShare(detailEvent)}
-                fullWidth
-                variant="ghost"
-              />
-              <Button
-                title="Report"
-                onPress={() => void handleReportEvent(detailEvent.id)}
-                fullWidth
-                variant="ghost"
-              />
-            </View>
-          </ScrollView>
-        ) : null}
-      </BottomSheet>
-
-      <BottomSheet
-        visible={Boolean(selectedBuilding)}
-        onClose={() => setSelectedBuildingId(null)}
-        snapPoints={[0.52]}
-      >
-        {selectedBuilding ? (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.sheetBlock}
-          >
-            <Badge
-              label={buildingTypeMeta[selectedBuilding.building_type].label}
-              color={buildingTypeMeta[selectedBuilding.building_type].color}
-            />
-            <Text style={styles.sheetTitle}>{selectedBuilding.name}</Text>
-            <Text style={styles.sheetDescription}>{selectedBuilding.description}</Text>
-
-            <Card style={styles.detailInfoCard}>
-              <Text style={styles.cardHeading}>What's here now</Text>
-              {selectedBuildingEvents.length > 0 ? (
-                <View style={styles.inlineList}>
-                  {selectedBuildingEvents.slice(0, 4).map((event) => (
-                    <Pressable
-                      key={event.id}
-                      onPress={() => focusEvent(event)}
-                      style={styles.inlineEventRow}
-                    >
-                      <View style={styles.inlineEventDot} />
-                      <View style={styles.inlineEventCopy}>
-                        <Text style={styles.inlineEventTitle}>{event.title}</Text>
-                        <Text style={styles.inlineEventMeta}>
-                          {getContextualTimeLabel(event)}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : (
-                <Text style={styles.infoText}>
-                  No approved events are pinned here right now.
-                </Text>
-              )}
-            </Card>
-
-            <View style={styles.sheetActionRow}>
-              <Button
-                title="Route Here"
-                onPress={() => void handleRouteToBuilding(selectedBuilding)}
-                style={styles.flexButton}
-              />
-              <Button
-                title="Directions"
-                onPress={() =>
-                  void handleDirections(selectedBuilding.name, [
-                    selectedBuilding.longitude,
-                    selectedBuilding.latitude,
-                  ])
-                }
-                style={styles.flexButton}
-                variant="secondary"
-              />
-            </View>
-          </ScrollView>
-        ) : null}
-      </BottomSheet>
-
-      <BottomSheet
-        visible={Boolean(selectedRoute || wayfindingJourney)}
-        onClose={() => {
-          setSelectedRouteId(null);
-          setWayfindingJourney(null);
-        }}
-        snapPoints={[0.32]}
-      >
-        <View style={styles.sheetBlock}>
-          <Text style={styles.sheetTitle}>
-            {wayfindingJourney?.title ?? selectedRoute?.name ?? 'Route'}
-          </Text>
-          <Text style={styles.sheetSubtitle}>
-            {wayfindingJourney
-              ? `${wayfindingJourney.durationLabel} - ${wayfindingJourney.distanceLabel}`
-              : selectedRoute?.description ?? 'Campus walking route'}
-          </Text>
-          <Text style={styles.sheetDescription}>
-            {wayfindingJourney?.subtitle ?? selectedRoute?.description ?? ''}
-          </Text>
-          <Button
-            title="Clear Route"
-            onPress={() => {
-              setSelectedRouteId(null);
-              setWayfindingJourney(null);
-            }}
-            fullWidth
-            variant="secondary"
-          />
-        </View>
-      </BottomSheet>
-
-      <BottomSheet
-        visible={Boolean(selectedDiningZone)}
-        onClose={() => setSelectedDiningZoneId(null)}
-        snapPoints={[0.32]}
-      >
-        {selectedDiningZone ? (
-          <View style={styles.sheetBlock}>
-            <Text style={styles.sheetTitle}>{selectedDiningZone.name}</Text>
-            <Text style={styles.sheetDescription}>{selectedDiningZone.description}</Text>
-          </View>
-        ) : null}
-      </BottomSheet>
-
-      <BottomSheet
-        visible={showListView}
-        onClose={() => setShowListView(false)}
-        snapPoints={[0.72]}
-      >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetBlock}>
-          <Text style={styles.sheetTitle}>Event List</Text>
-          <Text style={styles.sheetSubtitle}>
-            {filteredEvents.length} events match your current map lens
-          </Text>
-          <View style={styles.sheetList}>
-            {filteredEvents.map((event) => (
-              <EventListItem
-                key={event.id}
-                event={event}
-                isSaved={savedEventIds.includes(event.id)}
-                isGoing={goingEventIds.includes(event.id)}
-                onPress={() => {
-                  setShowListView(false);
-                  focusEvent(event);
-                }}
-              />
-            ))}
-          </View>
-        </ScrollView>
-      </BottomSheet>
-
-      <BottomSheet
-        visible={isFilterModalOpen}
-        onClose={() => setFilterModalOpen(false)}
-        snapPoints={[0.62]}
-      >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetBlock}>
-          <Text style={styles.sheetTitle}>Refine the map</Text>
-          <Text style={styles.sheetSubtitle}>
-            Switch lenses without overwhelming the screen.
-          </Text>
-
-          <Text style={styles.filterSectionTitle}>Time</Text>
-          <View style={styles.optionGrid}>
-            {TIME_FILTER_OPTIONS.map((option) => {
-              const selected = timeFilter === option.value;
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => setTimeFilter(option.value)}
-                  style={[styles.optionChip, selected && styles.optionChipActive]}
-                >
-                  <Text
-                    style={[
-                      styles.optionChipLabel,
-                      selected && styles.optionChipLabelActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Text style={styles.filterSectionTitle}>Sort</Text>
-          <View style={styles.optionGrid}>
-            {[
-              { value: 'soonest', label: 'Soonest' },
-              { value: 'most_popular', label: 'Most Popular' },
-              { value: 'nearest', label: 'Nearest' },
-            ].map((option) => {
-              const selected = sortBy === option.value;
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => setSortBy(option.value as typeof sortBy)}
-                  style={[styles.optionChip, selected && styles.optionChipActive]}
-                >
-                  <Text
-                    style={[
-                      styles.optionChipLabel,
-                      selected && styles.optionChipLabelActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Text style={styles.filterSectionTitle}>Map layers</Text>
-          <View style={styles.toggleCardList}>
-            {[
-              {
-                key: 'buildings',
-                label: 'Buildings',
-                value: showBuildings,
-                onToggle: () => setShowBuildings((current) => !current),
-              },
-              {
-                key: 'routes',
-                label: 'Walking routes',
-                value: showWalkingRoutes,
-                onToggle: () => setShowWalkingRoutes((current) => !current),
-              },
-              {
-                key: 'dining',
-                label: 'Dining zones',
-                value: showDiningZones,
-                onToggle: () => setShowDiningZones((current) => !current),
-              },
-              {
-                key: 'friends',
-                label: 'Only friends attending',
-                value: onlyFriendsAttending,
-                onToggle: () =>
-                  setOnlyFriendsAttending(!onlyFriendsAttending),
-              },
-            ].map((toggle) => (
-              <Pressable key={toggle.key} onPress={toggle.onToggle} style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>{toggle.label}</Text>
-                <View style={[styles.togglePill, toggle.value && styles.togglePillActive]}>
-                  <View style={[styles.toggleKnob, toggle.value && styles.toggleKnobActive]} />
-                </View>
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={styles.sheetActionRow}>
-            <Button
-              title="Reset"
-              onPress={() => {
-                reset();
-                setShowBuildings(true);
-                setShowWalkingRoutes(true);
-                setShowDiningZones(true);
-              }}
-              variant="secondary"
-              style={styles.flexButton}
-            />
-            <Button
-              title="Done"
-              onPress={() => setFilterModalOpen(false)}
-              style={styles.flexButton}
-            />
-          </View>
-        </ScrollView>
-      </BottomSheet>
-
-      <BottomSheet
-        visible={Boolean(createEventCoordinate)}
-        onClose={() => setCreateEventCoordinate(null)}
-        snapPoints={[0.72]}
-      >
-        {createEventCoordinate ? (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.sheetBlock}
-          >
-            <Text style={styles.sheetTitle}>Create Event Here</Text>
-            <Text style={styles.sheetDescription}>
-              This pin is at {createEventCoordinate[1].toFixed(5)},{' '}
-              {createEventCoordinate[0].toFixed(5)}.
-            </Text>
-            <Card style={styles.detailInfoCard}>
-              <Text style={styles.cardHeading}>Nearest campus location</Text>
-              {nearestCreateLocation ? (
-                <Text style={styles.infoText}>
-                  {nearestCreateLocation.building.name} - 
-                  {Math.round(nearestCreateLocation.distance)}m away
-                </Text>
-              ) : (
-                <Text style={styles.infoText}>
-                  No major campus location was close enough to suggest.
-                </Text>
-              )}
-            </Card>
-
-            <View style={styles.formSection}>
-              <Text style={styles.filterSectionTitle}>Title</Text>
-              <TextInput
-                value={createEventDraft.title}
-                onChangeText={(value) =>
-                  setCreateEventDraft((current) => ({ ...current, title: value }))
-                }
-                placeholder="What is happening?"
-                placeholderTextColor={colors.text.tertiary}
-                style={styles.formInput}
-              />
-            </View>
-
-            <View style={styles.formSection}>
-              <Text style={styles.filterSectionTitle}>Description</Text>
-              <TextInput
-                value={createEventDraft.description}
-                onChangeText={(value) =>
-                  setCreateEventDraft((current) => ({ ...current, description: value }))
-                }
-                placeholder="Add context, details, and what Terps should expect."
-                placeholderTextColor={colors.text.tertiary}
-                style={[styles.formInput, styles.formInputMultiline]}
-                multiline
-                textAlignVertical="top"
-              />
-            </View>
-
-            <View style={styles.formSection}>
-              <Text style={styles.filterSectionTitle}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.optionGridRow}>
-                  {MAP_CATEGORY_OPTIONS.filter((option) => option.value !== 'all').map((option) => {
-                    const selected = createEventDraft.category === option.value;
-                    return (
-                      <Pressable
-                        key={option.value}
-                        onPress={() =>
-                          setCreateEventDraft((current) => ({
-                            ...current,
-                            category: option.value as EventCategory,
-                          }))
-                        }
-                        style={[
-                          styles.optionChip,
-                          { borderColor: option.color },
-                          selected && { backgroundColor: option.color },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.optionChipLabel,
-                            selected && styles.optionChipLabelActive,
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                {CATEGORY_CHIPS.map((chip) => (
+                  <FilterChip
+                    key={chip.value}
+                    label={chip.label}
+                    active={selectedCategories.includes(chip.value)}
+                    onPress={() => toggleCategory(chip.value)}
+                    accentColor={chip.color}
+                  />
+                ))}
               </ScrollView>
             </View>
 
-            <View style={styles.formSplitRow}>
-              <View style={[styles.formSection, styles.formSplitColumn]}>
-                <Text style={styles.filterSectionTitle}>Starts</Text>
-                <TextInput
-                  value={createEventDraft.startsAt}
-                  onChangeText={(value) =>
-                    setCreateEventDraft((current) => ({ ...current, startsAt: value }))
-                  }
-                  placeholder="2026-04-04T18:30"
-                  placeholderTextColor={colors.text.tertiary}
-                  style={styles.formInput}
-                  autoCapitalize="none"
-                />
-              </View>
-              <View style={[styles.formSection, styles.formSplitColumn]}>
-                <Text style={styles.filterSectionTitle}>Ends</Text>
-                <TextInput
-                  value={createEventDraft.endsAt}
-                  onChangeText={(value) =>
-                    setCreateEventDraft((current) => ({ ...current, endsAt: value }))
-                  }
-                  placeholder="2026-04-04T20:30"
-                  placeholderTextColor={colors.text.tertiary}
-                  style={styles.formInput}
-                  autoCapitalize="none"
-                />
-              </View>
+            <Pressable
+              accessibilityLabel="Jump to the nearest live event"
+              onPress={handleSelectLiveCounter}
+              style={({ pressed }) => [styles.liveCounterPill, pressed ? styles.pressed : null]}
+            >
+              <View style={styles.liveCounterDot} />
+              <Text style={styles.liveCounterText}>
+                {liveCounter.liveCount} live - {liveCounter.nextTwoHoursCount} in next 2 hrs
+              </Text>
+            </Pressable>
+
+            <View style={styles.sideActions}>
+              <Pressable onPress={() => void handleLocateMe()} style={({ pressed }) => [styles.sideActionButton, pressed ? styles.pressed : null]}>
+                <Ionicons name={isLocating ? 'compass' : 'locate'} size={18} color={colors.text.primary} />
+              </Pressable>
+              <Pressable onPress={() => void refetch()} style={({ pressed }) => [styles.sideActionButton, pressed ? styles.pressed : null]}>
+                <Ionicons name="refresh" size={18} color={colors.text.primary} />
+              </Pressable>
+              <Pressable
+                onPress={() => openCreateEvent(selectedBuilding ? [selectedBuilding.longitude, selectedBuilding.latitude] : campusMapCenter)}
+                style={({ pressed }) => [styles.createActionButton, pressed ? styles.pressed : null]}
+              >
+                <Ionicons name="add" size={22} color={colors.brand.white} />
+              </Pressable>
             </View>
 
-            <View style={styles.formSplitRow}>
-              <View style={[styles.formSection, styles.formSplitColumn]}>
-                <Text style={styles.filterSectionTitle}>Capacity</Text>
-                <TextInput
-                  value={createEventDraft.maxCapacity}
-                  onChangeText={(value) =>
-                    setCreateEventDraft((current) => ({ ...current, maxCapacity: value }))
-                  }
-                  placeholder="Optional"
-                  placeholderTextColor={colors.text.tertiary}
-                  style={styles.formInput}
-                  keyboardType="numeric"
+            <View {...peekPanResponder.panHandlers} style={[styles.peekRail, isPeekCollapsed ? styles.peekRailCollapsed : null]}>
+              <Pressable
+                accessibilityLabel={isPeekCollapsed ? 'Expand upcoming events' : 'Collapse upcoming events'}
+                onPress={() => setIsPeekCollapsed((current) => !current)}
+                style={styles.peekHandleRow}
+              >
+                <View style={styles.peekHandle} />
+                <Text style={styles.peekRailTitle}>Next up on campus</Text>
+                <Ionicons
+                  name={isPeekCollapsed ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={colors.text.secondary}
                 />
-              </View>
-              <View style={[styles.formSection, styles.formSplitColumn]}>
-                <Text style={styles.filterSectionTitle}>Tags</Text>
-                <TextInput
-                  value={createEventDraft.tags}
-                  onChangeText={(value) =>
-                    setCreateEventDraft((current) => ({ ...current, tags: value }))
-                  }
-                  placeholder="club, cs, networking"
-                  placeholderTextColor={colors.text.tertiary}
-                  style={styles.formInput}
-                />
-              </View>
+              </Pressable>
+
+              {!isPeekCollapsed ? (
+                upcomingEvents.length > 0 ? (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.peekCardsRow}
+                  >
+                    {upcomingEvents.map((event) => (
+                      <EventMiniCard
+                        key={event.id}
+                        event={event}
+                        isGoing={goingEventIds.includes(event.id)}
+                        onPress={() => openEvent(event)}
+                      />
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <Text style={styles.peekEmptyText}>No upcoming events match your current filters.</Text>
+                )
+              ) : null}
             </View>
 
-            <Button
-              title={isSubmittingEvent ? 'Publishing...' : 'Publish Event'}
-              onPress={() => void handleSubmitCreateEvent()}
-              fullWidth
+            {loading && rawEvents.length === 0 ? (
+              <Card style={styles.loadingCard}>
+                <Text style={styles.loadingTitle}>Loading campus activity</Text>
+                <Text style={styles.loadingCopy}>Pulling buildings, events, and the latest campus pulse into the map.</Text>
+              </Card>
+            ) : null}
+          </View>
+        </View>
+      </View>
+
+      <BottomSheet
+        visible={activeSheet === 'group'}
+        onClose={clearSelection}
+        snapPoints={groupSheetSnapPoints}
+        minHeight={sharedSheetMinHeight}
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={sheetContentStyle}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetEyebrow}>Events at this spot</Text>
+            <Text style={styles.sheetTitle}>{selectedGroup?.locationName ?? 'Campus location'}</Text>
+            <Text style={styles.sheetSubtitle}>
+              {selectedGroup?.events.length ?? 0} upcoming events grouped here right now.
+            </Text>
+          </View>
+
+          {selectedGroup?.events.map((groupEvent) => {
+            const event = eventsById.get(groupEvent.id);
+            if (!event) {
+              return null;
+            }
+
+            return (
+              <Card key={event.id} style={styles.groupEventCard} onPress={() => openEvent(event)}>
+                <View style={styles.groupEventHeader}>
+                  <View style={[styles.groupEventIcon, { backgroundColor: `${colors.eventCategory[event.category]}22` }]}>
+                    <MaterialCommunityIcons
+                      name={getCategoryIconName(event.category)}
+                      size={16}
+                      color={colors.eventCategory[event.category]}
+                    />
+                  </View>
+                  <View style={styles.groupEventCopy}>
+                    <Text style={styles.groupEventTitle}>{event.title}</Text>
+                    <Text style={styles.groupEventMeta}>{getContextualTimeLabel(event)}</Text>
+                  </View>
+                  {goingEventIds.includes(event.id) ? <Badge label="Going" color={colors.status.success} /> : null}
+                </View>
+                <Text style={styles.groupEventDescription} numberOfLines={2}>
+                  {event.description}
+                </Text>
+              </Card>
+            );
+          })}
+        </ScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={activeSheet === 'building'}
+        onClose={clearSelection}
+        snapPoints={buildingSheetSnapPoints}
+        minHeight={sharedSheetMinHeight}
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={sheetContentStyle}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetEyebrow}>Building profile</Text>
+            <Text style={styles.sheetTitle}>{selectedBuilding?.name ?? 'Campus building'}</Text>
+            <Text style={styles.sheetSubtitle}>{selectedBuilding ? `${selectedBuilding.code} · ${selectedBuilding.building_type}` : ''}</Text>
+          </View>
+
+          {selectedBuilding ? (
+            <>
+              <Card style={styles.infoPanel}>
+                <Text style={styles.infoPanelTitle}>Departments and programs</Text>
+                {(selectedBuildingProfile?.departments ?? ['Campus information']).map((department) => (
+                  <View key={department} style={styles.infoRow}>
+                    <Ionicons name="chevron-forward" size={14} color={colors.primary.main} />
+                    <Text style={styles.infoText}>{department}</Text>
+                  </View>
+                ))}
+              </Card>
+
+              <View style={styles.buildingInfoGrid}>
+                <Card style={styles.metricCard}>
+                  <Text style={styles.metricLabel}>Hours</Text>
+                  <Text style={styles.metricValue}>{selectedBuildingProfile?.hoursLabel ?? 'Hours vary by semester'}</Text>
+                </Card>
+                <Card style={styles.metricCard}>
+                  <Text style={styles.metricLabel}>Accessibility</Text>
+                  <View style={styles.accessibilityRow}>
+                    <View style={styles.accessibilityBadge}>
+                      <MaterialCommunityIcons name="wheelchair-accessibility" size={15} color={colors.status.info} />
+                    </View>
+                    <View style={styles.accessibilityBadge}>
+                      <MaterialCommunityIcons name="elevator-passenger" size={15} color={colors.status.success} />
+                    </View>
+                    {selectedBuildingProfile?.accessibility.automaticDoors ? (
+                      <View style={styles.accessibilityBadge}>
+                        <MaterialCommunityIcons name="door-sliding" size={15} color={colors.primary.main} />
+                      </View>
+                    ) : null}
+                  </View>
+                </Card>
+              </View>
+
+              <Card style={styles.infoPanel}>
+                <Text style={styles.infoPanelTitle}>Address</Text>
+                <Text style={styles.infoText}>{selectedBuildingProfile?.address ?? 'University of Maryland, College Park'}</Text>
+                <Button
+                  title="Get Directions"
+                  onPress={() => void openDirections(selectedBuilding.name, [selectedBuilding.longitude, selectedBuilding.latitude])}
+                  fullWidth
+                  style={styles.infoPanelButton}
+                />
+              </Card>
+
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionHeading}>Events here</Text>
+                {buildingEvents.length > 0 ? (
+                  buildingEvents.map((event) => (
+                    <Card key={event.id} style={styles.groupEventCard} onPress={() => openEvent(event)}>
+                      <View style={styles.groupEventHeader}>
+                        <View style={[styles.groupEventIcon, { backgroundColor: `${colors.eventCategory[event.category]}22` }]}>
+                          <MaterialCommunityIcons
+                            name={getCategoryIconName(event.category)}
+                            size={16}
+                            color={colors.eventCategory[event.category]}
+                          />
+                        </View>
+                        <View style={styles.groupEventCopy}>
+                          <Text style={styles.groupEventTitle}>{event.title}</Text>
+                          <Text style={styles.groupEventMeta}>{getContextualTimeLabel(event)}</Text>
+                        </View>
+                      </View>
+                    </Card>
+                  ))
+                ) : (
+                  <Card style={styles.infoPanel}>
+                    <Text style={styles.infoText}>No active or upcoming events are pinned to this building right now.</Text>
+                  </Card>
+                )}
+              </View>
+            </>
+          ) : null}
+        </ScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={activeSheet === 'event'}
+        onClose={clearSelection}
+        snapPoints={eventSheetSnapPoints}
+        minHeight={showEventDetails ? (isWide ? 620 : 520) : isWide ? 430 : 360}
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={sheetContentStyle}>
+          {selectedEvent ? (
+            <>
+              <Card style={styles.eventSummaryCard}>
+                {selectedEvent.image_url ? (
+                  <Image
+                    source={{ uri: selectedEvent.image_url }}
+                    style={[styles.eventHeroImage, isWide ? styles.eventHeroImageWide : null]}
+                  />
+                ) : (
+                  <View style={styles.eventHeroFallback}>
+                    <MaterialCommunityIcons
+                      name={getCategoryIconName(selectedEvent.category)}
+                      size={32}
+                      color={colors.eventCategory[selectedEvent.category]}
+                    />
+                  </View>
+                )}
+
+                <View style={styles.eventSummaryBody}>
+                  <View style={styles.eventSummaryBadgeRow}>
+                    <Badge
+                      label={selectedEvent.category}
+                      color={
+                        colors.eventCategory[
+                          selectedEvent.category as keyof typeof colors.eventCategory
+                        ] ?? colors.primary.main
+                      }
+                    />
+                    {isEventLive(selectedEvent) ? <Badge label="Live now" color={colors.status.error} /> : null}
+                  </View>
+
+                  <View style={styles.sheetHeader}>
+                    <Text style={styles.sheetEyebrow}>Event preview</Text>
+                    <Text style={styles.sheetTitle}>{selectedEvent.title}</Text>
+                    <Text style={styles.sheetSubtitle}>
+                      {selectedEvent.location_name} - {selectedEvent.organizer_name ?? 'xUMD'}
+                    </Text>
+                  </View>
+
+                  {eventHostClub ? (
+                    <Pressable
+                      onPress={() => navigation.navigate('ClubDetail', { clubId: eventHostClub.id })}
+                      style={({ pressed }) => [styles.hostClubRow, pressed ? styles.pressed : null]}
+                    >
+                      <Avatar uri={eventHostClub.logo_url} name={eventHostClub.name} size="md" />
+                      <View style={styles.hostClubCopy}>
+                        <Text style={styles.hostClubLabel}>Hosted by</Text>
+                        <Text style={styles.hostClubName}>{eventHostClub.name}</Text>
+                      </View>
+                      <Ionicons name="arrow-forward" size={16} color={colors.text.tertiary} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              </Card>
+
+              <View style={styles.infoTiles}>
+                <Card style={styles.infoTile}>
+                  <View style={styles.infoTileHeader}>
+                    <Ionicons name="calendar-outline" size={16} color={colors.primary.main} />
+                    <Text style={styles.infoTileLabel}>Date and time</Text>
+                  </View>
+                  <Text style={styles.infoTileValue}>{getContextualTimeLabel(selectedEvent)}</Text>
+                </Card>
+                <Card style={styles.infoTile}>
+                  <View style={styles.infoTileHeader}>
+                    <Ionicons name="location-outline" size={16} color={colors.primary.main} />
+                    <Text style={styles.infoTileLabel}>Location</Text>
+                  </View>
+                  <Text style={styles.infoTileValue}>{selectedEvent.location_name}</Text>
+                </Card>
+              </View>
+
+              <Card style={styles.rsvpSummaryCard}>
+                <View style={styles.rsvpSummaryRow}>
+                  <View style={styles.rsvpSummaryIcon}>
+                    <Ionicons name="people-outline" size={16} color={colors.primary.main} />
+                  </View>
+                  <View style={styles.rsvpSummaryCopy}>
+                    <Text style={styles.rsvpSummaryTitle}>{selectedEventStats.going} going</Text>
+                    <Text style={styles.rsvpSummarySubtitle}>{selectedEventStats.interested} interested</Text>
+                  </View>
+                  {isEventLive(selectedEvent) ? <Badge label="Live now" color={colors.status.error} /> : null}
+                </View>
+                <View style={styles.rsvpButtonRow}>
+                  <Button
+                    title={selectedEventRsvp === 'going' ? 'Going' : 'RSVP'}
+                    onPress={() => void handleRsvpChange(selectedEvent, selectedEventRsvp === 'going' ? null : 'going')}
+                    fullWidth
+                    style={selectedEventRsvp === 'going' ? StyleSheet.flatten([styles.flexButton, styles.goingButton]) : styles.flexButton}
+                  />
+                  <Button
+                    title={selectedEventRsvp === 'interested' ? 'Saved' : 'Save'}
+                    onPress={() => void handleRsvpChange(selectedEvent, selectedEventRsvp === 'interested' ? null : 'interested')}
+                    variant="secondary"
+                    fullWidth
+                    style={styles.flexButton}
+                  />
+                </View>
+              </Card>
+
+              <Card style={styles.infoPanel}>
+                <Text style={styles.infoPanelTitle}>About this event</Text>
+                <Text style={styles.infoText} numberOfLines={showEventDetails ? undefined : 3}>
+                  {selectedEvent.description}
+                </Text>
+                {!showEventDetails ? (
+                  <Pressable onPress={() => setShowEventDetails(true)} style={({ pressed }) => [styles.viewDetailsRow, pressed ? styles.pressed : null]}>
+                    <Text style={styles.viewDetailsText}>View Details</Text>
+                    <Ionicons name="arrow-up" size={14} color={colors.primary.main} />
+                  </Pressable>
+                ) : null}
+              </Card>
+
+              {showEventDetails ? (
+                <>
+                  <Card style={styles.infoPanel}>
+                    <Text style={styles.infoPanelTitle}>Location preview</Text>
+                    <Text style={styles.infoText}>{selectedEvent.location_name}</Text>
+                    {selectedEvent.latitude !== null && selectedEvent.longitude !== null ? (
+                      <View style={styles.locationPreviewCard}>
+                        <View style={styles.locationPreviewPin}>
+                          <Ionicons name="location" size={16} color={colors.brand.white} />
+                        </View>
+                        <View style={styles.locationPreviewCopy}>
+                          <Text style={styles.locationPreviewTitle}>Centered on the map</Text>
+                          <Text style={styles.locationPreviewSubtitle}>
+                            Tap below to jump back to this pin and open native directions.
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
+                    {selectedEvent.latitude !== null && selectedEvent.longitude !== null ? (
+                      <View style={styles.inlineButtonRow}>
+                        <Button
+                          title="Center on Map"
+                          onPress={() =>
+                            setFocusRequest(
+                              createFocusRequest(
+                                `event-detail-${selectedEvent.id}`,
+                                [selectedEvent.longitude as number, selectedEvent.latitude as number],
+                                16.55,
+                              ),
+                            )
+                          }
+                          variant="secondary"
+                          style={styles.flexButton}
+                        />
+                        <Button
+                          title="Get Directions"
+                          onPress={() =>
+                            void openDirections(
+                              selectedEvent.location_name,
+                              [selectedEvent.longitude as number, selectedEvent.latitude as number],
+                            )
+                          }
+                          style={styles.flexButton}
+                        />
+                      </View>
+                    ) : null}
+                  </Card>
+
+                  {detailQuery.data?.friends_attending && detailQuery.data.friends_attending.length > 0 ? (
+                    <Card style={styles.infoPanel}>
+                      <Text style={styles.infoPanelTitle}>Friends attending</Text>
+                      <View style={styles.friendRow}>
+                        {detailQuery.data.friends_attending.slice(0, 5).map((friend) => (
+                          <Avatar
+                            key={friend.id}
+                            uri={friend.avatar_url}
+                            name={friend.display_name}
+                            size="sm"
+                          />
+                        ))}
+                      </View>
+                    </Card>
+                  ) : null}
+
+                  {eventHostClub && relatedClubEvents.length > 0 ? (
+                    <View style={styles.sectionBlock}>
+                      <Text style={styles.sectionHeading}>More from {eventHostClub.name}</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.relatedEventsRow}
+                      >
+                        {relatedClubEvents.map((event) => (
+                          <Card key={event.id} style={styles.relatedEventCard} onPress={() => openEvent(event)}>
+                            {event.image_url ? <Image source={{ uri: event.image_url }} style={styles.relatedEventImage} /> : null}
+                            <Text style={styles.relatedEventTitle} numberOfLines={2}>
+                              {event.title}
+                            </Text>
+                            <Text style={styles.relatedEventMeta}>{getUpcomingTimeLabel(event)}</Text>
+                          </Card>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  ) : null}
+
+                  <View style={styles.inlineButtonRow}>
+                    <Button title="Share" onPress={() => void handleShareEvent(selectedEvent)} variant="ghost" style={styles.flexButton} />
+                    <Button title="Report" onPress={() => void handleReportEvent(selectedEvent.id)} variant="danger" style={styles.flexButton} />
+                  </View>
+                </>
+              ) : null}
+            </>
+          ) : null}
+        </ScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={activeSheet === 'create'}
+        onClose={clearSelection}
+        snapPoints={createSheetSnapPoints}
+        minHeight={isWide ? 560 : 460}
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={sheetContentStyle}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetEyebrow}>Create Event Here</Text>
+            <Text style={styles.sheetTitle}>Drop a new campus event pin</Text>
+            <Text style={styles.sheetSubtitle}>
+              {nearestCreateBuilding?.building.name ?? 'Pinned campus location'}
+              {nearestCreateBuilding ? ` · ${Math.round(nearestCreateBuilding.distanceMeters)}m away` : ''}
+            </Text>
+          </View>
+
+          <Card style={styles.formCard}>
+            <Text style={styles.formLabel}>Title</Text>
+            <TextInput
+              value={draftEvent.title}
+              onChangeText={(value) => setDraftEvent((current) => ({ ...current, title: value }))}
+              placeholder="Friday social on McKeldin Mall"
+              placeholderTextColor={colors.text.tertiary}
+              style={styles.formInput}
             />
-          </ScrollView>
-        ) : null}
+
+            <Text style={styles.formLabel}>Description</Text>
+            <TextInput
+              value={draftEvent.description}
+              onChangeText={(value) => setDraftEvent((current) => ({ ...current, description: value }))}
+              placeholder="Tell Terps what is happening here."
+              placeholderTextColor={colors.text.tertiary}
+              multiline
+              style={[styles.formInput, styles.formTextArea]}
+            />
+
+            <Text style={styles.formLabel}>Category</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.formChipRow}>
+              {Object.values(EventCategory).map((category) => (
+                <FilterChip
+                  key={category}
+                  label={category}
+                  active={draftEvent.category === category}
+                  onPress={() => setDraftEvent((current) => ({ ...current, category }))}
+                  accentColor={colors.eventCategory[category]}
+                />
+              ))}
+            </ScrollView>
+
+            <View style={styles.formGrid}>
+              <View style={styles.formGridColumn}>
+                <Text style={styles.formLabel}>Starts</Text>
+                <TextInput
+                  value={draftEvent.startsAt}
+                  onChangeText={(value) => setDraftEvent((current) => ({ ...current, startsAt: value }))}
+                  placeholder="2026-04-10T18:00"
+                  placeholderTextColor={colors.text.tertiary}
+                  style={styles.formInput}
+                />
+              </View>
+              <View style={styles.formGridColumn}>
+                <Text style={styles.formLabel}>Ends</Text>
+                <TextInput
+                  value={draftEvent.endsAt}
+                  onChangeText={(value) => setDraftEvent((current) => ({ ...current, endsAt: value }))}
+                  placeholder="2026-04-10T19:30"
+                  placeholderTextColor={colors.text.tertiary}
+                  style={styles.formInput}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.formLabel}>Capacity</Text>
+            <TextInput
+              keyboardType="number-pad"
+              value={draftEvent.maxCapacity}
+              onChangeText={(value) => setDraftEvent((current) => ({ ...current, maxCapacity: value.replace(/[^0-9]/g, '') }))}
+              placeholder="Optional"
+              placeholderTextColor={colors.text.tertiary}
+              style={styles.formInput}
+            />
+
+            <View style={styles.inlineButtonRow}>
+              <Button
+                title={isCreatingEvent ? 'Publishing...' : 'Publish Event'}
+                onPress={() => void handleCreateEvent()}
+                loading={isCreatingEvent}
+                fullWidth
+                style={styles.flexButton}
+              />
+              <Button title="Cancel" onPress={clearSelection} variant="secondary" fullWidth style={styles.flexButton} />
+            </View>
+          </Card>
+        </ScrollView>
       </BottomSheet>
     </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: spacing.md,
+  layoutBody: {
+    flex: 1,
+    paddingBottom: 0,
   },
-  topControls: {
+  screen: {
+    flex: 1,
+  },
+  mapShell: {
+    flex: 1,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    backgroundColor: colors.background.card,
+    ...shadows.lg,
+  },
+  mapShellWide: {
+    minHeight: 720,
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlayRoot: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'space-between',
+  },
+  topOverlay: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
     gap: spacing.sm,
   },
-  topControlsWide: {
-    gap: spacing.md,
-  },
-  searchCard: {
+  searchShell: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    height: 50,
+    backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    backgroundColor: colors.brand.white,
     paddingHorizontal: spacing.md,
-    ...shadows.sm,
-  },
-  searchCardWide: {
-    maxWidth: 720,
-    alignSelf: 'center',
+    height: 52,
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    ...shadows.md,
   },
   searchInput: {
     flex: 1,
-    color: colors.text.primary,
     fontSize: typography.fontSize.base,
+    color: colors.text.primary,
+    paddingVertical: 0,
   },
-  controlIconButton: {
-    width: 34,
-    height: 34,
+  clearSearchButton: {
+    width: 28,
+    height: 28,
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.background.secondary,
   },
   searchResultsCard: {
-    paddingVertical: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    gap: spacing.xs,
   },
-  searchResultsCardWide: {
-    maxWidth: 720,
-    alignSelf: 'center',
+  searchFeedback: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   searchResultRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
   searchResultIcon: {
@@ -1767,180 +1584,208 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary.lightest,
   },
   searchResultCopy: {
     flex: 1,
-    gap: 2,
   },
   searchResultTitle: {
-    fontSize: typography.fontSize.base,
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   searchResultSubtitle: {
-    fontSize: typography.fontSize.sm,
+    marginTop: 2,
+    fontSize: typography.fontSize.xs,
     color: colors.text.secondary,
   },
-  quickLensRow: {
+  chipRow: {
+    gap: spacing.sm,
     paddingRight: spacing.md,
   },
-  quickLensChip: {
+  filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    height: 38,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.background.secondary,
-    borderWidth: 1,
-    borderColor: colors.border.light,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginRight: spacing.sm,
-  },
-  quickLensLabel: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  categoryRow: {
-    paddingRight: spacing.md,
-  },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    minHeight: 38,
-    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.88)',
     borderWidth: 1,
-    backgroundColor: colors.brand.white,
-    paddingHorizontal: spacing.md,
-    marginRight: spacing.sm,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
   },
-  allChipActive: {
+  filterChipActive: {
+    backgroundColor: colors.primary.main,
     borderColor: colors.primary.main,
-    backgroundColor: colors.primary.lightest,
   },
-  allChipDots: {
-    flexDirection: 'row',
-    gap: 2,
-    marginRight: 2,
-  },
-  allChipDot: {
-    width: 6,
-    height: 6,
+  filterChipDot: {
+    width: 7,
+    height: 7,
     borderRadius: borderRadius.full,
   },
-  categoryDot: {
-    width: 8,
-    height: 8,
+  filterChipPulse: {
+    width: 7,
+    height: 7,
     borderRadius: borderRadius.full,
+    backgroundColor: '#FF3B30',
   },
-  categoryChipLabel: {
+  filterChipText: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
-  categoryChipLabelDark: {
-    color: colors.primary.dark,
-  },
-  categoryChipLabelActive: {
+  filterChipTextActive: {
     color: colors.brand.white,
-  },
-  mapShell: {
-    height: 560,
-    overflow: 'hidden',
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.brand.white,
-    ...shadows.lg,
-  },
-  mapShellWide: {
-    height: 640,
-  },
-  mapShellDesktop: {
-    height: 720,
-  },
-  map: {
-    flex: 1,
   },
   liveCounterPill: {
     position: 'absolute',
-    top: spacing.md,
+    top: spacing.md + 104,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    backgroundColor: 'rgba(17, 24, 39, 0.88)',
     borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(17, 24, 39, 0.86)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    ...shadows.md,
   },
   liveCounterDot: {
-    width: 9,
-    height: 9,
+    width: 8,
+    height: 8,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary.main,
+    backgroundColor: '#EF4444',
   },
   liveCounterText: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.brand.white,
   },
-  mapFabColumn: {
+  sideActions: {
     position: 'absolute',
     right: spacing.md,
-    bottom: spacing.md,
+    bottom: 124,
     gap: spacing.sm,
   },
-  mapFabColumnWide: {
-    right: spacing.lg,
-    bottom: spacing.lg,
-  },
-  fab: {
-    width: 50,
-    height: 50,
+  sideActionButton: {
+    width: 48,
+    height: 48,
     borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.94)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
     ...shadows.md,
   },
-  primaryFab: {
+  createActionButton: {
+    width: 54,
+    height: 54,
+    borderRadius: borderRadius.full,
     backgroundColor: colors.primary.main,
-  },
-  mapLegend: {
-    position: 'absolute',
-    left: spacing.md,
-    bottom: spacing.md,
-    maxWidth: 280,
-    borderRadius: borderRadius.lg,
-    backgroundColor: 'rgba(255,255,255,0.94)',
-    padding: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...shadows.md,
   },
-  mapLegendWide: {
-    left: spacing.lg,
-    bottom: spacing.lg,
-    maxWidth: 340,
+  peekRail: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: borderRadius.xl,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    ...shadows.lg,
   },
-  mapLegendTitle: {
+  peekRailCollapsed: {
+    paddingBottom: spacing.sm,
+  },
+  peekHandleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  peekHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.border.default,
+  },
+  peekRailTitle: {
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+  },
+  peekCardsRow: {
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  peekEmptyText: {
+    paddingTop: spacing.sm,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  miniEventCard: {
+    width: 230,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    backgroundColor: colors.brand.white,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  miniEventImage: {
+    width: '100%',
+    height: 90,
+  },
+  miniEventBody: {
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  miniEventHeader: {
+    gap: spacing.xs,
+  },
+  miniEventTitle: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
   },
-  mapLegendBody: {
+  miniEventMeta: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  loadingCard: {
+    position: 'absolute',
+    left: spacing.md,
+    bottom: 108,
+    width: 240,
+  },
+  loadingTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  loadingCopy: {
     marginTop: spacing.xs,
     fontSize: typography.fontSize.sm,
     lineHeight: 20,
     color: colors.text.secondary,
   },
-  helperText: {
-    fontSize: typography.fontSize.base,
-    color: colors.text.secondary,
-  },
-  sheetBlock: {
+  sheetContent: {
     gap: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  sheetContentWide: {
+    width: '100%',
+    maxWidth: 920,
+    alignSelf: 'center',
+  },
+  sheetHeader: {
+    gap: spacing.xs,
+  },
+  sheetEyebrow: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semiBold,
+    letterSpacing: typography.letterSpacing.wider,
+    textTransform: 'uppercase',
+    color: colors.primary.main,
   },
   sheetTitle: {
     fontSize: typography.fontSize['2xl'],
@@ -1948,317 +1793,341 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
   sheetSubtitle: {
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.base,
+    lineHeight: 22,
     color: colors.text.secondary,
   },
-  sheetList: {
+  groupEventCard: {
     gap: spacing.sm,
   },
-  eventListItem: {
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.background.secondary,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  eventListHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  eventStateRow: {
+  groupEventHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  goingText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.status.success,
-    textTransform: 'uppercase',
-    letterSpacing: typography.letterSpacing.wide,
-  },
-  savedText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primary.main,
-    textTransform: 'uppercase',
-    letterSpacing: typography.letterSpacing.wide,
-  },
-  eventListTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-  },
-  eventListMeta: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-  },
-  previewHeader: {
-    gap: spacing.sm,
-  },
-  previewCopy: {
-    gap: spacing.sm,
-  },
-  previewBadges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    alignItems: 'center',
-  },
-  liveBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+  groupEventIcon: {
+    width: 34,
+    height: 34,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary.lightest,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  liveBadgeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary.main,
-  },
-  liveBadgeText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primary.dark,
-    textTransform: 'uppercase',
-    letterSpacing: typography.letterSpacing.wide,
-  },
-  previewTitle: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-  },
-  previewMeta: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  metricCard: {
+  groupEventCopy: {
     flex: 1,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.background.secondary,
-    padding: spacing.md,
   },
-  metricValue: {
+  groupEventTitle: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
   },
-  metricLabel: {
+  groupEventMeta: {
+    marginTop: 2,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  groupEventDescription: {
+    fontSize: typography.fontSize.sm,
+    lineHeight: 20,
+    color: colors.text.secondary,
+  },
+  infoPanel: {
+    gap: spacing.sm,
+  },
+  infoPanelTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  infoPanelButton: {
     marginTop: spacing.xs,
-    fontSize: typography.fontSize.xs,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+    lineHeight: 20,
+    color: colors.text.secondary,
+  },
+  buildingInfoGrid: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  metricCard: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  metricLabel: {
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
     textTransform: 'uppercase',
-    letterSpacing: typography.letterSpacing.wide,
   },
-  sheetActionRow: {
+  metricValue: {
+    fontSize: typography.fontSize.base,
+    lineHeight: 22,
+    color: colors.text.primary,
+    fontWeight: typography.fontWeight.semiBold,
+  },
+  accessibilityRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  accessibilityBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background.secondary,
+  },
+  sectionBlock: {
+    gap: spacing.sm,
+  },
+  sectionHeading: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  eventSummaryCard: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  eventSummaryBody: {
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  eventSummaryBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  eventHeroImage: {
+    width: '100%',
+    height: 216,
+  },
+  eventHeroImageWide: {
+    height: 240,
+  },
+  eventHeroFallback: {
+    height: 156,
+    backgroundColor: colors.background.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hostClubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.primary.lightest,
+  },
+  hostClubCopy: {
+    flex: 1,
+  },
+  hostClubLabel: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.tertiary,
+    textTransform: 'uppercase',
+  },
+  hostClubName: {
+    marginTop: 2,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  infoTiles: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  infoTile: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  infoTileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  infoTileLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
+  },
+  infoTileValue: {
+    fontSize: typography.fontSize.base,
+    lineHeight: 22,
+    color: colors.text.primary,
+    fontWeight: typography.fontWeight.semiBold,
+  },
+  rsvpSummaryCard: {
+    gap: spacing.md,
+  },
+  rsvpSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  rsvpSummaryIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary.lightest,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rsvpSummaryCopy: {
+    flex: 1,
+  },
+  rsvpSummaryTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  rsvpSummarySubtitle: {
+    marginTop: 2,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  rsvpButtonRow: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
   flexButton: {
     flex: 1,
   },
-  detailSheetContent: {
-    gap: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xl,
+  goingButton: {
+    backgroundColor: '#2E7D32',
   },
-  detailHeroImage: {
-    width: '100%',
-    height: 220,
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.gray[200],
+  viewDetailsRow: {
+    marginTop: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
-  detailOrganizer: {
+  viewDetailsText: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.secondary,
+    color: colors.primary.main,
   },
-  detailTitle: {
-    fontSize: typography.fontSize['3xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-  },
-  detailMeta: {
-    fontSize: typography.fontSize.base,
-    color: colors.text.secondary,
-  },
-  detailDescription: {
-    fontSize: typography.fontSize.base,
-    lineHeight: 24,
-    color: colors.text.primary,
-  },
-  tagRow: {
+  locationPreviewCard: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: spacing.sm,
-  },
-  tagChip: {
-    borderRadius: borderRadius.full,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
     backgroundColor: colors.background.secondary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
   },
-  tagLabel: {
+  locationPreviewPin: {
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary.main,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationPreviewCopy: {
+    flex: 1,
+  },
+  locationPreviewTitle: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.secondary,
-  },
-  detailInfoCard: {
-    gap: spacing.sm,
-  },
-  cardHeading: {
-    fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
   },
-  infoText: {
+  locationPreviewSubtitle: {
+    marginTop: 2,
     fontSize: typography.fontSize.sm,
-    lineHeight: 20,
     color: colors.text.secondary,
   },
-  detailButtonGrid: {
-    gap: spacing.sm,
-  },
-  sheetDescription: {
-    fontSize: typography.fontSize.base,
-    lineHeight: 22,
-    color: colors.text.secondary,
-  },
-  inlineList: {
-    gap: spacing.sm,
-  },
-  inlineEventRow: {
+  friendRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     gap: spacing.sm,
   },
-  inlineEventDot: {
-    width: 10,
-    height: 10,
-    borderRadius: borderRadius.full,
-    marginTop: 5,
-    backgroundColor: colors.primary.main,
+  relatedEventsRow: {
+    gap: spacing.sm,
+    paddingBottom: spacing.xs,
   },
-  inlineEventCopy: {
-    flex: 1,
-    gap: 2,
+  relatedEventCard: {
+    width: 190,
+    gap: spacing.sm,
   },
-  inlineEventTitle: {
+  relatedEventImage: {
+    width: '100%',
+    height: 96,
+    borderRadius: borderRadius.md,
+  },
+  relatedEventTitle: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
+    fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
   },
-  inlineEventMeta: {
+  relatedEventMeta: {
     fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
   },
-  filterSectionTitle: {
+  inlineButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  formCard: {
+    gap: spacing.sm,
+  },
+  formLabel: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: typography.letterSpacing.wide,
-  },
-  optionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  optionGridRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingRight: spacing.sm,
-  },
-  optionChip: {
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    backgroundColor: colors.brand.white,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  optionChipActive: {
-    backgroundColor: colors.primary.main,
-    borderColor: colors.primary.main,
-  },
-  optionChipLabel: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  optionChipLabelActive: {
-    color: colors.brand.white,
-  },
-  formSection: {
-    gap: spacing.sm,
-  },
-  formSplitRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  formSplitColumn: {
-    flex: 1,
   },
   formInput: {
     minHeight: 48,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.border.light,
-    backgroundColor: colors.brand.white,
-    paddingHorizontal: spacing.md,
-    color: colors.text.primary,
-    fontSize: typography.fontSize.base,
-  },
-  formInputMultiline: {
-    minHeight: 120,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  toggleCardList: {
-    gap: spacing.sm,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: borderRadius.lg,
+    borderColor: colors.border.default,
     backgroundColor: colors.background.secondary,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  toggleLabel: {
+    paddingVertical: spacing.sm,
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.medium,
     color: colors.text.primary,
   },
-  togglePill: {
-    width: 50,
-    height: 30,
+  formTextArea: {
+    minHeight: 110,
+    textAlignVertical: 'top',
+  },
+  formChipRow: {
+    gap: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  formGrid: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  formGridColumn: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  headerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.gray[300],
-    padding: 3,
-    justifyContent: 'center',
+    backgroundColor: colors.primary.lightest,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  togglePillActive: {
-    backgroundColor: colors.primary.main,
+  headerPillText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary.main,
   },
-  toggleKnob: {
-    width: 24,
-    height: 24,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.brand.white,
-  },
-  toggleKnobActive: {
-    alignSelf: 'flex-end',
+  pressed: {
+    opacity: 0.84,
   },
 });

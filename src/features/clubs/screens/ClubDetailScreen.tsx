@@ -33,6 +33,7 @@ import { useProfile } from '../../profile/hooks/useProfile';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import PostMediaGallery from '../../feed/components/PostMediaGallery';
+import { useMapData } from '../../map/hooks/useMapData';
 
 type Props = NativeStackScreenProps<ClubsStackParamList & ProfileStackParamList & CampusStackParamList & CalendarStackParamList & ExploreStackParamList, 'ClubDetail'>;
 type TabKey = 'About' | 'Events' | 'Media' | 'Members';
@@ -131,6 +132,7 @@ function getInitialClubState(clubId: string) {
 export default function ClubDetailScreen({ navigation, route }: Props) {
   const { user: profileUser } = useProfile();
   const { user: authUser, updateProfile: updateAuthProfile } = useAuth();
+  const { rawEvents } = useMapData();
   const [activeTab, setActiveTab] = useState<TabKey>('About');
   const [showAnnouncementComposer, setShowAnnouncementComposer] = useState(false);
   const [showPostComposer, setShowPostComposer] = useState(false);
@@ -229,7 +231,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
   const canTransferOwnership = currentRole === 'president';
   const initialApprovedCount = mockClubMembers.filter((member) => member.club_id === club.id).length;
   const memberCount = Math.max(club.member_count + (members.length - initialApprovedCount), members.length);
-  const events = mockClubEvents.filter((event) => event.club_id === club.id);
+  const events = rawEvents.filter((event) => event.club_id === club.id);
 
   const resetComposers = () => {
     setShowAnnouncementComposer(false);

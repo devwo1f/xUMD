@@ -1,11 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
-  Dimensions,
   Modal,
   PanResponder,
   StyleSheet,
   TouchableWithoutFeedback,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { colors } from '../theme/colors';
@@ -16,9 +16,10 @@ interface BottomSheetProps {
   onClose: () => void;
   children: React.ReactNode;
   snapPoints?: number[];
+  minHeight?: number;
+  maxHeight?: number;
 }
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DEFAULT_SNAP_POINTS = [0.4, 0.7];
 
 const BottomSheet: React.FC<BottomSheetProps> = ({
@@ -26,10 +27,21 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
   onClose,
   children,
   snapPoints = DEFAULT_SNAP_POINTS,
+  minHeight = 280,
+  maxHeight,
 }) => {
-  // Use the first snap point as the initial sheet height fraction
-  const initialFraction = snapPoints[0] ?? 0.4;
-  const sheetHeight = SCREEN_HEIGHT * initialFraction;
+  const { height: screenHeight } = useWindowDimensions();
+  const sheetHeight = useMemo(() => {
+    const requested = snapPoints[0] ?? 0.4;
+    const resolvedHeight =
+      requested > 1 ? requested : screenHeight * requested;
+    const cappedMaxHeight = Math.min(
+      maxHeight ?? screenHeight * 0.9,
+      screenHeight * 0.94,
+    );
+
+    return Math.max(minHeight, Math.min(resolvedHeight, cappedMaxHeight));
+  }, [maxHeight, minHeight, screenHeight, snapPoints]);
 
   const translateY = useRef(new Animated.Value(sheetHeight)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;

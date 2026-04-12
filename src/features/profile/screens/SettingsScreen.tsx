@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Button from '../../../shared/components/Button';
@@ -18,6 +18,17 @@ type Props = NativeStackScreenProps<ProfileStackParamList, 'Settings'>;
 export default function SettingsScreen({ navigation }: Props) {
   const { settings, updateSetting } = useDemoAppStore();
   const { signOut, loading } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      Alert.alert(
+        'Sign out unavailable',
+        error instanceof Error ? error.message : 'Unable to sign out right now.',
+      );
+    }
+  };
 
   return (
     <ScreenLayout
@@ -67,7 +78,7 @@ export default function SettingsScreen({ navigation }: Props) {
         </Text>
       </Card>
 
-      <Button title="Sign Out" onPress={() => void signOut()} loading={loading} variant="secondary" fullWidth />
+      <Button title="Sign Out" onPress={() => void handleSignOut()} loading={loading} variant="secondary" fullWidth />
     </ScreenLayout>
   );
 }

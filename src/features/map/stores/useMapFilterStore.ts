@@ -15,24 +15,27 @@ interface MapFilterState {
   customRange: CustomRangeFilter | null;
   searchQuery: string;
   isFilterModalOpen: boolean;
+  showActivityLayer: boolean;
   setSearchQuery: (query: string) => void;
   setTimeFilter: (timeFilter: MapTimeFilter) => void;
   setSortBy: (sortBy: MapSortOption) => void;
   setCustomRange: (range: CustomRangeFilter | null) => void;
   setOnlyFriendsAttending: (value: boolean) => void;
   setFilterModalOpen: (value: boolean) => void;
+  setShowActivityLayer: (value: boolean) => void;
   toggleCategory: (category: EventCategory | 'all') => void;
   reset: () => void;
 }
 
 const initialState = {
   selectedCategories: [] as EventCategory[],
-  timeFilter: 'today' as MapTimeFilter,
+  timeFilter: 'this_week' as MapTimeFilter,
   sortBy: 'soonest' as MapSortOption,
   onlyFriendsAttending: false,
   customRange: null as CustomRangeFilter | null,
   searchQuery: '',
   isFilterModalOpen: false,
+  showActivityLayer: false,
 };
 
 export function isHeatmapMode(selectedCategories: EventCategory[]) {
@@ -47,6 +50,7 @@ export const useMapFilterStore = create<MapFilterState>((set) => ({
   setCustomRange: (customRange) => set({ customRange }),
   setOnlyFriendsAttending: (onlyFriendsAttending) => set({ onlyFriendsAttending }),
   setFilterModalOpen: (isFilterModalOpen) => set({ isFilterModalOpen }),
+  setShowActivityLayer: (showActivityLayer) => set({ showActivityLayer }),
   toggleCategory: (category) =>
     set((state) => {
       if (category === 'all') {

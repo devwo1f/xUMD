@@ -12,6 +12,7 @@ import Card from '../../../shared/components/Card';
 import HeaderTag from '../../../shared/components/HeaderTag';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import UMDBrandLockup from '../../../shared/components/UMDBrandLockup';
+import { mockClubs } from '../../../assets/data/mockClubs';
 import { mockCampusEvents } from '../../../assets/data/mockEvents';
 import type { ExploreStackParamList } from '../../../navigation/types';
 import { useCrossTabNavStore } from '../../../shared/stores/useCrossTabNavStore';
@@ -39,7 +40,7 @@ export default function ExploreHomeScreen({ navigation }: Props) {
   const [calendarPreviewEntry, setCalendarPreviewEntry] = useState<CalendarEntry | null>(null);
 
   const { isWide } = useResponsive();
-  const { savedEventIds, toggleSavedEvent } = useDemoAppStore();
+  const { savedEventIds, goingEventIds, setEventRsvpStatus } = useDemoAppStore();
   const setPendingCalendarFocus = useCrossTabNavStore((state) => state.setPendingCalendarFocus);
   const setPendingMapFocus = useCrossTabNavStore((state) => state.setPendingMapFocus);
   const {
@@ -84,6 +85,28 @@ export default function ExploreHomeScreen({ navigation }: Props) {
           )?.id ?? null
         : null,
     [activeEvent, eventGroups],
+  );
+  const activeEventRsvp = useMemo(() => {
+    if (!activeEvent) {
+      return null;
+    }
+
+    if (goingEventIds.includes(activeEvent.id)) {
+      return 'going';
+    }
+
+    if (savedEventIds.includes(activeEvent.id)) {
+      return 'interested';
+    }
+
+    return null;
+  }, [activeEvent, goingEventIds, savedEventIds]);
+  const activeEventHostClub = useMemo(
+    () =>
+      activeEvent?.club_id
+        ? mockClubs.find((club) => club.id === activeEvent.club_id) ?? null
+        : null,
+    [activeEvent?.club_id],
   );
 
   const featuredEvents = useMemo(() => {
@@ -356,14 +379,30 @@ export default function ExploreHomeScreen({ navigation }: Props) {
       <EventBottomSheet
         event={activeEvent}
         visible={Boolean(activeEvent)}
+        rsvpState={activeEventRsvp}
+        hostClub={
+          activeEventHostClub
+            ? {
+                id: activeEventHostClub.id,
+                name: activeEventHostClub.name,
+                logoUrl: activeEventHostClub.logo_url,
+              }
+            : null
+        }
         onClose={() => setActiveEvent(null)}
         onViewDetail={(eventId) => {
           setActiveEvent(null);
           navigation.navigate('EventDetail', { eventId });
         }}
-        onRSVP={(eventId) => {
-          toggleSavedEvent(eventId);
+        onToggleGoing={(eventId) =>
+          setEventRsvpStatus(eventId, activeEventRsvp === 'going' ? null : 'going')
+        }
+        onToggleInterested={(eventId) =>
+          setEventRsvpStatus(eventId, activeEventRsvp === 'interested' ? null : 'interested')
+        }
+        onOpenHostClub={(clubId) => {
           setActiveEvent(null);
+          navigation.navigate('ClubDetail', { clubId });
         }}
         secondaryActionLabel="Open in Map"
         onSecondaryAction={() => {

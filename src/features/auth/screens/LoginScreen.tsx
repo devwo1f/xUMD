@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -30,10 +30,11 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 export default function LoginScreen(_props: Props) {
   const { isMobile } = useResponsive();
   const { requestOtp, verifyOtp, loading } = useAuth();
-  const { step, email, error, setEmail, setError, setStep, startCooldown, otpCooldownEnd, reset } = useAuthFlowStore();
+  const { step, loadingStep, email, error, setEmail, setError, setStep, beginLoading, startCooldown, otpCooldownEnd, reset } = useAuthFlowStore();
   const [emailDraft, setEmailDraft] = useState(email);
   const [otpValue, setOtpValue] = useState('');
   const [secondsRemaining, setSecondsRemaining] = useState(0);
+  const actionIdRef = useRef(0);
 
   useEffect(() => {
     setEmailDraft(email);
@@ -63,56 +64,93 @@ export default function LoginScreen(_props: Props) {
   }, [emailDraft, step]);
 
   const handleContinue = async () => {
+    if (loading && step === 'loading') {
+      return;
+    }
+
     const validation = validateUmdEmail(emailDraft);
     if (!validation.valid) {
       setError(validation.error ?? 'Enter a valid UMD email.');
       return;
     }
 
-    setStep('loading');
-    setEmail(emailDraft.trim().toLowerCase());
+    const normalizedEmail = emailDraft.trim().toLowerCase();
+    const actionId = actionIdRef.current + 1;
+    actionIdRef.current = actionId;
+
+    setEmail(normalizedEmail);
+    beginLoading('email');
 
     try {
-      await requestOtp(emailDraft.trim().toLowerCase());
+      await requestOtp(normalizedEmail);
+      if (actionId !== actionIdRef.current) {
+        return;
+      }
       startCooldown(OTP_COOLDOWN_SECONDS);
       setOtpValue('');
       setError(null);
       setStep('otp');
     } catch (authError) {
+      if (actionId !== actionIdRef.current) {
+        return;
+      }
       setError(authError instanceof Error ? authError.message : 'Unable to send code.');
       setStep('email');
     }
   };
 
   const handleVerify = async (value = otpValue) => {
+    if (loading && step === 'loading') {
+      return;
+    }
+
     if (value.trim().length !== 6) {
       setError('Enter the 6-digit code from your email.');
       return;
     }
 
-    setStep('loading');
+    const actionId = actionIdRef.current + 1;
+    actionIdRef.current = actionId;
+
+    beginLoading('otp');
     try {
       await verifyOtp(email, value);
+      if (actionId !== actionIdRef.current) {
+        return;
+      }
       setError(null);
       reset();
     } catch (authError) {
+      if (actionId !== actionIdRef.current) {
+        return;
+      }
       setError(authError instanceof Error ? authError.message : 'Invalid code.');
       setStep('otp');
     }
   };
 
   const handleResend = async () => {
-    if (secondsRemaining > 0) {
+    if (secondsRemaining > 0 || (loading && step === 'loading')) {
       return;
     }
 
-    setStep('loading');
+    const actionId = actionIdRef.current + 1;
+    actionIdRef.current = actionId;
+
+    beginLoading('otp');
     try {
       await requestOtp(email);
+      if (actionId !== actionIdRef.current) {
+        return;
+      }
       startCooldown(OTP_COOLDOWN_SECONDS);
+      setOtpValue('');
       setError(null);
       setStep('otp');
     } catch (authError) {
+      if (actionId !== actionIdRef.current) {
+        return;
+      }
       setError(authError instanceof Error ? authError.message : 'Unable to resend code.');
       setStep('otp');
     }
@@ -124,7 +162,7 @@ export default function LoginScreen(_props: Props) {
     setError(null);
   };
 
-  const activeStep = step === 'loading' ? (otpValue.length > 0 || email ? 'otp' : 'email') : step;
+  const activeStep = step === 'loading' ? loadingStep : step;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -223,6 +261,7 @@ export default function LoginScreen(_props: Props) {
                 />
 
                 <Text style={styles.helperText}>Code expires in 10 minutes.</Text>
+                <Text style={styles.helperText}>The newest code replaces any earlier code.</Text>
 
                 <View style={styles.resendRow}>
                   <Text style={styles.resendPrompt}>Did not get the code?</Text>

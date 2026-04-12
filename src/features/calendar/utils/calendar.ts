@@ -1,4 +1,4 @@
-﻿import {
+import {
   addDays,
   eachDayOfInterval,
   endOfDay,
@@ -222,7 +222,7 @@ function buildCourseEntries(data: CalendarSourceData, range: CalendarDateRange):
           sourceId: course.id,
           type: 'course' as const,
           title: course.courseCode,
-          sourceLabel: `${course.courseCode} · ${course.title}`,
+          sourceLabel: `${course.courseCode} Â· ${course.title}`,
           locationName,
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString(),
@@ -231,7 +231,7 @@ function buildCourseEntries(data: CalendarSourceData, range: CalendarDateRange):
           latitude: coordinates.latitude,
           longitude: coordinates.longitude,
           locationId: coordinates.locationId,
-          detail: `${course.section} · ${course.title}`,
+          detail: `${course.section} Â· ${course.title}`,
           courseCode: course.courseCode,
           isRecurring: true,
         } satisfies CalendarEntry;
@@ -505,7 +505,7 @@ export function buildMiniCalendarSummary(entries: CalendarEntry[], now = new Dat
 
   const minutes = Math.max(0, Math.round((parseISO(next.startsAt).getTime() - now.getTime()) / 60000));
   const lead = minutes <= 0 ? 'Now' : `${minutes} min`;
-  return `${upcoming.length} upcoming · Next: ${next.title} in ${lead}`;
+  return `${upcoming.length} upcoming Â· Next: ${next.title} in ${lead}`;
 }
 
 export function getMonthCells(anchorDate: Date) {
@@ -520,67 +520,129 @@ export function getWeekDays(anchorDate: Date) {
   return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
 }
 
+function entryTimesOverlap(left: CalendarEntry, right: CalendarEntry) {
+  const leftStart = parseISO(left.startsAt).getTime();
+  const leftEnd = parseISO(left.endsAt).getTime();
+  const rightStart = parseISO(right.startsAt).getTime();
+  const rightEnd = parseISO(right.endsAt).getTime();
+
+  return leftStart < rightEnd && rightStart < leftEnd;
+}
+
 export function buildEntryLayout(entries: CalendarEntry[]) {
   const sorted = entries
     .slice()
-    .sort((left, right) => parseISO(left.startsAt).getTime() - parseISO(right.startsAt).getTime());
+    .sort((left, right) => {
+      const startDiff = parseISO(left.startsAt).getTime() - parseISO(right.startsAt).getTime();
+      if (startDiff !== 0) {
+        return startDiff;
+      }
 
-  const lanes: Date[] = [];
-  const layout = new Map<string, { lane: number; laneCount: number }>();
-  let cluster: string[] = [];
+      return parseISO(right.endsAt).getTime() - parseISO(left.endsAt).getTime();
+    });
+
+  const layout = new Map<string, { lane: number; laneCount: number; span: number }>();
+  let cluster: CalendarEntry[] = [];
   let clusterEnd = new Date(0);
-  let clusterLaneCount = 1;
 
   const finalizeCluster = () => {
-    cluster.forEach((entryId) => {
-      const current = layout.get(entryId);
-      if (current) {
-        layout.set(entryId, { ...current, laneCount: clusterLaneCount });
+    if (cluster.length === 0) {
+      return;
+    }
+
+    const columns: CalendarEntry[][] = [];
+    const placements = new Map<string, number>();
+
+    cluster.forEach((entry) => {
+      let lane = columns.findIndex((column) => !entryTimesOverlap(column[column.length - 1], entry));
+      if (lane === -1) {
+        lane = columns.length;
+        columns.push([]);
       }
+
+      columns[lane].push(entry);
+      placements.set(entry.id, lane);
     });
+
+    const laneCount = Math.max(columns.length, 1);
+
+    cluster.forEach((entry) => {
+      const lane = placements.get(entry.id) ?? 0;
+      let span = 1;
+
+      for (let nextLane = lane + 1; nextLane < laneCount; nextLane += 1) {
+        const blocked = columns[nextLane].some((candidate) => entryTimesOverlap(candidate, entry));
+        if (blocked) {
+          break;
+        }
+        span += 1;
+      }
+
+      layout.set(entry.id, { lane, laneCount, span });
+    });
+
     cluster = [];
-    clusterLaneCount = 1;
   };
 
-  sorted.forEach((entry, index) => {
+  sorted.forEach((entry) => {
     const start = parseISO(entry.startsAt);
     const end = parseISO(entry.endsAt);
 
     if (cluster.length > 0 && start >= clusterEnd) {
       finalizeCluster();
-      lanes.length = 0;
+      clusterEnd = new Date(0);
     }
 
-    let lane = lanes.findIndex((laneEnd) => laneEnd <= start);
-    if (lane === -1) {
-      lane = lanes.length;
-      lanes.push(end);
-    } else {
-      lanes[lane] = end;
-    }
-
-    cluster.push(entry.id);
+    cluster.push(entry);
     clusterEnd = clusterEnd > end ? clusterEnd : end;
-    clusterLaneCount = Math.max(clusterLaneCount, lanes.length);
-    layout.set(entry.id, { lane, laneCount: lanes.length });
-
-    if (index === sorted.length - 1) {
-      finalizeCluster();
-    }
   });
 
+  finalizeCluster();
   return layout;
 }
 
-export function getTimelineMetrics(entry: CalendarEntry, dayStartHour = 7, hourHeight = 64) {
+export function getTimelineMetrics(
+  entry: CalendarEntry,
+  dayStartHour = 7,
+  hourHeight = 64,
+  dayEndHour = 23,
+) {
   const start = parseISO(entry.startsAt);
   const end = parseISO(entry.endsAt);
-  const startMinutes = (start.getHours() - dayStartHour) * 60 + start.getMinutes();
-  const durationMinutes = Math.max(30, Math.round((end.getTime() - start.getTime()) / 60000));
+  const visibleStart = set(start, {
+    hours: dayStartHour,
+    minutes: 0,
+    seconds: 0,
+    milliseconds: 0,
+  });
+  const visibleEnd = set(start, {
+    hours: dayEndHour + 1,
+    minutes: 0,
+    seconds: 0,
+    milliseconds: 0,
+  });
+
+  if (end <= visibleStart || start >= visibleEnd) {
+    return {
+      top: 0,
+      height: 0,
+      isHidden: true,
+      startsBeforeVisible: start < visibleStart,
+      endsAfterVisible: end > visibleEnd,
+    };
+  }
+
+  const clippedStart = start < visibleStart ? visibleStart : start;
+  const clippedEnd = end > visibleEnd ? visibleEnd : end;
+  const startMinutes = Math.max(0, Math.round((clippedStart.getTime() - visibleStart.getTime()) / 60000));
+  const durationMinutes = Math.max(25, Math.round((clippedEnd.getTime() - clippedStart.getTime()) / 60000));
 
   return {
     top: (startMinutes / 60) * hourHeight,
-    height: Math.max(52, (durationMinutes / 60) * hourHeight),
+    height: Math.max(48, (durationMinutes / 60) * hourHeight),
+    isHidden: false,
+    startsBeforeVisible: start < visibleStart,
+    endsAfterVisible: end > visibleEnd,
   };
 }
 

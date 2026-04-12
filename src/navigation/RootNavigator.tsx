@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import MainTabs from './MainTabs';
 import AuthNavigator from './AuthNavigator';
@@ -8,6 +8,7 @@ import { isSupabaseConfigured } from '../services/supabase';
 import { colors } from '../shared/theme/colors';
 import { spacing } from '../shared/theme/spacing';
 import { typography } from '../shared/theme/typography';
+import { useEventPresenceSync } from '../shared/hooks/useEventPresenceSync';
 
 function BootScreen() {
   return (
@@ -21,9 +22,10 @@ function BootScreen() {
 
 export default function RootNavigator() {
   useInitializeAuth();
-  const { loading, initialized, session, needsProfileCompletion } = useAuth();
+  useEventPresenceSync();
+  const { initialized, session, needsProfileCompletion } = useAuth();
 
-  if (isSupabaseConfigured && (!initialized || loading)) {
+  if (isSupabaseConfigured && !initialized) {
     return <BootScreen />;
   }
 

@@ -66,6 +66,7 @@ function MapNavigator() {
     <MapStack.Navigator screenOptions={{ headerShown: false }}>
       <MapStack.Screen name="MapHome" component={MapHomeScreen} />
       <MapStack.Screen name="EventDetail" component={EventDetailScreen} />
+      <MapStack.Screen name="ClubDetail" component={ClubDetailScreen} />
     </MapStack.Navigator>
   );
 }

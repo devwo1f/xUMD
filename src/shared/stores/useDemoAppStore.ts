@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 
 interface DemoSettings {
   pushNotifications: boolean;
@@ -12,6 +12,7 @@ interface DemoAppState {
   goingEventIds: string[];
   joinedClubIds: string[];
   settings: DemoSettings;
+  hydrateEventPresence: (payload: { goingEventIds: string[]; savedEventIds: string[] }) => void;
   toggleSavedEvent: (eventId: string) => void;
   toggleGoingEvent: (eventId: string) => void;
   setEventRsvpStatus: (eventId: string, status: 'going' | 'interested' | null) => void;
@@ -34,6 +35,11 @@ const initialState = {
 
 export const useDemoAppStore = create<DemoAppState>((set) => ({
   ...initialState,
+  hydrateEventPresence: ({ goingEventIds, savedEventIds }) =>
+    set({
+      goingEventIds: Array.from(new Set(goingEventIds)),
+      savedEventIds: Array.from(new Set(savedEventIds.filter((id) => !goingEventIds.includes(id)))),
+    }),
   toggleSavedEvent: (eventId) =>
     set((state) => ({
       savedEventIds: state.savedEventIds.includes(eventId)

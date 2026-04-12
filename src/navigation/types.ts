@@ -1,4 +1,4 @@
-﻿export type AuthStackParamList = {
+export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
@@ -27,6 +27,7 @@ export type ExploreStackParamList = {
 export type MapStackParamList = {
   MapHome: undefined;
   EventDetail: { eventId: string };
+  ClubDetail: { clubId: string };
 };
 
 export type FeedStackParamList = {

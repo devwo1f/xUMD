@@ -1,4 +1,5 @@
 import React from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -7,23 +8,63 @@ import Badge from '../../../shared/components/Badge';
 import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
-import { mockCampusEvents } from '../../../assets/data/mockEvents';
-import { mockClubEvents, mockClubs } from '../../../assets/data/mockClubs';
+import { mockClubs } from '../../../assets/data/mockClubs';
 import { useCrossTabNavStore } from '../../../shared/stores/useCrossTabNavStore';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { Event } from '../../../shared/types';
+import { useMapData } from '../../map/hooks/useMapData';
+import { useMapEventDetail } from '../../map/hooks/useMapEventDetail';
+import { submitEventRsvpRemote } from '../../../services/mapEvents';
+import { isSupabaseConfigured } from '../../../services/supabase';
 
 type Props = NativeStackScreenProps<{ EventDetail: { eventId: string } }, 'EventDetail'>;
+type RsvpStatus = 'going' | 'interested' | null;
 
-function findEvent(eventId: string): Event | undefined {
-  return [...mockCampusEvents, ...mockClubEvents].find((event) => event.id === eventId);
+function getCurrentRsvpStatus(eventId: string, goingEventIds: string[], savedEventIds: string[]): RsvpStatus {
+  if (goingEventIds.includes(eventId)) {
+    return 'going';
+  }
+
+  if (savedEventIds.includes(eventId)) {
+    return 'interested';
+  }
+
+  return null;
+}
+
+function patchEventRsvpCounts<T extends Partial<Event> & { id: string }>(event: T, previousStatus: RsvpStatus, nextStatus: RsvpStatus): T {
+  let attendeeCount = Number(event.attendee_count ?? event.rsvp_count ?? 0);
+  let interestedCount = Number(event.interested_count ?? 0);
+
+  if (previousStatus === 'going') {
+    attendeeCount = Math.max(0, attendeeCount - 1);
+  }
+  if (previousStatus === 'interested') {
+    interestedCount = Math.max(0, interestedCount - 1);
+  }
+  if (nextStatus === 'going') {
+    attendeeCount += 1;
+  }
+  if (nextStatus === 'interested') {
+    interestedCount += 1;
+  }
+
+  return {
+    ...event,
+    attendee_count: attendeeCount,
+    rsvp_count: attendeeCount,
+    interested_count: interestedCount,
+  };
 }
 
 export default function EventDetailScreen({ navigation, route }: Props) {
-  const event = findEvent(route.params.eventId);
+  const queryClient = useQueryClient();
+  const { rawEvents } = useMapData();
+  const detailQuery = useMapEventDetail(route.params.eventId);
+  const event = detailQuery.data?.event ?? rawEvents.find((item) => item.id === route.params.eventId);
   const { savedEventIds, goingEventIds, setEventRsvpStatus } = useDemoAppStore();
   const setPendingMapFocus = useCrossTabNavStore((state) => state.setPendingMapFocus);
   const setPendingCalendarFocus = useCrossTabNavStore((state) => state.setPendingCalendarFocus);
@@ -46,15 +87,55 @@ export default function EventDetailScreen({ navigation, route }: Props) {
     );
   }
 
-  const isSaved = savedEventIds.includes(event.id);
-  const isGoing = goingEventIds.includes(event.id);
+  const rsvpStatus = getCurrentRsvpStatus(event.id, goingEventIds, savedEventIds);
   const hostClub = event.club_id ? mockClubs.find((club) => club.id === event.club_id) : null;
+  const stats = detailQuery.data?.rsvp_stats ?? {
+    going: event.attendee_count ?? event.rsvp_count,
+    interested: event.interested_count ?? 0,
+  };
+
+  const patchCaches = (previousStatus: RsvpStatus, nextStatus: RsvpStatus) => {
+    queryClient.setQueriesData({ queryKey: ['map-events'] }, (current: any) => !current?.items ? current : ({
+      ...current,
+      items: current.items.map((item: Event) => item.id === event.id ? patchEventRsvpCounts(item, previousStatus, nextStatus) : item),
+    }));
+    queryClient.setQueryData(['map-event-detail', event.id], (current: any) => !current?.event ? current : ({
+      ...current,
+      event: patchEventRsvpCounts(current.event, previousStatus, nextStatus),
+      current_user_rsvp: nextStatus,
+      rsvp_stats: {
+        going: Math.max(0, Number(current.rsvp_stats?.going ?? current.event.attendee_count ?? 0) - (previousStatus === 'going' ? 1 : 0) + (nextStatus === 'going' ? 1 : 0)),
+        interested: Math.max(0, Number(current.rsvp_stats?.interested ?? current.event.interested_count ?? 0) - (previousStatus === 'interested' ? 1 : 0) + (nextStatus === 'interested' ? 1 : 0)),
+      },
+    }));
+  };
+
+  const handleRsvpChange = async (nextStatus: RsvpStatus) => {
+    if (rsvpStatus === nextStatus) {
+      return;
+    }
+
+    setEventRsvpStatus(event.id, nextStatus);
+    patchCaches(rsvpStatus, nextStatus);
+
+    try {
+      if (isSupabaseConfigured) {
+        await submitEventRsvpRemote({ eventId: event.id, status: nextStatus ?? undefined, action: nextStatus ? 'upsert' : 'remove' });
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['map-events'] }),
+        queryClient.invalidateQueries({ queryKey: ['map-event-detail', event.id] }),
+        queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
+      ]);
+    } catch {
+      setEventRsvpStatus(event.id, rsvpStatus);
+      patchCaches(nextStatus, rsvpStatus);
+    }
+  };
 
   const openCalendar = () => {
-    setPendingCalendarFocus({
-      date: event.starts_at,
-      entryId: event.id,
-    });
+    setPendingCalendarFocus({ date: event.starts_at, entryId: event.id });
     navigation.getParent()?.navigate('Calendar' as never);
   };
 
@@ -63,12 +144,7 @@ export default function EventDetailScreen({ navigation, route }: Props) {
       return;
     }
 
-    setPendingMapFocus({
-      type: 'event',
-      eventId: event.id,
-      latitude: event.latitude,
-      longitude: event.longitude,
-    });
+    setPendingMapFocus({ type: 'event', eventId: event.id, latitude: event.latitude, longitude: event.longitude });
     navigation.getParent()?.navigate('Map' as never);
   };
 
@@ -82,22 +158,15 @@ export default function EventDetailScreen({ navigation, route }: Props) {
         </Pressable>
       }
       rightAction={
-        <Pressable onPress={() => setEventRsvpStatus(event.id, isSaved ? null : 'interested')} style={styles.backButton}>
-          <Ionicons
-            name={isSaved ? 'bookmark' : 'bookmark-outline'}
-            size={20}
-            color={isSaved ? colors.primary.main : colors.text.primary}
-          />
+        <Pressable onPress={() => void handleRsvpChange(rsvpStatus === 'interested' ? null : 'interested')} style={styles.backButton}>
+          <Ionicons name={rsvpStatus === 'interested' ? 'bookmark' : 'bookmark-outline'} size={20} color={rsvpStatus === 'interested' ? colors.primary.main : colors.text.primary} />
         </Pressable>
       }
     >
       {event.image_url ? <Image source={{ uri: event.image_url }} style={styles.heroImage} /> : null}
 
       <View style={styles.headerMeta}>
-        <Badge
-          label={event.category}
-          color={colors.eventCategory[event.category as keyof typeof colors.eventCategory] ?? colors.primary.main}
-        />
+        <Badge label={event.category} color={colors.eventCategory[event.category as keyof typeof colors.eventCategory] ?? colors.primary.main} />
         {hostClub ? <Badge label={hostClub.name} color={colors.gray[700]} variant="outlined" /> : null}
       </View>
 
@@ -105,19 +174,8 @@ export default function EventDetailScreen({ navigation, route }: Props) {
       <Text style={styles.description}>{event.description}</Text>
 
       <View style={styles.actionRow}>
-        <Button
-          title={isGoing ? 'Going' : 'Mark Going'}
-          onPress={() => setEventRsvpStatus(event.id, isGoing ? null : 'going')}
-          fullWidth
-          style={styles.flexButton}
-        />
-        <Button
-          title={isSaved ? 'Interested' : 'Save'}
-          onPress={() => setEventRsvpStatus(event.id, isSaved ? null : 'interested')}
-          variant="secondary"
-          fullWidth
-          style={styles.flexButton}
-        />
+        <Button title={rsvpStatus === 'going' ? 'Going' : 'Mark Going'} onPress={() => void handleRsvpChange(rsvpStatus === 'going' ? null : 'going')} fullWidth style={styles.flexButton} />
+        <Button title={rsvpStatus === 'interested' ? 'Saved' : 'Save'} onPress={() => void handleRsvpChange(rsvpStatus === 'interested' ? null : 'interested')} variant="secondary" fullWidth style={styles.flexButton} />
       </View>
 
       <View style={styles.actionRow}>
@@ -128,28 +186,20 @@ export default function EventDetailScreen({ navigation, route }: Props) {
       <View style={styles.infoGrid}>
         <Card style={styles.infoCard}>
           <Text style={styles.cardLabel}>When</Text>
-          <Text style={styles.cardValue}>
-            {format(new Date(event.starts_at), 'EEEE, MMM d')}
-          </Text>
-          <Text style={styles.cardSubtle}>
-            {format(new Date(event.starts_at), 'h:mm a')} to {format(new Date(event.ends_at), 'h:mm a')}
-          </Text>
+          <Text style={styles.cardValue}>{format(new Date(event.starts_at), 'EEEE, MMM d')}</Text>
+          <Text style={styles.cardSubtle}>{format(new Date(event.starts_at), 'h:mm a')} to {format(new Date(event.ends_at), 'h:mm a')}</Text>
         </Card>
 
         <Card style={styles.infoCard}>
           <Text style={styles.cardLabel}>Where</Text>
           <Text style={styles.cardValue}>{event.location_name}</Text>
-          <Text style={styles.cardSubtle}>
-            {event.latitude?.toFixed(4)}, {event.longitude?.toFixed(4)}
-          </Text>
+          <Text style={styles.cardSubtle}>{event.latitude?.toFixed(4)}, {event.longitude?.toFixed(4)}</Text>
         </Card>
 
         <Card style={styles.infoCard}>
           <Text style={styles.cardLabel}>Attendance</Text>
-          <Text style={styles.cardValue}>{(event.attendee_count ?? event.rsvp_count).toLocaleString()} going</Text>
-          <Text style={styles.cardSubtle}>
-            {event.max_capacity ? `${event.max_capacity.toLocaleString()} max capacity` : 'Open attendance'}
-          </Text>
+          <Text style={styles.cardValue}>{stats.going.toLocaleString()} going</Text>
+          <Text style={styles.cardSubtle}>{event.max_capacity ? `${event.max_capacity.toLocaleString()} max capacity` : 'Open attendance'}</Text>
         </Card>
       </View>
 

@@ -10,6 +10,7 @@ export type MapTimeFilter =
 export type MapSortOption = 'soonest' | 'most_popular' | 'nearest';
 
 export type MarkerVisualMode = 'heatmap' | 'category';
+export type MapMarkerCategoryKey = 'social' | 'academic' | 'sports' | 'featured' | 'other';
 
 export interface MapUserLocation {
   latitude: number;
@@ -51,12 +52,17 @@ export interface MapMarkerEventSummary {
   id: string;
   title: string;
   category: string;
+  clubId: string | null;
+  organizerName: string;
+  imageUrl: string | null;
   startsAt: string;
   endsAt: string;
   locationName: string;
   attendeeCount: number;
   interestedCount: number;
   isLive: boolean;
+  isGoing: boolean;
+  isFeatured: boolean;
 }
 
 export interface EventLocationGroup {
@@ -66,9 +72,13 @@ export interface EventLocationGroup {
   coordinate: MapCoordinate;
   events: MapMarkerEventSummary[];
   primaryCategory: string;
+  categoryKey: MapMarkerCategoryKey;
   density: number;
   eventCount: number;
   isLive: boolean;
+  hasRsvpdEvents: boolean;
+  containsFeatured: boolean;
+  pulse: boolean;
   markerColor: string;
   markerSize: number;
   markerOpacity: number;

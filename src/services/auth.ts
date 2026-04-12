@@ -113,19 +113,7 @@ export async function requestOtp(email: string): Promise<void> {
     throw new Error(validationError);
   }
 
-  try {
-    await invokeFunction<{ success: boolean }>('request-otp', { email: normalizedEmail });
-    return;
-  } catch {
-    const { error } = await supabase.auth.signInWithOtp({
-      email: normalizedEmail,
-      options: { shouldCreateUser: true },
-    });
-
-    if (error) {
-      throw error;
-    }
-  }
+  await invokeFunction<{ success: boolean }>('request-otp', { email: normalizedEmail });
 }
 
 export async function verifyOtp(email: string, token: string) {

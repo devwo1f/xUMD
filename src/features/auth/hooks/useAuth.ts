@@ -2,6 +2,7 @@ import { AppState } from 'react-native';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import type { Session, User as SupabaseAuthUser } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryClient } from '../../../providers/AppProviders';
 import { useMapFilterStore } from '../../map/stores/useMapFilterStore';
 import { useAuthFlowStore } from '../stores/authStore';
@@ -12,8 +13,17 @@ import type { DegreeType, UserProfile, UserProfileUpdate } from '../../../shared
 
 export const ALLOWED_EMAIL_DOMAINS = ['umd.edu', 'terpmail.umd.edu'] as const;
 export const OTP_COOLDOWN_SECONDS = 60;
+export const SESSION_MAX_AGE_DAYS = 7;
+
+const SESSION_LEASE_STORAGE_KEY = 'xumd.auth.session.lease';
+const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 
 let authListenerInitialized = false;
+
+interface SessionLeaseRecord {
+  userId: string;
+  startedAt: number;
+}
 
 export interface CompleteProfilePayload {
   display_name: string;
@@ -185,6 +195,66 @@ async function syncSelectedCourses(userId: string, courses: string[] | undefined
   }
 }
 
+async function readSessionLease(): Promise<SessionLeaseRecord | null> {
+  try {
+    const raw = await AsyncStorage.getItem(SESSION_LEASE_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as SessionLeaseRecord;
+    if (!parsed?.userId || typeof parsed.startedAt !== 'number') {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function writeSessionLease(userId: string, startedAt = Date.now()) {
+  const lease: SessionLeaseRecord = { userId, startedAt };
+  await AsyncStorage.setItem(SESSION_LEASE_STORAGE_KEY, JSON.stringify(lease));
+  return lease;
+}
+
+async function clearSessionLease() {
+  await AsyncStorage.removeItem(SESSION_LEASE_STORAGE_KEY);
+}
+
+async function resolveSessionLease(session: Session) {
+  const existingLease = await readSessionLease();
+  if (!existingLease || existingLease.userId !== session.user.id) {
+    return writeSessionLease(session.user.id);
+  }
+
+  return existingLease;
+}
+
+async function hasSessionExceededMaxAge(session: Session) {
+  const lease = await resolveSessionLease(session);
+  return Date.now() - lease.startedAt >= SESSION_MAX_AGE_MS;
+}
+
+async function expireCurrentSession(message = 'Your session expired after 7 days. Please sign in again.') {
+  await clearSessionLease();
+  await supabase.auth.signOut().catch(() => undefined);
+  useAuthFlowStore.setState({
+    step: 'email',
+    loadingStep: 'email',
+    error: message,
+    otpCooldownEnd: null,
+  });
+  useAuthSessionStore.setState({
+    user: null,
+    session: null,
+    loading: false,
+    initialized: true,
+    error: null,
+  });
+}
+
 
 export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
   user: null,
@@ -235,6 +305,9 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
     try {
       const data = await verifyOtpThroughServer(email.trim().toLowerCase(), token.trim());
       const nextSession = data.session ?? null;
+      if (nextSession?.user) {
+        await writeSessionLease(nextSession.user.id);
+      }
       const nextUser = await syncUserFromSession(nextSession);
 
       set({
@@ -352,6 +425,7 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
 
   signOut: async () => {
     if (!isSupabaseConfigured) {
+      await clearSessionLease();
       set({ user: null, session: null, loading: false, initialized: true, error: null });
       return;
     }
@@ -360,6 +434,7 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
 
     try {
       await supabase.auth.signOut();
+      await clearSessionLease();
       useAuthFlowStore.getState().reset();
       useDemoAppStore.getState().reset();
       useMapFilterStore.getState().reset();
@@ -398,8 +473,6 @@ export function useInitializeAuth() {
       return;
     }
 
-    void useAuthSessionStore.getState().refreshProfile();
-
     void supabase.auth.getSession().then(async ({ data, error }) => {
       if (error) {
         useAuthSessionStore.setState({ loading: false, initialized: true, error: getAuthErrorMessage(error), session: null, user: null });
@@ -407,6 +480,13 @@ export function useInitializeAuth() {
       }
 
       const session = data.session ?? null;
+      if (session && (await hasSessionExceededMaxAge(session))) {
+        await expireCurrentSession();
+        return;
+      }
+      if (!session) {
+        await clearSessionLease();
+      }
       const user = await syncUserFromSession(session);
       useAuthSessionStore.setState({ session, user, loading: false, initialized: true, error: null });
     });
@@ -414,6 +494,13 @@ export function useInitializeAuth() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session && (await hasSessionExceededMaxAge(session))) {
+        await expireCurrentSession();
+        return;
+      }
+      if (!session) {
+        await clearSessionLease();
+      }
       const user = await syncUserFromSession(session ?? null);
       useAuthSessionStore.setState({ session: session ?? null, user, loading: false, initialized: true, error: null });
     });
@@ -421,6 +508,11 @@ export function useInitializeAuth() {
     const appStateSubscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         void supabase.auth.startAutoRefresh();
+        void supabase.auth.getSession().then(async ({ data }) => {
+          if (data.session && (await hasSessionExceededMaxAge(data.session))) {
+            await expireCurrentSession();
+          }
+        });
       } else {
         void supabase.auth.stopAutoRefresh();
       }

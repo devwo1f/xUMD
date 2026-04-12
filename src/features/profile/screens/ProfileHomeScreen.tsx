@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Avatar from '../../../shared/components/Avatar';
@@ -126,6 +126,17 @@ export default function ProfileHomeScreen({ navigation }: Props) {
     const parentNavigation = navigation.getParent();
     if (parentNavigation) {
       (parentNavigation as any).navigate('Campus', { screen: 'ClubsHome' });
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      Alert.alert(
+        'Sign out unavailable',
+        error instanceof Error ? error.message : 'Unable to sign out right now.',
+      );
     }
   };
 
@@ -300,7 +311,7 @@ export default function ProfileHomeScreen({ navigation }: Props) {
         </View>
         <Button
           title="Log Out"
-          onPress={() => void signOut()}
+          onPress={() => void handleSignOut()}
           loading={authLoading}
           variant="danger"
           fullWidth

@@ -30,7 +30,7 @@ export async function fetchMapEventRows(adminClient: SupabaseClient, filters: Ma
   let query = adminClient
     .from('events')
     .select(
-      'id, title, description, organizer_id, organizer_name, category, location_name, location_id, latitude, longitude, starts_at, ends_at, status, cover_image_url, tags, attendee_count, interested_count, max_capacity, moderation_status, flagged_categories, created_at, updated_at',
+      'id, title, description, club_id, organizer_id, organizer_name, category, location_name, location_id, latitude, longitude, starts_at, ends_at, status, cover_image_url, tags, attendee_count, interested_count, max_capacity, moderation_status, flagged_categories, created_at, updated_at',
     )
     .eq('moderation_status', 'approved')
     .neq('status', 'cancelled')
@@ -61,7 +61,7 @@ export async function fetchEventById(adminClient: SupabaseClient, eventId: strin
   const { data, error } = await adminClient
     .from('events')
     .select(
-      'id, title, description, organizer_id, organizer_name, category, location_name, location_id, latitude, longitude, starts_at, ends_at, status, cover_image_url, tags, attendee_count, interested_count, max_capacity, moderation_status, flagged_categories, created_at, updated_at',
+      'id, title, description, club_id, organizer_id, organizer_name, category, location_name, location_id, latitude, longitude, starts_at, ends_at, status, cover_image_url, tags, attendee_count, interested_count, max_capacity, moderation_status, flagged_categories, created_at, updated_at',
     )
     .eq('id', eventId)
     .single();

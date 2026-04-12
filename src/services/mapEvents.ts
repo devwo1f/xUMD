@@ -1,5 +1,6 @@
 ﻿import { buildings } from '../assets/data/buildings';
 import { mockCampusEvents } from '../assets/data/mockEvents';
+import { mockClubEvents } from '../assets/data/mockClubs';
 import type {
   CampusLocation,
   Event,
@@ -75,7 +76,7 @@ function mapEventRecord(record: Partial<Event> & Record<string, unknown>): Event
     id: String(record.id),
     title: String(record.title ?? ''),
     description: String(record.description ?? ''),
-    club_id: null,
+    club_id: (record.club_id as string | null | undefined) ?? null,
     created_by: String(record.created_by ?? ''),
     organizer_name: String(record.organizer_name ?? 'xUMD'),
     category: record.category as Event['category'],
@@ -288,11 +289,11 @@ export async function searchMapEventsRemote(query: string, limit = 8) {
 }
 
 export function getFallbackMapEvents() {
-  return mockCampusEvents;
+  return [...mockCampusEvents, ...mockClubEvents];
 }
 
 export function buildFallbackEventDetail(eventId: string): EventDetailPayload | null {
-  const event = mockCampusEvents.find((item) => item.id === eventId);
+  const event = getFallbackMapEvents().find((item) => item.id === eventId);
   if (!event) {
     return null;
   }

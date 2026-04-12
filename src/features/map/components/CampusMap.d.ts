@@ -23,6 +23,7 @@ export interface CampusMapProps {
   showDiningZones?: boolean;
   clusterEvents?: boolean;
   isHeatmapMode?: boolean;
+  showActivityHeatmap?: boolean;
   activeBuildingId?: string | null;
   activeEventGroupId?: string | null;
   activeRouteId?: string | null;

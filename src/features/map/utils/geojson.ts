@@ -1,6 +1,5 @@
 import type { Building } from '../../../assets/data/buildings';
 import type { Event } from '../../../shared/types';
-import { campusMapBounds } from '../config/campusMapStyle';
 import {
   buildingTypeMeta,
   campusRoutes,
@@ -8,9 +7,17 @@ import {
   type CampusRoute,
   type DiningZone,
 } from '../data/campusOverlays';
+import {
+  buildingDirectoryProfiles,
+  buildingFootprints,
+  campusBoundaryPolygons,
+  campusMaskHoles,
+  campusMaskOuterRing,
+} from '../data/campusGeometry';
 import type {
   EventLocationGroup,
   MapCoordinate,
+  MapMarkerCategoryKey,
   MapUserLocation,
   MarkerVisualMode,
   WayfindingJourney,
@@ -22,6 +29,8 @@ export interface BuildingFeatureProperties {
   name: string;
   buildingType: Building['building_type'];
   color: string;
+  hoursLabel: string;
+  address: string;
 }
 
 export interface EventMarkerFeatureProperties {
@@ -32,6 +41,7 @@ export interface EventMarkerFeatureProperties {
   densityLabel: string;
   eventCount: number;
   primaryCategory: string;
+  categoryKey: MapMarkerCategoryKey;
   color: string;
   glyph: string;
   markerSize: number;
@@ -39,12 +49,15 @@ export interface EventMarkerFeatureProperties {
   haloSize: number;
   haloOpacity: number;
   isLive: boolean;
+  isFeatured: boolean;
+  isGoing: boolean;
   mode: MarkerVisualMode;
 }
 
 export interface EventHeatFeatureProperties {
   itemId: string;
   density: number;
+  weight: number;
   category: Event['category'];
 }
 
@@ -77,19 +90,28 @@ export interface UserLocationFeatureProperties {
 
 type PointFeatureCollection<T> = GeoJSON.FeatureCollection<GeoJSON.Point, T>;
 type PolygonFeatureCollection<T> = GeoJSON.FeatureCollection<GeoJSON.Polygon, T>;
+type AreaFeatureCollection<T> = GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, T>;
 type LineFeatureCollection<T> = GeoJSON.FeatureCollection<GeoJSON.LineString, T>;
 
 export function createBuildingFeatureCollection(
   buildings: Building[],
-): PointFeatureCollection<BuildingFeatureProperties> {
-  return {
-    type: 'FeatureCollection',
-    features: buildings.map((building) => ({
+): PolygonFeatureCollection<BuildingFeatureProperties> {
+  const features: Array<GeoJSON.Feature<GeoJSON.Polygon, BuildingFeatureProperties>> = [];
+
+  buildings.forEach((building) => {
+    const coordinates = buildingFootprints[building.id];
+    if (!coordinates || coordinates.length < 4) {
+      return;
+    }
+
+    const profile = buildingDirectoryProfiles[building.id];
+
+    features.push({
       type: 'Feature',
       id: building.id,
       geometry: {
-        type: 'Point',
-        coordinates: [building.longitude, building.latitude],
+        type: 'Polygon',
+        coordinates: [coordinates],
       },
       properties: {
         itemId: building.id,
@@ -97,8 +119,15 @@ export function createBuildingFeatureCollection(
         name: building.name,
         buildingType: building.building_type,
         color: buildingTypeMeta[building.building_type].color,
+        hoursLabel: profile?.hoursLabel ?? 'Hours vary',
+        address: profile?.address ?? '',
       },
-    })),
+    });
+  });
+
+  return {
+    type: 'FeatureCollection',
+    features,
   };
 }
 
@@ -123,13 +152,16 @@ export function createEventMarkerFeatureCollection(
         densityLabel: group.densityLabel,
         eventCount: group.eventCount,
         primaryCategory: group.primaryCategory,
+        categoryKey: group.categoryKey,
         color: group.markerColor,
         glyph: group.glyph,
         markerSize: group.markerSize,
         markerOpacity: group.markerOpacity,
-        haloSize: group.markerSize + 8,
-        haloOpacity: mode === 'heatmap' ? 0.3 : 0.2,
+        haloSize: group.markerSize + 10,
+        haloOpacity: mode === 'heatmap' ? 0.34 : 0.22,
         isLive: group.isLive,
+        isFeatured: group.containsFeatured,
+        isGoing: group.hasRsvpdEvents,
         mode,
       },
     })),
@@ -138,7 +170,7 @@ export function createEventMarkerFeatureCollection(
 
 export function createEventHeatFeatureCollection(
   events: Event[],
-  densityByEventId: Map<string, number>,
+  weightByEventId: Map<string, number>,
 ): PointFeatureCollection<EventHeatFeatureProperties> {
   return {
     type: 'FeatureCollection',
@@ -153,7 +185,8 @@ export function createEventHeatFeatureCollection(
         },
         properties: {
           itemId: event.id,
-          density: densityByEventId.get(event.id) ?? 1,
+          density: weightByEventId.get(event.id) ?? 1,
+          weight: weightByEventId.get(event.id) ?? 1,
           category: event.category,
         },
       })),
@@ -263,32 +296,38 @@ export function createUserLocationFeatureCollection(
   };
 }
 
-export function createCampusBoundaryFeatureCollection(): PolygonFeatureCollection<{
+export function createCampusBoundaryFeatureCollection(): AreaFeatureCollection<{
   name: string;
 }> {
-  const [west, south] = campusMapBounds.sw;
-  const [east, north] = campusMapBounds.ne;
-
   return {
     type: 'FeatureCollection',
     features: [
       {
         type: 'Feature',
-        id: 'campus-focus-zone',
-        properties: {
-          name: 'University of Maryland core campus',
+        id: 'umd-campus-boundary',
+        properties: { name: 'University of Maryland campus boundary' },
+        geometry: {
+          type: 'MultiPolygon',
+          coordinates: campusBoundaryPolygons,
         },
+      },
+    ],
+  };
+}
+
+export function createCampusMaskFeatureCollection(): PolygonFeatureCollection<{
+  name: string;
+}> {
+  return {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        id: 'umd-campus-mask',
+        properties: { name: 'UMD campus focus mask' },
         geometry: {
           type: 'Polygon',
-          coordinates: [
-            [
-              [west, south],
-              [east, south],
-              [east, north],
-              [west, north],
-              [west, south],
-            ],
-          ],
+          coordinates: [campusMaskOuterRing, ...campusMaskHoles],
         },
       },
     ],

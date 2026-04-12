@@ -1,5 +1,6 @@
 import { buildings } from '../../../assets/data/buildings';
 import type { MapBounds, MapCoordinate } from '../types';
+import { umdAdministrativeBoundaryPolygons } from './umdAdministrativeBoundary';
 
 export interface BuildingAccessibilityProfile {
   wheelchair: boolean;
@@ -29,6 +30,10 @@ function closeRing(coordinates: MapCoordinate[]): MapCoordinate[] {
   }
 
   return [...coordinates, coordinates[0]];
+}
+
+function closePolygonRings(polygons: MapCoordinate[][][]): MapCoordinate[][][] {
+  return polygons.map((polygon) => polygon.map((ring) => closeRing(ring)));
 }
 
 function buildFootprint(
@@ -63,47 +68,15 @@ function getBounds(points: MapCoordinate[]): MapBounds {
   };
 }
 
-export const campusPerimeter: MapCoordinate[] = closeRing([
-  [-76.9558, 38.9821],
-  [-76.9556, 38.9832],
-  [-76.9554, 38.9845],
-  [-76.9551, 38.9858],
-  [-76.9548, 38.9871],
-  [-76.9544, 38.9885],
-  [-76.9539, 38.9899],
-  [-76.9532, 38.9914],
-  [-76.9524, 38.9929],
-  [-76.9513, 38.9943],
-  [-76.95, 38.9955],
-  [-76.9484, 38.9965],
-  [-76.9468, 38.9972],
-  [-76.9449, 38.9977],
-  [-76.9429, 38.9978],
-  [-76.9408, 38.9977],
-  [-76.9389, 38.9974],
-  [-76.9372, 38.9969],
-  [-76.9358, 38.9961],
-  [-76.9348, 38.9951],
-  [-76.9341, 38.9937],
-  [-76.9338, 38.9922],
-  [-76.9338, 38.9906],
-  [-76.934, 38.9889],
-  [-76.9344, 38.9872],
-  [-76.9349, 38.9855],
-  [-76.9357, 38.9839],
-  [-76.9367, 38.9825],
-  [-76.938, 38.9814],
-  [-76.9395, 38.9806],
-  [-76.9412, 38.9801],
-  [-76.9431, 38.9798],
-  [-76.9449, 38.9796],
-  [-76.9467, 38.9796],
-  [-76.9486, 38.9798],
-  [-76.9503, 38.9802],
-  [-76.9519, 38.9807],
-  [-76.9532, 38.9812],
-  [-76.9544, 38.9816],
-]);
+export const campusBoundaryPolygons: MapCoordinate[][][] = closePolygonRings(
+  umdAdministrativeBoundaryPolygons,
+);
+
+export const campusMaskHoles: MapCoordinate[][] = campusBoundaryPolygons
+  .map((polygon) => polygon[0])
+  .filter((ring): ring is MapCoordinate[] => Array.isArray(ring) && ring.length >= 4);
+
+export const campusPerimeter: MapCoordinate[] = campusMaskHoles[0] ?? [];
 
 export const campusMaskOuterRing: MapCoordinate[] = closeRing([
   [-180, -85],
@@ -112,7 +85,7 @@ export const campusMaskOuterRing: MapCoordinate[] = closeRing([
   [-180, 85],
 ]);
 
-export const campusBoundingBox = getBounds(campusPerimeter);
+export const campusBoundingBox = getBounds(campusBoundaryPolygons.flat(2));
 
 export const buildingFootprints: Record<string, MapCoordinate[]> = {
   'bld-001': buildFootprint('bld-001', 0.00058, 0.00034, 0.00004, 0.00003),

@@ -51,6 +51,7 @@ export interface EventRow {
   id: string;
   title: string;
   description: string;
+  club_id: string | null;
   organizer_id: string;
   organizer_name: string;
   category: string;
@@ -76,7 +77,7 @@ export interface MapEventSummary {
   id: string;
   title: string;
   description: string;
-  club_id: null;
+  club_id: string | null;
   created_by: string;
   organizer_name: string;
   category: string;
@@ -255,7 +256,7 @@ export function toMapEventSummary(
     id: event.id,
     title: event.title,
     description: event.description,
-    club_id: null,
+    club_id: event.club_id,
     created_by: event.organizer_id,
     organizer_name: event.organizer_name,
     category: event.category,
