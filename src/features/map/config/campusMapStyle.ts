@@ -7,10 +7,9 @@ export const hasUsableMapboxToken = /^pk\./.test(mapboxAccessToken.trim());
 
 export const campusMapStyleUrl = 'mapbox://styles/mapbox/light-v11';
 
-export const campusMapCenter: [number, number] = [
-  (campusBoundingBox.sw[0] + campusBoundingBox.ne[0]) / 2,
-  (campusBoundingBox.sw[1] + campusBoundingBox.ne[1]) / 2,
-];
+// Keep the default first-view anchored on the student-facing center of campus
+// even though the administrative boundary includes outlying parcels.
+export const campusMapCenter: [number, number] = [-76.9426, 38.9869];
 
 const boundsPadding = {
   longitude: 0.0012,
