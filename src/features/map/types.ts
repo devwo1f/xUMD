@@ -1,6 +1,7 @@
 export type MapCoordinate = [number, number];
 
 export type MapTimeFilter =
+  | 'all'
   | 'happening_now'
   | 'next_2_hours'
   | 'today'
@@ -10,7 +11,18 @@ export type MapTimeFilter =
 export type MapSortOption = 'soonest' | 'most_popular' | 'nearest';
 
 export type MarkerVisualMode = 'heatmap' | 'category';
-export type MapMarkerCategoryKey = 'social' | 'academic' | 'sports' | 'featured' | 'other';
+export type MapMarkerCategoryKey =
+  | 'career'
+  | 'academic'
+  | 'social'
+  | 'sports'
+  | 'arts'
+  | 'food'
+  | 'tech'
+  | 'talks'
+  | 'workshop'
+  | 'featured'
+  | 'other';
 
 export interface MapUserLocation {
   latitude: number;
@@ -84,4 +96,10 @@ export interface EventLocationGroup {
   markerOpacity: number;
   glyph: string;
   densityLabel: string;
+  pinImageId: string;
+  pinScale: number;
+  badgeScale: number;
+  pulseRadius: number;
+  countTextSize: number;
+  isMultiEvent: boolean;
 }

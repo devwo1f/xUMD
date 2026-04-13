@@ -58,6 +58,12 @@ export interface EventMarkerFeatureProperties {
   markerOpacity: number;
   haloSize: number;
   haloOpacity: number;
+  pinImageId: string;
+  pinScale: number;
+  badgeScale: number;
+  pulseRadius: number;
+  countTextSize: number;
+  isMultiEvent: boolean;
   isLive: boolean;
   isFeatured: boolean;
   isGoing: boolean;
@@ -240,6 +246,12 @@ export function createEventMarkerFeatureCollection(
         markerOpacity: group.markerOpacity,
         haloSize: group.markerSize + 10,
         haloOpacity: mode === 'heatmap' ? 0.34 : 0.22,
+        pinImageId: group.pinImageId,
+        pinScale: group.pinScale,
+        badgeScale: group.badgeScale,
+        pulseRadius: group.pulseRadius,
+        countTextSize: group.countTextSize,
+        isMultiEvent: group.isMultiEvent,
         isLive: group.isLive,
         isFeatured: group.containsFeatured,
         isGoing: group.hasRsvpdEvents,

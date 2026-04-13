@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, Image, Linking, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Linking, PanResponder, PixelRatio, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -285,7 +285,7 @@ function EventMiniCard({
 
 export default function MapHomeScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
-  const { isWide, height: viewportHeight } = useResponsive();
+  const { isWide, width: viewportWidth, height: viewportHeight } = useResponsive();
   const insets = useSafeAreaInsets();
   const isNativeMobile = Platform.OS !== 'web';
   const { user: authUser } = useAuth();
@@ -345,11 +345,16 @@ export default function MapHomeScreen({ navigation }: Props) {
   );
   const eventsById = useMemo(() => new Map(rawEvents.map((event) => [event.id, event])), [rawEvents]);
   const eventGroups = useMemo(
-    () => buildEventLocationGroups(filteredEvents, 'category', viewerRsvpIds),
-    [filteredEvents, viewerRsvpIds],
+    () =>
+      buildEventLocationGroups(filteredEvents, 'category', viewerRsvpIds, {
+        viewportWidth,
+        viewportHeight,
+        pixelRatio: PixelRatio.get(),
+      }),
+    [filteredEvents, viewerRsvpIds, viewportHeight, viewportWidth],
   );
   const activityWeights = useMemo(() => buildActivityWeightMap(filteredEvents), [filteredEvents]);
-  const liveCounter = useMemo(() => getLiveEventCounter(filteredEvents), [filteredEvents]);
+  const liveCounter = useMemo(() => getLiveEventCounter(eventGroups), [eventGroups]);
   const selectedGroup = useMemo(
     () => eventGroups.find((group) => group.id === selectedGroupId) ?? null,
     [eventGroups, selectedGroupId],
@@ -408,7 +413,7 @@ export default function MapHomeScreen({ navigation }: Props) {
     ? mockClubs.find((club) => club.id === selectedEvent.club_id) ?? null
     : null;
   const hasSearchQuery = searchQuery.trim().length >= 2;
-  const isAllChipActive = selectedCategories.length === 0 && timeFilter === 'this_week';
+  const isAllChipActive = selectedCategories.length === 0 && timeFilter === 'all';
   const activeSheet: SheetMode = createCoordinate
     ? 'create'
     : selectedBuilding
@@ -762,7 +767,7 @@ export default function MapHomeScreen({ navigation }: Props) {
     if (selectedCategories.length > 0) {
       toggleCategory('all');
     }
-    setTimeFilter('this_week');
+    setTimeFilter('all');
   }
 
   function handleSelectLiveCounter() {

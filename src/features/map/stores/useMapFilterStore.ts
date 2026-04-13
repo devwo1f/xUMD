@@ -29,7 +29,7 @@ interface MapFilterState {
 
 const initialState = {
   selectedCategories: [] as EventCategory[],
-  timeFilter: 'this_week' as MapTimeFilter,
+  timeFilter: 'all' as MapTimeFilter,
   sortBy: 'soonest' as MapSortOption,
   onlyFriendsAttending: false,
   customRange: null as CustomRangeFilter | null,

@@ -15,17 +15,17 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.xumd.app",
+      "icon": "./assets/mobile-icons/source/appstore.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.xumd.app",
+      "icon": "./assets/mobile-icons/source/playstore.png",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/mobile-icons/source/playstore.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [

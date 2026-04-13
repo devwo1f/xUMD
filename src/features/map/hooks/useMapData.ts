@@ -28,7 +28,7 @@ export function useMapData(options: UseMapDataOptions = {}): UseMapDataReturn {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['map-events', 'this-week-baseline', onlyFriendsAttending],
+    queryKey: ['map-events', 'upcoming-baseline', onlyFriendsAttending],
     staleTime: 60_000,
     queryFn: async () => {
       if (!isSupabaseConfigured) {
@@ -39,8 +39,15 @@ export function useMapData(options: UseMapDataOptions = {}): UseMapDataReturn {
         };
       }
 
+      const rangeStart = new Date();
+      const rangeEnd = new Date(rangeStart.getTime() + 180 * 24 * 60 * 60 * 1000);
+
       return fetchMapEventsRemote({
-        timeFilter: 'this_week',
+        timeFilter: 'custom',
+        customRange: {
+          start: rangeStart.toISOString(),
+          end: rangeEnd.toISOString(),
+        },
         onlyFriendsAttending,
       });
     },
@@ -73,7 +80,7 @@ export function useMapData(options: UseMapDataOptions = {}): UseMapDataReturn {
       filterAndSortEvents(rawEvents, {
         searchQuery: searchQuery ?? '',
         selectedCategories: categoryFilter ? [categoryFilter] : [],
-        timeFilter: timeFilter === 'all' ? 'today' : timeFilter,
+        timeFilter,
         sortBy: 'soonest',
       }),
     [categoryFilter, rawEvents, searchQuery, timeFilter],
