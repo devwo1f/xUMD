@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { NativeModules, Platform, StyleProp, StyleSheet, Text, UIManager, View, ViewStyle } from 'react-native';
+import { Image, NativeModules, Platform, StyleProp, StyleSheet, Text, UIManager, View, ViewStyle } from 'react-native';
 import {
   Camera,
   CircleLayer,
   FillLayer,
   HeatmapLayer,
+  Images,
   LineLayer,
   MapView as MapboxMapView,
   setAccessToken,
@@ -48,6 +49,11 @@ import {
   createWayfindingFeatureCollection,
   getFeatureItemId,
 } from '../utils/geojson';
+import {
+  buildClusterDominantColorExpression,
+  buildClusterProperties,
+  MAP_PIN_IMAGE_ENTRIES,
+} from '../utils/pinAssets';
 
 interface CampusMapProps {
   style?: StyleProp<ViewStyle>;
@@ -85,17 +91,46 @@ const canRenderNativeMapbox = Boolean(
 
 const clusterFilter = ['has', 'point_count'] as any;
 const unclusteredFilter = ['!', ['has', 'point_count']] as any;
-const rsvpFilter = ['all', unclusteredFilter, ['==', ['get', 'isGoing'], true]] as any;
 const waterFilter = ['==', ['get', 'kind'], 'water'] as any;
 const parkingFilter = ['==', ['get', 'kind'], 'parking'] as any;
 const plazaFilter = ['==', ['get', 'kind'], 'plaza'] as any;
 const lawnFilter = ['==', ['get', 'kind'], 'lawn'] as any;
 const treeFilter = ['==', ['get', 'kind'], 'trees'] as any;
 const sportsFilter = ['==', ['get', 'kind'], 'sports'] as any;
+const multiPinFilter = ['all', unclusteredFilter, ['==', ['get', 'isMultiEvent'], true]] as any;
+const regularPinFilter = [
+  'all',
+  unclusteredFilter,
+  ['==', ['get', 'isMultiEvent'], false],
+  ['==', ['get', 'isLive'], false],
+  ['==', ['get', 'isFeatured'], false],
+  ['==', ['get', 'isGoing'], false],
+] as any;
+const goingPinFilter = [
+  'all',
+  unclusteredFilter,
+  ['==', ['get', 'isMultiEvent'], false],
+  ['==', ['get', 'isLive'], false],
+  ['==', ['get', 'isFeatured'], false],
+  ['==', ['get', 'isGoing'], true],
+] as any;
+const featuredPinFilter = [
+  'all',
+  unclusteredFilter,
+  ['==', ['get', 'isMultiEvent'], false],
+  ['==', ['get', 'isLive'], false],
+  ['==', ['get', 'isFeatured'], true],
+] as any;
+const livePinFilter = [
+  'all',
+  unclusteredFilter,
+  ['==', ['get', 'isMultiEvent'], false],
+  ['==', ['get', 'isLive'], true],
+] as any;
 const pulseFilter = [
   'all',
   unclusteredFilter,
-  ['any', ['==', ['get', 'isLive'], true], ['==', ['get', 'isFeatured'], true]],
+  ['==', ['get', 'isLive'], true],
 ] as any;
 function buildBuildingLabelFieldExpression(activeBuildingId?: string | null) {
   return [
@@ -128,14 +163,13 @@ function fallbackMaskPolygon() {
 
 function FallbackMarker({
   group,
-  selected,
   onPress,
 }: {
   group: EventLocationGroup;
-  selected: boolean;
   onPress: () => void;
 }) {
-  const diameter = Math.max(30, Math.round(group.markerSize));
+  const pinWidth = Math.max(34, Math.round(72 * group.pinScale));
+  const pinHeight = Math.max(46, Math.round(96 * group.pinScale));
 
   return (
     <Marker
@@ -144,38 +178,15 @@ function FallbackMarker({
       tracksViewChanges={group.containsFeatured || group.hasRsvpdEvents}
     >
       <View style={styles.fallbackMarkerWrap}>
-        <View
-          style={[
-            styles.fallbackHalo,
-            {
-              width: diameter + 12,
-              height: diameter + 12,
-              borderRadius: (diameter + 12) / 2,
-              backgroundColor: group.markerColor,
-              opacity: group.pulse ? 0.22 : 0.12,
-            },
-          ]}
+        <Image
+          source={{ uri: MAP_PIN_IMAGE_ENTRIES[group.pinImageId]?.url }}
+          style={[styles.fallbackPinImage, { width: pinWidth, height: pinHeight, opacity: group.markerOpacity }]}
         />
-        <View
-          style={[
-            styles.fallbackMarker,
-            {
-              width: diameter,
-              height: diameter,
-              borderRadius: diameter / 2,
-              backgroundColor: group.markerColor,
-              borderColor: selected ? colors.text.primary : colors.brand.white,
-              opacity: group.markerOpacity,
-            },
-          ]}
-        >
-          <Text style={styles.fallbackMarkerText}>{group.glyph}</Text>
-          {group.hasRsvpdEvents ? (
-            <View style={styles.fallbackBadge}>
-              <Text style={styles.fallbackBadgeText}>{'\u2713'}</Text>
-            </View>
-          ) : null}
-        </View>
+        {group.isMultiEvent ? (
+          <Text style={[styles.fallbackPinCount, { fontSize: Math.max(12, group.countTextSize) }]}>
+            {group.eventCount}
+          </Text>
+        ) : null}
       </View>
     </Marker>
   );
@@ -229,7 +240,6 @@ export default function CampusMap({
   }, [eventGroups]);
 
   const activeBuildingKey = activeBuildingId ?? '';
-  const activeEventGroupKey = activeEventGroupId ?? '';
   const weightMap = useMemo(() => new Map(Object.entries(densityByEventId)), [densityByEventId]);
   const maskShape = useMemo(() => createCampusMaskFeatureCollection(), []);
   const boundaryShape = useMemo(() => createCampusBoundaryFeatureCollection(), []);
@@ -283,19 +293,10 @@ export default function CampusMap({
   ) as any;
 
   const clusterCountExpression = ['coalesce', ['get', 'totalEvents'], ['get', 'point_count']];
-  const maxClusterExpression = ['max', ['get', 'featuredCount'], ['get', 'socialCount'], ['get', 'academicCount'], ['get', 'sportsCount'], ['get', 'otherCount']];
-  const clusterColorExpression = [
-    'case',
-    ['==', ['get', 'featuredCount'], maxClusterExpression], '#FFD200',
-    ['==', ['get', 'socialCount'], maxClusterExpression], '#E21833',
-    ['==', ['get', 'academicCount'], maxClusterExpression], '#1E88E5',
-    ['==', ['get', 'sportsCount'], maxClusterExpression], '#16A34A',
-    '#607D8B',
-  ];
 
   const eventClusterBubbleStyle = useMemo(
     () => ({
-      circleColor: clusterColorExpression,
+      circleColor: buildClusterDominantColorExpression(),
       circleRadius: ['step', clusterCountExpression, 22, 8, 26, 16, 31, 24, 35],
       circleStrokeColor: colors.brand.white,
       circleStrokeWidth: 3,
@@ -313,49 +314,33 @@ export default function CampusMap({
     textIgnorePlacement: true,
   } as any;
 
-  const eventMarkerShadowStyle = {
-    circleColor: 'rgba(15, 23, 42, 0.18)',
-    circleRadius: ['+', ['/', ['get', 'markerSize'], 2], 2],
-    circleTranslate: [0, 4],
-    circleBlur: 0.25,
-  } as any;
-
-  const eventMarkerHaloStyle = useMemo(
-    () => ({
-      circleColor: ['get', 'color'],
-      circleRadius: ['/', ['get', 'haloSize'], 2],
-      circleOpacity: ['case', ['==', ['get', 'itemId'], activeEventGroupKey], 0.24, 0.14],
-    }),
-    [activeEventGroupKey],
-  ) as any;
-
   const eventLivePulseStyle = useMemo(
     () => ({
       circleColor: ['get', 'color'],
-      circleRadius: ['+', ['/', ['get', 'haloSize'], 2], 3 + pulsePhase * 10],
+      circleRadius: ['+', ['get', 'pulseRadius'], 2 + pulsePhase * 8],
       circleOpacity: Math.max(0.04, 0.2 - pulsePhase * 0.16),
+      circleTranslate: [0, -24],
     }),
     [pulsePhase],
   ) as any;
 
-  const eventMarkerCircleStyle = useMemo(
-    () => ({
-      circleColor: ['get', 'color'],
-      circleRadius: ['/', ['get', 'markerSize'], 2],
-      circleStrokeColor: colors.brand.white,
-      circleStrokeWidth: ['case', ['==', ['get', 'itemId'], activeEventGroupKey], 3.4, 2.4],
-      circleOpacity: ['get', 'markerOpacity'],
-    }),
-    [activeEventGroupKey],
-  ) as any;
+  const pinSymbolStyle = {
+    iconImage: ['get', 'pinImageId'],
+    iconSize: ['get', 'pinScale'],
+    iconAnchor: 'bottom',
+    iconAllowOverlap: true,
+    iconIgnorePlacement: true,
+    iconOpacity: ['get', 'markerOpacity'],
+  } as any;
 
-  const eventLabelStyle = {
-    textField: ['get', 'glyph'],
+  const multiPinCountStyle = {
+    textField: ['to-string', ['get', 'eventCount']],
     textColor: colors.brand.white,
-    textSize: ['case', ['>=', ['get', 'markerSize'], 42], 14, 11],
+    textSize: ['get', 'countTextSize'],
     textFont: ['Open Sans Bold'],
     textAllowOverlap: true,
     textIgnorePlacement: true,
+    textOffset: [0, -2.55],
   } as any;
 
   const eventHeatStyle = {
@@ -522,7 +507,6 @@ export default function CampusMap({
               <FallbackMarker
                 key={group.id}
                 group={group}
-                selected={group.id === activeEventGroupId}
                 onPress={() => onSelectEventGroup(group)}
               />
             ))
@@ -558,6 +542,8 @@ export default function CampusMap({
         onLongPressCoordinate?.([longitude, latitude]);
       }}
     >
+      <Images images={MAP_PIN_IMAGE_ENTRIES} />
+
       <Camera
         ref={cameraRef}
         defaultSettings={{
@@ -691,14 +677,7 @@ export default function CampusMap({
           cluster={clusterEvents}
           clusterRadius={58}
           clusterMaxZoomLevel={16}
-          clusterProperties={{
-            totalEvents: ['+', ['get', 'eventCount']],
-            featuredCount: ['+', ['case', ['boolean', ['get', 'isFeatured'], false], ['get', 'eventCount'], 0]],
-            socialCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'social'], ['get', 'eventCount'], 0]],
-            academicCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'academic'], ['get', 'eventCount'], 0]],
-            sportsCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'sports'], ['get', 'eventCount'], 0]],
-            otherCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'other'], ['get', 'eventCount'], 0]],
-          }}
+          clusterProperties={buildClusterProperties()}
           hitbox={{ width: 48, height: 48 }}
           onPress={async (pressEvent) => {
             const feature = pressEvent.features[0];
@@ -738,13 +717,13 @@ export default function CampusMap({
               <SymbolLayer id={mapLayerIds.eventClusterLabel} filter={clusterFilter} style={eventClusterLabelStyle} />
             ) : null}
           </>
-          <CircleLayer id={mapLayerIds.eventMarkerShadow} filter={clusterEvents ? unclusteredFilter : undefined} style={eventMarkerShadowStyle} />
-          <CircleLayer id={mapLayerIds.eventMarkerHalo} filter={clusterEvents ? unclusteredFilter : undefined} style={eventMarkerHaloStyle} />
-          <CircleLayer id={mapLayerIds.eventLivePulse} filter={clusterEvents ? pulseFilter : ['any', ['==', ['get', 'isLive'], true], ['==', ['get', 'isFeatured'], true]]} style={eventLivePulseStyle} />
-          <CircleLayer id={mapLayerIds.eventMarkerCircle} filter={clusterEvents ? unclusteredFilter : undefined} style={eventMarkerCircleStyle} />
-          <SymbolLayer id={mapLayerIds.eventMarkerLabel} filter={clusterEvents ? unclusteredFilter : undefined} style={eventLabelStyle} />
-          <CircleLayer id={mapLayerIds.eventRsvpBadge} filter={rsvpFilter} style={{ circleColor: colors.brand.white, circleRadius: 7, circleStrokeColor: '#0F172A', circleStrokeWidth: 1.2, circleTranslate: [12, -10] } as any} />
-          <SymbolLayer id={mapLayerIds.eventRsvpLabel} filter={rsvpFilter} style={{ textField: '\u2713', textColor: '#0F766E', textSize: 10, textFont: ['Open Sans Bold'], textAllowOverlap: true, textIgnorePlacement: true, textOffset: [1.15, -0.95] } as any} />
+          <CircleLayer id={mapLayerIds.eventLivePulse} filter={clusterEvents ? pulseFilter : ['==', ['get', 'isLive'], true]} style={eventLivePulseStyle} />
+          <SymbolLayer id={mapLayerIds.eventPinMulti} filter={multiPinFilter} style={pinSymbolStyle} />
+          <SymbolLayer id={mapLayerIds.eventPinRegular} filter={regularPinFilter} style={pinSymbolStyle} />
+          <SymbolLayer id={mapLayerIds.eventPinGoing} filter={goingPinFilter} style={pinSymbolStyle} />
+          <SymbolLayer id={mapLayerIds.eventPinFeatured} filter={featuredPinFilter} style={pinSymbolStyle} />
+          <SymbolLayer id={mapLayerIds.eventPinLive} filter={livePinFilter} style={pinSymbolStyle} />
+          <SymbolLayer id={mapLayerIds.eventPinCountLabel} filter={multiPinFilter} style={multiPinCountStyle} />
         </ShapeSource>
       ) : null}
 
@@ -766,36 +745,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fallbackHalo: {
+  fallbackPinImage: {
+    resizeMode: 'contain',
+  },
+  fallbackPinCount: {
     position: 'absolute',
-  },
-  fallbackMarker: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-  },
-  fallbackMarkerText: {
+    top: '22%',
     color: colors.brand.white,
     fontWeight: '700',
-    fontSize: 12,
-  },
-  fallbackBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.brand.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#0F172A',
-  },
-  fallbackBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#0F766E',
+    textAlign: 'center',
   },
   fallbackBuildingLabel: {
     minWidth: 30,

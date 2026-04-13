@@ -5,15 +5,26 @@ import { EventCategory, type Event } from '../../../shared/types';
 import type {
   EventLocationGroup,
   MapCoordinate,
-  MapMarkerCategoryKey,
   MapSortOption,
   MapTimeFilter,
   MapUserLocation,
   MarkerVisualMode,
 } from '../types';
+import {
+  getDominantMapPinCategoryKey,
+  getMapPinCategoryKey,
+  getMapPinColor,
+  getPinAssetId,
+  getPinBadgeScale,
+  getPinCountTextSize,
+  getPinHeadRadius,
+  getResponsivePinScale,
+  type PinRenderMetrics,
+} from './pinAssets';
 import { getDistanceMeters, toMapCoordinate } from './wayfinding';
 
 const DENSITY_RADIUS_METERS = 100;
+const SAME_LOCATION_RADIUS_METERS = 30;
 
 export const HEATMAP_STOPS = [
   { threshold: 1, color: '#90A4AE', label: 'Quiet' },
@@ -54,14 +65,6 @@ export const CATEGORY_GLYPHS: Record<EventCategory, string> = {
   [EventCategory.Other]: '?',
 };
 
-const MAP_PIN_COLORS: Record<MapMarkerCategoryKey, string> = {
-  social: '#E21833',
-  academic: '#1E88E5',
-  sports: '#16A34A',
-  featured: '#FFD200',
-  other: '#607D8B',
-};
-
 export interface EventFilterOptions {
   searchQuery: string;
   selectedCategories: EventCategory[];
@@ -75,6 +78,14 @@ export interface EventFilterOptions {
 export interface LiveEventCounter {
   liveCount: number;
   nextTwoHoursCount: number;
+}
+
+function isEventLocationGroup(value: Event | EventLocationGroup): value is EventLocationGroup {
+  return 'events' in value;
+}
+
+function isLiveWindow(startsAt: string, endsAt: string, now = new Date()) {
+  return new Date(startsAt).getTime() <= now.getTime() && new Date(endsAt).getTime() >= now.getTime();
 }
 
 export interface CampusSearchResult {
@@ -121,30 +132,6 @@ export function getCategoryColor(category: Event['category']) {
   return (
     colors.eventCategory[category as keyof typeof colors.eventCategory] ?? colors.eventCategory.other
   );
-}
-
-export function getMapCategoryKeyForEvent(event: Pick<Event, 'category' | 'is_featured'>): MapMarkerCategoryKey {
-  if (event.is_featured) {
-    return 'featured';
-  }
-
-  if (event.category === EventCategory.Social || event.category === EventCategory.Party) {
-    return 'social';
-  }
-
-  if (event.category === EventCategory.Academic) {
-    return 'academic';
-  }
-
-  if (event.category === EventCategory.Sports) {
-    return 'sports';
-  }
-
-  return 'other';
-}
-
-export function getMapPinColor(categoryKey: MapMarkerCategoryKey) {
-  return MAP_PIN_COLORS[categoryKey];
 }
 
 export function getDensityColor(density: number) {
@@ -269,6 +256,8 @@ function matchesTimeFilter(
   const endsAt = new Date(event.ends_at);
 
   switch (timeFilter) {
+    case 'all':
+      return true;
     case 'happening_now':
       return startsAt <= now && endsAt > now;
     case 'next_2_hours': {
@@ -359,17 +348,23 @@ export function buildEventLocationGroups(
   events: Event[],
   mode: MarkerVisualMode,
   viewerRsvpIds: Set<string> = new Set(),
+  pinMetrics: PinRenderMetrics = {
+    viewportWidth: 390,
+    viewportHeight: 844,
+    pixelRatio: 3,
+  },
 ): EventLocationGroup[] {
-  const grouped = new Map<
-    string,
-    {
-      locationName: string;
-      coordinates: MapCoordinate[];
-      events: Event[];
-    }
-  >();
+  const grouped: Array<{
+    locationKey: string;
+    locationName: string;
+    coordinates: MapCoordinate[];
+    events: Event[];
+  }> = [];
 
-  events.forEach((event) => {
+  events
+    .slice()
+    .sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime())
+    .forEach((event) => {
     const coordinate = getEventCoordinate(event);
 
     if (!coordinate) {
@@ -377,7 +372,22 @@ export function buildEventLocationGroups(
     }
 
     const key = getLocationKey(event);
-    const current = grouped.get(key);
+    const normalizedLocationName = normalizeText(event.location_name);
+    const current = grouped.find((candidate) => {
+      if (
+        normalizedLocationName.length > 0 &&
+        normalizeText(candidate.locationName) === normalizedLocationName
+      ) {
+        return true;
+      }
+
+      const centroid: MapCoordinate = [
+        candidate.coordinates.reduce((sum, [longitude]) => sum + longitude, 0) / candidate.coordinates.length,
+        candidate.coordinates.reduce((sum, [, latitude]) => sum + latitude, 0) / candidate.coordinates.length,
+      ];
+
+      return getDistanceMeters(centroid, coordinate) <= SAME_LOCATION_RADIUS_METERS;
+    });
 
     if (current) {
       current.coordinates.push(coordinate);
@@ -385,14 +395,15 @@ export function buildEventLocationGroups(
       return;
     }
 
-    grouped.set(key, {
+    grouped.push({
+      locationKey: key,
       locationName: event.location_name,
       coordinates: [coordinate],
       events: [event],
     });
   });
 
-  const groups = [...grouped.entries()].map(([locationKey, group], index) => {
+  const groups = grouped.map((group, index) => {
     const longitude =
       group.coordinates.reduce((sum, [currentLongitude]) => sum + currentLongitude, 0) /
       group.coordinates.length;
@@ -409,14 +420,10 @@ export function buildEventLocationGroups(
       return getDistanceMeters(coordinate, eventCoordinate) <= DENSITY_RADIUS_METERS ? count + 1 : count;
     }, 0);
 
-    const categoryCounts = new Map<MapMarkerCategoryKey, number>();
-    group.events.forEach((event) => {
-      const key = getMapCategoryKeyForEvent(event);
-      categoryCounts.set(key, (categoryCounts.get(key) ?? 0) + 1);
-    });
-
-    const categoryKey =
-      [...categoryCounts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? 'other';
+    const isMultiEvent = group.events.length > 1;
+    const categoryKey = isMultiEvent
+      ? getDominantMapPinCategoryKey(group.events)
+      : getMapPinCategoryKey(group.events[0]);
     const primaryCategory =
       group.events[0]?.category ?? EventCategory.Other;
     const topAttendance = Math.max(
@@ -427,24 +434,24 @@ export function buildEventLocationGroups(
     const containsFeatured = group.events.some((event) => event.is_featured);
     const hasRsvpdEvents = group.events.some((event) => viewerRsvpIds.has(event.id));
     const markerColor = mode === 'heatmap' ? getDensityColor(density) : getMapPinColor(categoryKey);
-    const markerSize = containsFeatured
-      ? 44
-      : mode === 'heatmap'
-        ? getDensityMarkerSize(density)
-        : Math.round(36 * (topAttendance > 20 ? 1.16 : 1));
+    const pinScale =
+      mode === 'heatmap'
+        ? getResponsivePinScale(pinMetrics, { isMultiEvent, isFeatured: containsFeatured })
+        : getResponsivePinScale(pinMetrics, {
+            isMultiEvent,
+            isFeatured: containsFeatured || topAttendance > 20,
+          });
+    const markerSize =
+      mode === 'heatmap' ? getDensityMarkerSize(density) : Math.round(54 * pinScale);
 
     let glyph = CATEGORY_GLYPHS[primaryCategory] ?? CATEGORY_GLYPHS[EventCategory.Other];
-    if (group.events.length > 1) {
+    if (isMultiEvent) {
       glyph = String(group.events.length);
-    } else if (containsFeatured) {
-      glyph = '\u2605';
-    } else if (hasRsvpdEvents) {
-      glyph = '\u2713';
     }
 
     return {
-      id: `group-${locationKey}-${index}`,
-      locationKey,
+      id: `group-${group.locationKey}-${index}`,
+      locationKey: group.locationKey,
       locationName: group.locationName,
       coordinate,
       events: group.events
@@ -473,26 +480,43 @@ export function buildEventLocationGroups(
       isLive,
       hasRsvpdEvents,
       containsFeatured,
-      pulse: containsFeatured || isLive,
+      pulse: isLive,
       markerColor,
       markerSize,
       markerOpacity: mode === 'heatmap' ? getDensityOpacity(density) : 1,
       glyph,
       densityLabel: getDensityLabel(density),
+      pinImageId: getPinAssetId(categoryKey, isMultiEvent, hasRsvpdEvents),
+      pinScale,
+      badgeScale: getPinBadgeScale(pinScale),
+      pulseRadius: getPinHeadRadius(pinScale),
+      countTextSize: getPinCountTextSize(pinScale),
+      isMultiEvent,
     } satisfies EventLocationGroup;
   });
 
   return groups;
 }
 
-export function getLiveEventCounter(events: Event[]): LiveEventCounter {
+export function getLiveEventCounter(items: Array<Event | EventLocationGroup>): LiveEventCounter {
   const now = new Date();
   const nextTwoHoursCutoff = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
   return {
-    liveCount: events.filter((event) => isEventLive(event, now)).length,
-    nextTwoHoursCount: events.filter((event) => {
-      const startsAt = new Date(event.starts_at);
+    liveCount: items.filter((item) => {
+      if (isEventLocationGroup(item)) {
+        return item.events.some((event) => isLiveWindow(event.startsAt, event.endsAt, now));
+      }
+
+      return isEventLive(item, now);
+    }).length,
+    nextTwoHoursCount: items.filter((item) => {
+      const startsAt = isEventLocationGroup(item)
+        ? item.events
+            .map((event) => new Date(event.startsAt))
+            .sort((left, right) => left.getTime() - right.getTime())[0]
+        : new Date(item.starts_at);
+
       return startsAt > now && startsAt <= nextTwoHoursCutoff;
     }).length,
   };

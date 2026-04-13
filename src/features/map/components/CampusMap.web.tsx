@@ -34,6 +34,11 @@ import {
   createWayfindingFeatureCollection,
   getFeatureItemId,
 } from '../utils/geojson';
+import {
+  buildClusterDominantColorExpression,
+  buildClusterProperties,
+  MAP_PIN_IMAGE_ENTRIES,
+} from '../utils/pinAssets';
 
 interface CampusMapProps {
   style?: StyleProp<ViewStyle>;
@@ -83,6 +88,12 @@ interface MapboxMap {
   isStyleLoaded: () => boolean;
   addSource: (id: string, source: Record<string, unknown>) => void;
   addLayer: (layer: Record<string, unknown>) => void;
+  addImage: (
+    id: string,
+    image: HTMLImageElement | ImageBitmap | ImageData,
+    options?: Record<string, unknown>,
+  ) => void;
+  hasImage: (id: string) => boolean;
   getSource: (id: string) => MapboxSource | undefined;
   getLayer: (id: string) => unknown;
   setLayoutProperty: (layerId: string, property: string, value: unknown) => void;
@@ -105,11 +116,40 @@ declare global {
 const MAPBOX_WEB_VERSION = '3.21.0';
 const CLUSTER_FILTER = ['has', 'point_count'];
 const UNCLUSTERED_FILTER = ['!', ['has', 'point_count']];
-const RSVP_FILTER = ['all', UNCLUSTERED_FILTER, ['==', ['get', 'isGoing'], true]];
 const PULSE_FILTER = [
   'all',
   UNCLUSTERED_FILTER,
-  ['any', ['==', ['get', 'isLive'], true], ['==', ['get', 'isFeatured'], true]],
+  ['==', ['get', 'isLive'], true],
+];
+const MULTI_PIN_FILTER = ['all', UNCLUSTERED_FILTER, ['==', ['get', 'isMultiEvent'], true]];
+const REGULAR_PIN_FILTER = [
+  'all',
+  UNCLUSTERED_FILTER,
+  ['==', ['get', 'isMultiEvent'], false],
+  ['==', ['get', 'isLive'], false],
+  ['==', ['get', 'isFeatured'], false],
+  ['==', ['get', 'isGoing'], false],
+];
+const GOING_PIN_FILTER = [
+  'all',
+  UNCLUSTERED_FILTER,
+  ['==', ['get', 'isMultiEvent'], false],
+  ['==', ['get', 'isLive'], false],
+  ['==', ['get', 'isFeatured'], false],
+  ['==', ['get', 'isGoing'], true],
+];
+const FEATURED_PIN_FILTER = [
+  'all',
+  UNCLUSTERED_FILTER,
+  ['==', ['get', 'isMultiEvent'], false],
+  ['==', ['get', 'isLive'], false],
+  ['==', ['get', 'isFeatured'], true],
+];
+const LIVE_PIN_FILTER = [
+  'all',
+  UNCLUSTERED_FILTER,
+  ['==', ['get', 'isMultiEvent'], false],
+  ['==', ['get', 'isLive'], true],
 ];
 const WATER_FILTER = ['==', ['get', 'kind'], 'water'];
 const PARKING_FILTER = ['==', ['get', 'kind'], 'parking'];
@@ -229,28 +269,26 @@ function setLayerVisibility(map: MapboxMap, layerId: string, visible: boolean) {
   map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
 }
 
-function buildClusterDominantColorExpression() {
-  const maxExpression = [
-    'max',
-    ['get', 'featuredCount'],
-    ['get', 'socialCount'],
-    ['get', 'academicCount'],
-    ['get', 'sportsCount'],
-    ['get', 'otherCount'],
-  ];
+function loadMapImage(url: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Unable to load map pin image: ${url}`));
+    image.src = url;
+  });
+}
 
-  return [
-    'case',
-    ['==', ['get', 'featuredCount'], maxExpression],
-    '#FFD200',
-    ['==', ['get', 'socialCount'], maxExpression],
-    '#E21833',
-    ['==', ['get', 'academicCount'], maxExpression],
-    '#1E88E5',
-    ['==', ['get', 'sportsCount'], maxExpression],
-    '#16A34A',
-    '#607D8B',
-  ];
+async function ensurePinImages(map: MapboxMap) {
+  const registrations = Object.entries(MAP_PIN_IMAGE_ENTRIES).map(async ([imageId, imageEntry]) => {
+    if (map.hasImage(imageId)) {
+      return;
+    }
+
+    const image = await loadMapImage(imageEntry.url);
+    map.addImage(imageId, image, { pixelRatio: 2 });
+  });
+
+  await Promise.all(registrations);
 }
 
 function buildBuildingLabelFieldExpression(activeBuildingId?: string | null) {
@@ -404,12 +442,14 @@ export default function CampusMap({
         });
       }
 
-      map.on('load', () => {
+      map.on('load', async () => {
         didLoad = true;
         if (loadTimeout) {
           window.clearTimeout(loadTimeout);
           loadTimeout = null;
         }
+
+        await ensurePinImages(map);
 
         map.addSource(mapSourceIds.campusMask, {
           type: 'geojson',
@@ -436,14 +476,7 @@ export default function CampusMap({
           cluster: clusterEvents,
           clusterRadius: 58,
           clusterMaxZoom: 16,
-          clusterProperties: {
-            totalEvents: ['+', ['get', 'eventCount']],
-            featuredCount: ['+', ['case', ['boolean', ['get', 'isFeatured'], false], ['get', 'eventCount'], 0]],
-            socialCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'social'], ['get', 'eventCount'], 0]],
-            academicCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'academic'], ['get', 'eventCount'], 0]],
-            sportsCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'sports'], ['get', 'eventCount'], 0]],
-            otherCount: ['+', ['case', ['==', ['get', 'categoryKey'], 'other'], ['get', 'eventCount'], 0]],
-          },
+          clusterProperties: buildClusterProperties(),
         });
         map.addSource(mapSourceIds.userLocation, {
           type: 'geojson',
@@ -662,93 +695,111 @@ export default function CampusMap({
           paint: { 'text-color': colors.brand.white },
         });
         map.addLayer({
-          id: mapLayerIds.eventMarkerShadow,
-          type: 'circle',
-          source: mapSourceIds.eventMarkers,
-          filter: clusterEvents ? UNCLUSTERED_FILTER : undefined,
-          paint: {
-            'circle-color': 'rgba(15, 23, 42, 0.18)',
-            'circle-radius': ['+', ['/', ['get', 'markerSize'], 2], 2],
-            'circle-translate': [0, 4],
-            'circle-blur': 0.25,
-          },
-        });
-        map.addLayer({
-          id: mapLayerIds.eventMarkerHalo,
-          type: 'circle',
-          source: mapSourceIds.eventMarkers,
-          filter: clusterEvents ? UNCLUSTERED_FILTER : undefined,
-          paint: {
-            'circle-color': ['get', 'color'],
-            'circle-radius': ['/', ['get', 'haloSize'], 2],
-            'circle-opacity': ['case', ['==', ['get', 'itemId'], activeEventGroupId ?? '__none__'], 0.24, 0.14],
-          },
-        });
-        map.addLayer({
           id: mapLayerIds.eventLivePulse,
           type: 'circle',
           source: mapSourceIds.eventMarkers,
-          filter: clusterEvents ? PULSE_FILTER : ['any', ['==', ['get', 'isLive'], true], ['==', ['get', 'isFeatured'], true]],
+          filter: clusterEvents ? PULSE_FILTER : ['==', ['get', 'isLive'], true],
           paint: {
             'circle-color': ['get', 'color'],
-            'circle-radius': ['+', ['/', ['get', 'haloSize'], 2], 3],
+            'circle-radius': ['+', ['get', 'pulseRadius'], 2],
             'circle-opacity': 0.18,
+            'circle-translate': [0, -24],
           },
         });
         map.addLayer({
-          id: mapLayerIds.eventMarkerCircle,
-          type: 'circle',
-          source: mapSourceIds.eventMarkers,
-          filter: clusterEvents ? UNCLUSTERED_FILTER : undefined,
-          paint: {
-            'circle-color': ['get', 'color'],
-            'circle-radius': ['/', ['get', 'markerSize'], 2],
-            'circle-stroke-color': colors.brand.white,
-            'circle-stroke-width': ['case', ['==', ['get', 'itemId'], activeEventGroupId ?? '__none__'], 3.4, 2.4],
-            'circle-opacity': ['get', 'markerOpacity'],
-          },
-        });
-        map.addLayer({
-          id: mapLayerIds.eventMarkerLabel,
+          id: mapLayerIds.eventPinMulti,
           type: 'symbol',
           source: mapSourceIds.eventMarkers,
-          filter: clusterEvents ? UNCLUSTERED_FILTER : undefined,
+          filter: MULTI_PIN_FILTER,
           layout: {
-            'text-field': ['get', 'glyph'],
-            'text-size': ['case', ['>=', ['get', 'markerSize'], 42], 14, 11],
+            'icon-image': ['get', 'pinImageId'],
+            'icon-size': ['get', 'pinScale'],
+            'icon-anchor': 'bottom',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          },
+          paint: {
+            'icon-opacity': ['get', 'markerOpacity'],
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventPinRegular,
+          type: 'symbol',
+          source: mapSourceIds.eventMarkers,
+          filter: REGULAR_PIN_FILTER,
+          layout: {
+            'icon-image': ['get', 'pinImageId'],
+            'icon-size': ['get', 'pinScale'],
+            'icon-anchor': 'bottom',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          },
+          paint: {
+            'icon-opacity': ['get', 'markerOpacity'],
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventPinGoing,
+          type: 'symbol',
+          source: mapSourceIds.eventMarkers,
+          filter: GOING_PIN_FILTER,
+          layout: {
+            'icon-image': ['get', 'pinImageId'],
+            'icon-size': ['get', 'pinScale'],
+            'icon-anchor': 'bottom',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          },
+          paint: {
+            'icon-opacity': ['get', 'markerOpacity'],
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventPinFeatured,
+          type: 'symbol',
+          source: mapSourceIds.eventMarkers,
+          filter: FEATURED_PIN_FILTER,
+          layout: {
+            'icon-image': ['get', 'pinImageId'],
+            'icon-size': ['get', 'pinScale'],
+            'icon-anchor': 'bottom',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          },
+          paint: {
+            'icon-opacity': ['get', 'markerOpacity'],
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventPinLive,
+          type: 'symbol',
+          source: mapSourceIds.eventMarkers,
+          filter: LIVE_PIN_FILTER,
+          layout: {
+            'icon-image': ['get', 'pinImageId'],
+            'icon-size': ['get', 'pinScale'],
+            'icon-anchor': 'bottom',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          },
+          paint: {
+            'icon-opacity': ['get', 'markerOpacity'],
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.eventPinCountLabel,
+          type: 'symbol',
+          source: mapSourceIds.eventMarkers,
+          filter: MULTI_PIN_FILTER,
+          layout: {
+            'text-field': ['to-string', ['get', 'eventCount']],
+            'text-size': ['get', 'countTextSize'],
             'text-font': ['Open Sans Bold'],
             'text-allow-overlap': true,
             'text-ignore-placement': true,
+            'text-offset': [0, -2.55],
           },
           paint: { 'text-color': colors.brand.white },
-        });
-        map.addLayer({
-          id: mapLayerIds.eventRsvpBadge,
-          type: 'circle',
-          source: mapSourceIds.eventMarkers,
-          filter: RSVP_FILTER,
-          paint: {
-            'circle-color': colors.brand.white,
-            'circle-radius': 7,
-            'circle-stroke-color': '#0F172A',
-            'circle-stroke-width': 1.2,
-            'circle-translate': [12, -10],
-          },
-        });
-        map.addLayer({
-          id: mapLayerIds.eventRsvpLabel,
-          type: 'symbol',
-          source: mapSourceIds.eventMarkers,
-          filter: RSVP_FILTER,
-          layout: {
-            'text-field': '\u2713',
-            'text-size': 10,
-            'text-font': ['Open Sans Bold'],
-            'text-allow-overlap': true,
-            'text-ignore-placement': true,
-            'text-offset': [1.15, -0.95],
-          },
-          paint: { 'text-color': '#0F766E' },
         });
         map.addLayer({
           id: mapLayerIds.userLocationHalo,
@@ -784,7 +835,14 @@ export default function CampusMap({
           },
         );
 
-        [mapLayerIds.eventMarkerHalo, mapLayerIds.eventMarkerCircle, mapLayerIds.eventMarkerLabel].forEach(
+        [
+          mapLayerIds.eventPinMulti,
+          mapLayerIds.eventPinRegular,
+          mapLayerIds.eventPinGoing,
+          mapLayerIds.eventPinFeatured,
+          mapLayerIds.eventPinLive,
+          mapLayerIds.eventPinCountLabel,
+        ].forEach(
           (layerId) => {
             map.on('click', layerId, (layerEvent: { features?: MapFeature[] }) => {
               const groupId = getFeatureItemId(layerEvent.features?.[0] ?? null);
@@ -876,13 +934,13 @@ export default function CampusMap({
     setLayerVisibility(map, mapLayerIds.eventHeat, showActivityHeatmap && showEvents);
     setLayerVisibility(map, mapLayerIds.eventClusterBubble, showEvents && clusterEvents);
     setLayerVisibility(map, mapLayerIds.eventClusterLabel, showEvents && clusterEvents);
-    setLayerVisibility(map, mapLayerIds.eventMarkerShadow, showEvents);
-    setLayerVisibility(map, mapLayerIds.eventMarkerHalo, showEvents);
     setLayerVisibility(map, mapLayerIds.eventLivePulse, showEvents);
-    setLayerVisibility(map, mapLayerIds.eventMarkerCircle, showEvents);
-    setLayerVisibility(map, mapLayerIds.eventMarkerLabel, showEvents);
-    setLayerVisibility(map, mapLayerIds.eventRsvpBadge, showEvents);
-    setLayerVisibility(map, mapLayerIds.eventRsvpLabel, showEvents);
+    setLayerVisibility(map, mapLayerIds.eventPinMulti, showEvents);
+    setLayerVisibility(map, mapLayerIds.eventPinRegular, showEvents);
+    setLayerVisibility(map, mapLayerIds.eventPinGoing, showEvents);
+    setLayerVisibility(map, mapLayerIds.eventPinFeatured, showEvents);
+    setLayerVisibility(map, mapLayerIds.eventPinLive, showEvents);
+    setLayerVisibility(map, mapLayerIds.eventPinCountLabel, showEvents);
     setLayerVisibility(map, mapLayerIds.buildingFill, showBuildings);
     setLayerVisibility(map, mapLayerIds.buildingLine, showBuildings);
     setLayerVisibility(map, mapLayerIds.buildingLabel, showBuildings);
@@ -897,7 +955,7 @@ export default function CampusMap({
     map.setPaintProperty(
       mapLayerIds.eventLivePulse,
       'circle-radius',
-      ['+', ['/', ['get', 'haloSize'], 2], 3 + pulsePhase * 10],
+      ['+', ['get', 'pulseRadius'], 2 + pulsePhase * 8],
     );
     map.setPaintProperty(
       mapLayerIds.eventLivePulse,
@@ -954,17 +1012,7 @@ export default function CampusMap({
       'text-field',
       buildBuildingLabelFieldExpression(activeBuildingId),
     );
-    map.setPaintProperty(
-      mapLayerIds.eventMarkerHalo,
-      'circle-opacity',
-      ['case', ['==', ['get', 'itemId'], activeEventGroupId ?? '__none__'], 0.24, 0.14],
-    );
-    map.setPaintProperty(
-      mapLayerIds.eventMarkerCircle,
-      'circle-stroke-width',
-      ['case', ['==', ['get', 'itemId'], activeEventGroupId ?? '__none__'], 3.4, 2.4],
-    );
-  }, [activeBuildingId, activeEventGroupId]);
+  }, [activeBuildingId]);
 
   useEffect(() => {
     const map = mapRef.current;
