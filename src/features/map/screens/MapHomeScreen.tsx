@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Image, Linking, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '../../../shared/components/Avatar';
 import Badge from '../../../shared/components/Badge';
 import BottomSheet from '../../../shared/components/BottomSheet';
@@ -285,6 +286,8 @@ function EventMiniCard({
 export default function MapHomeScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
   const { isWide, height: viewportHeight } = useResponsive();
+  const insets = useSafeAreaInsets();
+  const isNativeMobile = Platform.OS !== 'web';
   const { user: authUser } = useAuth();
   const { user: profileUser } = useProfile();
   const { userLocation, isLocating, locationError, requestUserLocation } = useUserLocation();
@@ -475,6 +478,9 @@ export default function MapHomeScreen({ navigation }: Props) {
       },
     }),
   ).current;
+  const floatingDockClearance = isNativeMobile ? 60 + Math.max(insets.bottom - 8, 12) + 12 : 0;
+  const topOverlayPadding = isNativeMobile ? insets.top + spacing.sm : spacing.md;
+  const liveCounterTop = isNativeMobile ? insets.top + 112 : spacing.md + 104;
 
   useEffect(() => {
     if (locationError) {
@@ -867,24 +873,19 @@ export default function MapHomeScreen({ navigation }: Props) {
     }
   }
 
-  const headerRight = (
-    <View style={styles.headerPill}>
-      <MaterialCommunityIcons name="layers-outline" size={16} color={colors.primary.main} />
-      <Text style={styles.headerPillText}>Campus layers</Text>
-    </View>
-  );
-
   return (
     <ScreenLayout
       title="Campus Map"
       subtitle="Buildings, live events, and the pulse of campus in one shared view."
       scroll={false}
-      headerTopContent={<UMDBrandLockup />}
-      rightAction={headerRight}
+      headerTopContent={isNativeMobile ? undefined : <UMDBrandLockup />}
       contentContainerStyle={styles.layoutBody}
+      showHeader={!isNativeMobile}
+      safeAreaEdges={isNativeMobile ? ['left', 'right'] : ['top', 'left', 'right']}
+      fullBleed={isNativeMobile}
     >
       <View style={styles.screen}>
-        <View style={[styles.mapShell, isWide ? styles.mapShellWide : null]}>
+        <View style={[styles.mapShell, isWide ? styles.mapShellWide : null, isNativeMobile ? styles.mapShellMobile : null]}>
           <CampusMap
             style={styles.map}
             events={filteredEvents}
@@ -906,26 +907,28 @@ export default function MapHomeScreen({ navigation }: Props) {
           />
 
           <View pointerEvents="box-none" style={styles.overlayRoot}>
-            <View style={styles.topOverlay}>
-              <View style={styles.searchShell}>
-                <Ionicons name="search" size={18} color={colors.text.secondary} />
-                <TextInput
-                  accessibilityLabel="Search buildings and events"
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                  placeholder="Search buildings, events..."
-                  placeholderTextColor={colors.text.tertiary}
-                  returnKeyType="search"
-                  selectionColor={colors.primary.main}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  style={styles.searchInput}
-                />
-                {searchQuery.length > 0 ? (
-                  <Pressable onPress={() => setSearchQuery('')} style={styles.clearSearchButton}>
-                    <Ionicons name="close" size={16} color={colors.text.secondary} />
-                  </Pressable>
-                ) : null}
+            <View style={[styles.topOverlay, { paddingTop: topOverlayPadding }]}>
+              <View style={styles.searchRow}>
+                <View style={styles.searchShell}>
+                  <Ionicons name="search" size={18} color={colors.text.secondary} />
+                  <TextInput
+                    accessibilityLabel="Search buildings and events"
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    placeholder="Search buildings, events..."
+                    placeholderTextColor={colors.text.tertiary}
+                    returnKeyType="search"
+                    selectionColor={colors.primary.main}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    style={styles.searchInput}
+                  />
+                  {searchQuery.length > 0 ? (
+                    <Pressable onPress={() => setSearchQuery('')} style={styles.clearSearchButton}>
+                      <Ionicons name="close" size={16} color={colors.text.secondary} />
+                    </Pressable>
+                  ) : null}
+                </View>
               </View>
 
               {hasSearchQuery ? (
@@ -982,15 +985,23 @@ export default function MapHomeScreen({ navigation }: Props) {
             <Pressable
               accessibilityLabel="Jump to the nearest live event"
               onPress={handleSelectLiveCounter}
-              style={({ pressed }) => [styles.liveCounterPill, pressed ? styles.pressed : null]}
+              style={({ pressed }) => [
+                styles.liveCounterPill,
+                { top: liveCounterTop },
+                pressed ? styles.pressed : null,
+              ]}
             >
               <View style={styles.liveCounterDot} />
               <Text style={styles.liveCounterText}>
                 {liveCounter.liveCount} live - {liveCounter.nextTwoHoursCount} in next 2 hrs
               </Text>
             </Pressable>
-
-            <View style={styles.sideActions}>
+            <View
+              style={[
+                styles.sideActions,
+                { bottom: isNativeMobile ? floatingDockClearance + 88 : 124 },
+              ]}
+            >
               <Pressable onPress={() => void handleLocateMe()} style={({ pressed }) => [styles.sideActionButton, pressed ? styles.pressed : null]}>
                 <Ionicons name={isLocating ? 'compass' : 'locate'} size={18} color={colors.text.primary} />
               </Pressable>
@@ -1005,7 +1016,14 @@ export default function MapHomeScreen({ navigation }: Props) {
               </Pressable>
             </View>
 
-            <View {...peekPanResponder.panHandlers} style={[styles.peekRail, isPeekCollapsed ? styles.peekRailCollapsed : null]}>
+            <View
+              {...peekPanResponder.panHandlers}
+              style={[
+                styles.peekRail,
+                { marginBottom: isNativeMobile ? floatingDockClearance : spacing.md },
+                isPeekCollapsed ? styles.peekRailCollapsed : null,
+              ]}
+            >
               <Pressable
                 accessibilityLabel={isPeekCollapsed ? 'Expand upcoming events' : 'Collapse upcoming events'}
                 onPress={() => setIsPeekCollapsed((current) => !current)}
@@ -1043,7 +1061,7 @@ export default function MapHomeScreen({ navigation }: Props) {
             </View>
 
             {loading && rawEvents.length === 0 ? (
-              <Card style={styles.loadingCard}>
+              <Card style={[styles.loadingCard, { bottom: isNativeMobile ? floatingDockClearance + 112 : 108 }]}>
                 <Text style={styles.loadingTitle}>Loading campus activity</Text>
                 <Text style={styles.loadingCopy}>Pulling buildings, events, and the latest campus pulse into the map.</Text>
               </Card>
@@ -1518,6 +1536,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.card,
     ...shadows.lg,
   },
+  mapShellMobile: {
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
   mapShellWide: {
     minHeight: 720,
   },
@@ -1530,10 +1555,15 @@ const styles = StyleSheet.create({
   },
   topOverlay: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    gap: spacing.sm,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   searchShell: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
@@ -1638,7 +1668,6 @@ const styles = StyleSheet.create({
   },
   liveCounterPill: {
     position: 'absolute',
-    top: spacing.md + 104,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
@@ -1665,6 +1694,8 @@ const styles = StyleSheet.create({
     right: spacing.md,
     bottom: 124,
     gap: spacing.sm,
+    zIndex: 8,
+    elevation: 8,
   },
   sideActionButton: {
     width: 48,
@@ -2112,20 +2143,6 @@ const styles = StyleSheet.create({
   formGridColumn: {
     flex: 1,
     gap: spacing.xs,
-  },
-  headerPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary.lightest,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  headerPillText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primary.main,
   },
   pressed: {
     opacity: 0.84,

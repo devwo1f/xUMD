@@ -8,6 +8,13 @@ import {
   type DiningZone,
 } from '../data/campusOverlays';
 import {
+  campusLandscapeAreas,
+  campusLandscapePaths,
+  type LandscapeArea,
+  type LandscapeAreaKind,
+  type LandscapePath,
+} from '../data/campusLandscape';
+import {
   buildingDirectoryProfiles,
   buildingFootprints,
   campusBoundaryPolygons,
@@ -27,10 +34,13 @@ export interface BuildingFeatureProperties {
   itemId: string;
   code: string;
   name: string;
+  shortLabel: string;
+  longLabel: string;
   buildingType: Building['building_type'];
   color: string;
   hoursLabel: string;
   address: string;
+  isLandmark: boolean;
 }
 
 export interface EventMarkerFeatureProperties {
@@ -88,6 +98,18 @@ export interface UserLocationFeatureProperties {
   accuracy: number;
 }
 
+export interface LandscapeAreaFeatureProperties {
+  itemId: string;
+  name: string;
+  kind: LandscapeAreaKind;
+}
+
+export interface LandscapePathFeatureProperties {
+  itemId: string;
+  name: string;
+  kind: LandscapePath['kind'];
+}
+
 type PointFeatureCollection<T> = GeoJSON.FeatureCollection<GeoJSON.Point, T>;
 type PolygonFeatureCollection<T> = GeoJSON.FeatureCollection<GeoJSON.Polygon, T>;
 type AreaFeatureCollection<T> = GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, T>;
@@ -117,10 +139,15 @@ export function createBuildingFeatureCollection(
         itemId: building.id,
         code: building.code,
         name: building.name,
+        shortLabel: building.code,
+        longLabel: building.name,
         buildingType: building.building_type,
         color: buildingTypeMeta[building.building_type].color,
         hoursLabel: profile?.hoursLabel ?? 'Hours vary',
         address: profile?.address ?? '',
+        isLandmark: ['bld-001', 'bld-002', 'bld-003', 'bld-005', 'bld-007', 'bld-008', 'bld-013', 'bld-014'].includes(
+          building.id,
+        ),
       },
     });
   });
@@ -128,6 +155,60 @@ export function createBuildingFeatureCollection(
   return {
     type: 'FeatureCollection',
     features,
+  };
+}
+
+function createLandscapeAreaFeature(
+  area: LandscapeArea,
+): GeoJSON.Feature<GeoJSON.Polygon, LandscapeAreaFeatureProperties> {
+  return {
+    type: 'Feature',
+    id: area.id,
+    properties: {
+      itemId: area.id,
+      name: area.name,
+      kind: area.kind,
+    },
+    geometry: {
+      type: 'Polygon',
+      coordinates: [area.coordinates],
+    },
+  };
+}
+
+function createLandscapePathFeature(
+  path: LandscapePath,
+): GeoJSON.Feature<GeoJSON.LineString, LandscapePathFeatureProperties> {
+  return {
+    type: 'Feature',
+    id: path.id,
+    properties: {
+      itemId: path.id,
+      name: path.name,
+      kind: path.kind,
+    },
+    geometry: {
+      type: 'LineString',
+      coordinates: path.coordinates,
+    },
+  };
+}
+
+export function createLandscapeAreaFeatureCollection(
+  areas: LandscapeArea[] = campusLandscapeAreas,
+): PolygonFeatureCollection<LandscapeAreaFeatureProperties> {
+  return {
+    type: 'FeatureCollection',
+    features: areas.map(createLandscapeAreaFeature),
+  };
+}
+
+export function createLandscapePathFeatureCollection(
+  paths: LandscapePath[] = campusLandscapePaths,
+): LineFeatureCollection<LandscapePathFeatureProperties> {
+  return {
+    type: 'FeatureCollection',
+    features: paths.map(createLandscapePathFeature),
   };
 }
 
