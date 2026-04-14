@@ -1,12 +1,11 @@
 import React from 'react';
-import { Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import {
   BottomTabBarButtonProps,
   createBottomTabNavigator,
 } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ExploreHomeScreen from '../features/explore/screens/ExploreHomeScreen';
 import MapHomeScreen from '../features/map/screens/MapHomeScreen';
@@ -43,6 +42,9 @@ import type {
   RootTabParamList,
   SearchStackParamList,
 } from './types';
+
+// Height of the icon row (excluding safe area). Used to size the docked bar.
+const TAB_BAR_HEIGHT = 58;
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const ExploreStack = createNativeStackNavigator<ExploreStackParamList>();
@@ -164,8 +166,7 @@ function SearchTabButton({
   onPress,
   accessibilityState,
   accessibilityLabel,
-  floating,
-}: BottomTabBarButtonProps & { floating: boolean }) {
+}: BottomTabBarButtonProps) {
   const focused = accessibilityState?.selected ?? false;
 
   return (
@@ -174,16 +175,10 @@ function SearchTabButton({
       accessibilityRole="tab"
       accessibilityState={accessibilityState}
       accessibilityLabel={accessibilityLabel}
-      style={[styles.searchButtonOuter, floating ? styles.searchButtonOuterFloating : null]}
+      style={styles.searchButtonOuter}
     >
-      <View
-        style={[
-          styles.searchButtonInner,
-          floating ? styles.searchButtonInnerFloating : null,
-          focused && styles.searchButtonInnerFocused,
-        ]}
-      >
-        <Ionicons name="search" size={24} color={colors.brand.white} />
+      <View style={[styles.searchButtonInner, focused && styles.searchButtonInnerFocused]}>
+        <Ionicons name="search" size={22} color={colors.brand.white} />
       </View>
     </Pressable>
   );
@@ -213,12 +208,8 @@ function getTabIcon(routeName: keyof RootTabParamList, focused: boolean) {
 export default function MainTabs() {
   const { isWide, isDesktop } = useResponsive();
   const insets = useSafeAreaInsets();
-  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const isNativeMobile = Platform.OS !== 'web';
   const tabBarMaxWidth = isDesktop ? 940 : isWide ? 860 : undefined;
-  const floatingHorizontalInset = viewportWidth * 0.05;
-  const floatingBottomOffset = insets.bottom + viewportHeight * 0.012;
-  const floatingTabBarMaxWidth = isWide ? 620 : undefined;
 
   return (
     <Tab.Navigator
@@ -231,24 +222,16 @@ export default function MainTabs() {
         tabBarShowLabel: !isNativeMobile,
         tabBarStyle: isNativeMobile
           ? {
-              position: 'absolute',
-              left: floatingHorizontalInset,
-              right: floatingHorizontalInset,
-              bottom: floatingBottomOffset,
-              height: 58,
+              backgroundColor: colors.brand.white,
+              borderTopWidth: 1,
+              borderTopColor: colors.border.light,
+              // Icon row + safe area fill so the white background extends to the
+              // very bottom edge on devices with a home indicator.
+              height: TAB_BAR_HEIGHT + insets.bottom,
+              paddingBottom: insets.bottom,
               paddingTop: 0,
-              paddingBottom: 0,
-              paddingHorizontal: viewportWidth * 0.018,
-              backgroundColor: 'rgba(255,255,255,0.78)',
-              borderTopWidth: 0,
-              borderWidth: 1,
-              borderColor: 'rgba(0,0,0,0.06)',
-              borderRadius: 29,
+              // Required so the Search FAB can protrude above the bar's top edge.
               overflow: 'visible',
-              width: undefined,
-              maxWidth: floatingTabBarMaxWidth,
-              alignSelf: 'center',
-              ...styles.mobileTabShadow,
             }
           : {
               height: 82,
@@ -268,14 +251,6 @@ export default function MainTabs() {
                   }
                 : null),
             },
-        tabBarBackground: isNativeMobile
-          ? () => (
-              <View style={styles.mobileTabBackground}>
-                <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
-                <View style={styles.mobileTabTint} />
-              </View>
-            )
-          : undefined,
         tabBarLabelStyle: isNativeMobile
           ? undefined
           : {
@@ -283,11 +258,11 @@ export default function MainTabs() {
               fontWeight: typography.fontWeight.semiBold,
             },
         tabBarItemStyle: isNativeMobile
-          ? styles.mobileTabItem
+          ? { overflow: 'visible' }
           : {
               maxWidth: isWide ? 120 : undefined,
             },
-        tabBarIcon: ({ color, size, focused }) =>
+        tabBarIcon: ({ color, focused }) =>
           route.name === 'Search' ? null : (
             <TabIcon
               routeName={route.name as keyof RootTabParamList}
@@ -307,7 +282,7 @@ export default function MainTabs() {
         options={{
           tabBarLabel: '',
           tabBarButton: (props) => (
-            <SearchTabButton {...props} accessibilityLabel="Search" floating={isNativeMobile} />
+            <SearchTabButton {...props} accessibilityLabel="Search" />
           ),
         }}
       />
@@ -337,63 +312,30 @@ const styles = StyleSheet.create({
   activeDotVisible: {
     backgroundColor: colors.primary.main,
   },
+  // The Pressable container for the Search FAB sits in the tab bar like any
+  // other tab item. `top: -14` lifts it so the circle protrudes above the
+  // bar's top edge. `overflow: 'visible'` lets the shadow render outside the
+  // container bounds on iOS.
   searchButtonOuter: {
     flex: 1,
-    height: '100%',
-    justifyContent: 'center',
+    top: -14,
     alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'visible',
   },
-  searchButtonOuterFloating: {
-    zIndex: 24,
-    elevation: 24,
-  },
   searchButtonInner: {
-    width: 66,
-    height: 66,
-    borderRadius: borderRadius.full,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: colors.primary.main,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 6,
-    borderColor: colors.brand.white,
-    ...shadows.lg,
-  },
-  searchButtonInnerFloating: {
-    width: 56,
-    height: 56,
+    // White ring visually separates the FAB from the bar behind it.
     borderWidth: 4,
-    transform: [{ translateY: -28 }],
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    borderColor: colors.brand.white,
+    ...shadows.md,
   },
   searchButtonInnerFocused: {
     backgroundColor: colors.primary.dark,
-    transform: [{ scale: 1.02 }],
-  },
-  mobileTabBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 29,
-    overflow: 'hidden',
-  },
-  mobileTabTint: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.68)',
-  },
-  mobileTabShadow: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  mobileTabItem: {
-    flex: 1,
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 0,
-    overflow: 'visible',
   },
 });
