@@ -1,8 +1,8 @@
 import { addDays, endOfDay, format, isAfter, isBefore, isSameDay, startOfDay } from 'date-fns';
 import { buildings } from '../../../assets/data/buildings';
-import { mockClubs, mockClubEvents, mockUsers } from '../../../assets/data/mockClubs';
+import { mockClubs, mockUsers } from '../../../assets/data/mockClubs';
 import { authorHandles, mockPosts } from '../../../assets/data/mockFeed';
-import { mockCampusEvents } from '../../../assets/data/mockEvents';
+import { getEventCatalog } from '../../../shared/stores/useEventCatalogStore';
 import { EventCategory, type Event } from '../../../shared/types';
 import {
   CURRENT_SOCIAL_USER_ID,
@@ -82,6 +82,10 @@ const categoryKeywordMap: Array<{ category: EventCategory; keywords: string[] }>
   { category: EventCategory.Workshop, keywords: ['workshop', 'learn', 'build', 'training'] },
   { category: EventCategory.Party, keywords: ['party', 'nightlife', 'dj', 'after dark'] },
 ];
+
+function getLocalEvents() {
+  return getEventCatalog();
+}
 
 const categoryChipOrder: Array<{ label: string; category: EventCategory | null }> = [
   { label: 'Academic', category: EventCategory.Academic },
@@ -532,8 +536,8 @@ function buildPeopleResults(query: string, intent: SearchIntent, viewerId: strin
 }
 
 function buildEventResults(query: string, intent: SearchIntent, filters: ExtractedSearchFilters) {
-  const events = unique([...mockCampusEvents, ...mockClubEvents].map((event) => event.id))
-    .map((eventId) => [...mockCampusEvents, ...mockClubEvents].find((event) => event.id === eventId))
+  const events = unique(getLocalEvents().map((event) => event.id))
+    .map((eventId) => getLocalEvents().find((event) => event.id === eventId))
     .filter((event): event is Event => Boolean(event));
 
   const results: SearchResult<EventPreview>[] = [];
@@ -592,7 +596,7 @@ function buildClubResults(query: string, intent: SearchIntent) {
 }
 
 function buildLocationResults(query: string) {
-  const events = [...mockCampusEvents, ...mockClubEvents];
+  const events = getLocalEvents();
   const results: SearchResult<LocationPreview>[] = [];
 
   for (const building of buildings) {
@@ -730,7 +734,7 @@ function buildTrendingHashtags() {
     }
   }
 
-  for (const event of mockCampusEvents) {
+  for (const event of getLocalEvents()) {
     for (const tag of event.tags ?? []) {
       counts.set(tag.toLowerCase(), (counts.get(tag.toLowerCase()) ?? 0) + 1);
     }
@@ -743,7 +747,7 @@ function buildTrendingHashtags() {
 }
 
 export function buildLocalDiscoveryHub(viewerId = CURRENT_SOCIAL_USER_ID): DiscoveryHubResponse {
-  const allEvents = [...mockCampusEvents, ...mockClubEvents].map(buildEventPreview);
+  const allEvents = getLocalEvents().map(buildEventPreview);
   const liveEvents = allEvents
     .filter((event) => event.status === 'live')
     .sort((left, right) => right.attendee_count - left.attendee_count)
@@ -842,7 +846,7 @@ export function getSearchMapLocationById(locationId: string) {
 }
 
 export function getSearchEventById(eventId: string) {
-  return [...mockCampusEvents, ...mockClubEvents].find((event) => event.id === eventId) ?? null;
+  return getLocalEvents().find((event) => event.id === eventId) ?? null;
 }
 
 export function getPeopleSubtitle(user: UserPreview) {
@@ -908,4 +912,3 @@ export function buildLocalSuggestedQueries(query: string) {
   }
   return getRecentSearchSuggestions().slice(0, 3);
 }
-

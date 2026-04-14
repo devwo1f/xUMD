@@ -18,6 +18,7 @@ import { useProfile } from '../../profile/hooks/useProfile';
 import { useResponsive } from '../../../shared/hooks/useResponsive';
 import { useCrossTabNavStore } from '../../../shared/stores/useCrossTabNavStore';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
+import { useEventCatalogStore } from '../../../shared/stores/useEventCatalogStore';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
@@ -56,6 +57,10 @@ const TIME_CHIPS: Array<{ value: MapTimeFilter; label: string; pulse?: boolean }
   { value: 'today', label: 'Today' },
   { value: 'this_week', label: 'This Week' },
 ];
+
+const PEEK_CARD_WIDTH = 248;
+const PEEK_CARD_SNAP_INTERVAL = PEEK_CARD_WIDTH + spacing.sm;
+const MOBILE_PEEK_EXPANDED_FOOTPRINT = 232;
 
 const CATEGORY_CHIPS: Array<{ value: EventCategory; label: string; color: string }> = [
   { value: EventCategory.Academic, label: 'Academic', color: '#1E88E5' },
@@ -309,6 +314,7 @@ export default function MapHomeScreen({ navigation }: Props) {
   } = useMapFilterStore();
   const { rawEvents, loading, refetch } = useMapData({ onlyFriendsAttending });
   const { savedEventIds, goingEventIds, setEventRsvpStatus } = useDemoAppStore();
+  const upsertLocalEvent = useEventCatalogStore((state) => state.upsertEvent);
 
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -319,6 +325,7 @@ export default function MapHomeScreen({ navigation }: Props) {
   const [draftEvent, setDraftEvent] = useState<DraftEvent>(makeNextDraft);
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [isPeekCollapsed, setIsPeekCollapsed] = useState(false);
+  const [peekPageIndex, setPeekPageIndex] = useState(0);
 
   const detailQuery = useMapEventDetail(selectedEventId);
   const { results: searchResults, isLoading: searchLoading } = useMapSearchResults({
@@ -354,7 +361,7 @@ export default function MapHomeScreen({ navigation }: Props) {
     [filteredEvents, viewerRsvpIds, viewportHeight, viewportWidth],
   );
   const activityWeights = useMemo(() => buildActivityWeightMap(filteredEvents), [filteredEvents]);
-  const liveCounter = useMemo(() => getLiveEventCounter(eventGroups), [eventGroups]);
+  const liveCounter = useMemo(() => getLiveEventCounter(filteredEvents), [filteredEvents]);
   const selectedGroup = useMemo(
     () => eventGroups.find((group) => group.id === selectedGroupId) ?? null,
     [eventGroups, selectedGroupId],
@@ -483,9 +490,15 @@ export default function MapHomeScreen({ navigation }: Props) {
       },
     }),
   ).current;
-  const floatingDockClearance = isNativeMobile ? 60 + Math.max(insets.bottom - 8, 12) + 12 : 0;
   const topOverlayPadding = isNativeMobile ? insets.top + spacing.sm : spacing.md;
   const liveCounterTop = isNativeMobile ? insets.top + 112 : spacing.md + 104;
+  const compassInsetTop = isNativeMobile ? liveCounterTop + 52 : spacing.md + 168;
+  const mobileFloatingActionsBottom = isNativeMobile ? MOBILE_PEEK_EXPANDED_FOOTPRINT + spacing.md : 124;
+  const loadingCardBottom = isNativeMobile ? MOBILE_PEEK_EXPANDED_FOOTPRINT + spacing.xl : 108;
+
+  useEffect(() => {
+    setPeekPageIndex(0);
+  }, [upcomingEvents.length]);
 
   useEffect(() => {
     if (locationError) {
@@ -848,6 +861,7 @@ export default function MapHomeScreen({ navigation }: Props) {
         });
         createdEvent = response.event;
       } else {
+        upsertLocalEvent(createdEvent);
         queryClient.setQueriesData({ queryKey: ['map-events'] }, (current: any) => {
           if (!current?.items) {
             return current;

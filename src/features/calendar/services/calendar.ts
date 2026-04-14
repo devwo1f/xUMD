@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { mockClubs, mockClubEvents } from '../../../assets/data/mockClubs';
-import { mockCampusEvents } from '../../../assets/data/mockEvents';
+import { mockClubs } from '../../../assets/data/mockClubs';
 import { type Event, type UserProfile } from '../../../shared/types';
+import { getEventCatalog } from '../../../shared/stores/useEventCatalogStore';
 import { isSupabaseConfigured, supabase } from '../../../services/supabase';
 import type {
   CalendarClubMeetingTemplate,
@@ -123,7 +123,7 @@ function toCalendarEventRsvp(row: Record<string, unknown>): CalendarEventRsvp | 
 }
 
 function buildDemoEventRsvps(goingEventIds: string[], interestedEventIds: string[]) {
-  const source = uniqueById([...mockCampusEvents, ...mockClubEvents]);
+  const source = uniqueById(getEventCatalog());
   const byId = new Map(source.map((event) => [event.id, event]));
 
   const goingEntries = goingEventIds

@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { mockEventPresenceByUser, mockJoinedClubIdsByUser } from '../../assets/data/mockAppState';
+import { CURRENT_SOCIAL_USER_ID } from '../../features/social/data/mockSocialGraph';
 
 interface DemoSettings {
   pushNotifications: boolean;
@@ -21,17 +23,26 @@ interface DemoAppState {
   reset: () => void;
 }
 
-const initialState = {
-  savedEventIds: ['evt-002', 'evt-003', 'evt-006'],
-  goingEventIds: ['evt-001', 'evt-004', 'evt-009'],
-  joinedClubIds: ['club-001', 'club-003', 'club-005', 'club-006'],
-  settings: {
-    pushNotifications: true,
-    emailDigest: false,
-    locationSharing: true,
-    campusAlerts: true,
-  },
-};
+function buildInitialState(userId = CURRENT_SOCIAL_USER_ID) {
+  const eventPresence = mockEventPresenceByUser[userId] ?? {
+    goingEventIds: [],
+    savedEventIds: [],
+  };
+
+  return {
+    savedEventIds: eventPresence.savedEventIds,
+    goingEventIds: eventPresence.goingEventIds,
+    joinedClubIds: mockJoinedClubIdsByUser[userId] ?? [],
+    settings: {
+      pushNotifications: true,
+      emailDigest: false,
+      locationSharing: true,
+      campusAlerts: true,
+    },
+  };
+}
+
+const initialState = buildInitialState();
 
 export const useDemoAppStore = create<DemoAppState>((set) => ({
   ...initialState,
@@ -76,5 +87,5 @@ export const useDemoAppStore = create<DemoAppState>((set) => ({
         [key]: value,
       },
     })),
-  reset: () => set(initialState),
+  reset: () => set(buildInitialState()),
 }));

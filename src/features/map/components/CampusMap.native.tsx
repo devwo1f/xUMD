@@ -74,6 +74,8 @@ interface CampusMapProps {
   activeDiningZoneId?: string | null;
   userLocation?: MapUserLocation | null;
   focusRequest?: MapFocusRequest | null;
+  compassInsetTop?: number;
+  compassInsetRight?: number;
   wayfindingJourney?: WayfindingJourney | null;
   onSelectEventGroup: (group: EventLocationGroup) => void;
   onSelectBuilding: (building: Building) => void;
@@ -179,7 +181,7 @@ function FallbackMarker({
     >
       <View style={styles.fallbackMarkerWrap}>
         <Image
-          source={{ uri: MAP_PIN_IMAGE_ENTRIES[group.pinImageId]?.url }}
+          source={{ uri: MAP_PIN_IMAGE_ENTRIES[group.pinImageId] }}
           style={[styles.fallbackPinImage, { width: pinWidth, height: pinHeight, opacity: group.markerOpacity }]}
         />
         {group.isMultiEvent ? (
@@ -206,6 +208,8 @@ export default function CampusMap({
   activeEventGroupId,
   userLocation,
   focusRequest,
+  compassInsetTop = 16,
+  compassInsetRight = 16,
   wayfindingJourney,
   onSelectEventGroup,
   onSelectBuilding,
@@ -428,6 +432,7 @@ export default function CampusMap({
         mapType="standard"
         showsUserLocation
         showsCompass
+        compassOffset={{ x: 0, y: compassInsetTop }}
         onLongPress={(pressEvent) => {
           const { longitude, latitude } = pressEvent.nativeEvent.coordinate;
           onLongPressCoordinate?.([longitude, latitude]);
@@ -531,6 +536,7 @@ export default function CampusMap({
       style={style}
       styleURL={campusMapStyleUrl}
       compassEnabled
+      compassPosition={{ top: compassInsetTop, right: compassInsetRight }}
       pitchEnabled
       maxPitch={60}
       rotateEnabled={false}
@@ -542,7 +548,10 @@ export default function CampusMap({
         onLongPressCoordinate?.([longitude, latitude]);
       }}
     >
-      <Images images={MAP_PIN_IMAGE_ENTRIES} />
+      <Images
+        images={MAP_PIN_IMAGE_ENTRIES}
+        onImageMissing={(imageKey) => console.warn(`Missing native map pin image: ${imageKey}`)}
+      />
 
       <Camera
         ref={cameraRef}

@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { create } from 'zustand';
-import { profile as mockProfile } from '../../../experience/content';
+import { mockUsers } from '../../../assets/data/mockClubs';
+import { CURRENT_SOCIAL_USER_ID } from '../../social/data/mockSocialGraph';
 import { isSupabaseConfigured } from '../../../services/supabase';
 import { clearAvatarForUser, type AvatarUploadAsset, uploadAvatarAsset } from '../../../services/profileMedia';
 import { useAuth } from '../../auth/hooks/useAuth';
@@ -18,18 +19,49 @@ export interface ProfileData {
   clubs: string[];
 }
 
-const initialProfile: ProfileData = {
-  id: 'user-001',
-  email: 'alexj@terpmail.umd.edu',
-  displayName: mockProfile.name,
-  username: mockProfile.handle,
-  avatar: mockProfile.avatar,
-  major: mockProfile.major,
-  classYear: mockProfile.classYear,
-  bio: mockProfile.bio,
-  stats: mockProfile.stats,
-  clubs: mockProfile.clubs,
-};
+function buildInitialProfile(): ProfileData {
+  const seededUser =
+    mockUsers.find((user) => user.id === CURRENT_SOCIAL_USER_ID) ??
+    mockUsers[0];
+
+  if (!seededUser) {
+    return {
+      id: 'user-001',
+      email: 'alexj@terpmail.umd.edu',
+      displayName: 'Alex Johnson',
+      username: 'alexj_terp',
+      avatar: '',
+      major: 'UMD Student',
+      classYear: new Date().getFullYear() + 1,
+      bio: 'Building your Maryland story.',
+      stats: [
+        { label: 'Posts', value: '0' },
+        { label: 'Followers', value: '0' },
+        { label: 'Following', value: '0' },
+      ],
+      clubs: [],
+    };
+  }
+
+  return {
+    id: seededUser.id,
+    email: seededUser.email,
+    displayName: seededUser.display_name,
+    username: seededUser.username ?? seededUser.email.split('@')[0],
+    avatar: seededUser.avatar_url ?? '',
+    major: seededUser.major ?? 'UMD Student',
+    classYear: seededUser.graduation_year ?? new Date().getFullYear() + 4,
+    bio: seededUser.bio ?? 'Building your Maryland story.',
+    stats: [
+      { label: 'Posts', value: '0' },
+      { label: 'Followers', value: String(seededUser.follower_count ?? 0) },
+      { label: 'Following', value: String(seededUser.following_count ?? 0) },
+    ],
+    clubs: seededUser.clubs ?? [],
+  };
+}
+
+const initialProfile: ProfileData = buildInitialProfile();
 
 interface ProfileStore {
   user: ProfileData;

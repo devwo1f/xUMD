@@ -224,22 +224,14 @@ function toDataUri(svg: string) {
 }
 
 function buildPinImageEntries() {
-  return MAP_PIN_CATEGORY_KEYS.reduce<Record<string, { url: string }>>((entries, categoryKey) => {
+  return MAP_PIN_CATEGORY_KEYS.reduce<Record<string, string>>((entries, categoryKey) => {
     const meta = MAP_PIN_META[categoryKey];
     const iconMarkup = renderIcon(meta.iconKey);
 
-    entries[getPinAssetId(categoryKey, false, false)] = {
-      url: toDataUri(buildPinSvg(meta.color, iconMarkup, false, false)),
-    };
-    entries[getPinAssetId(categoryKey, false, true)] = {
-      url: toDataUri(buildPinSvg(meta.color, iconMarkup, true, false)),
-    };
-    entries[getPinAssetId(categoryKey, true, false)] = {
-      url: toDataUri(buildPinSvg(meta.color, '', false, true)),
-    };
-    entries[getPinAssetId(categoryKey, true, true)] = {
-      url: toDataUri(buildPinSvg(meta.color, '', true, true)),
-    };
+    entries[getPinAssetId(categoryKey, false, false)] = toDataUri(buildPinSvg(meta.color, iconMarkup, false, false));
+    entries[getPinAssetId(categoryKey, false, true)] = toDataUri(buildPinSvg(meta.color, iconMarkup, true, false));
+    entries[getPinAssetId(categoryKey, true, false)] = toDataUri(buildPinSvg(meta.color, '', false, true));
+    entries[getPinAssetId(categoryKey, true, true)] = toDataUri(buildPinSvg(meta.color, '', true, true));
 
     return entries;
   }, {});
@@ -404,4 +396,3 @@ export function buildClusterDominantColorExpression() {
 
   return ['case', ...cases, MAP_PIN_META.social.color];
 }
-

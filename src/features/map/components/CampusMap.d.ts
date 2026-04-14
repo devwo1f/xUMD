@@ -30,6 +30,8 @@ export interface CampusMapProps {
   activeDiningZoneId?: string | null;
   userLocation?: MapUserLocation | null;
   focusRequest?: MapFocusRequest | null;
+  compassInsetTop?: number;
+  compassInsetRight?: number;
   wayfindingJourney?: WayfindingJourney | null;
   onSelectEventGroup: (group: EventLocationGroup) => void;
   onSelectBuilding: (building: Building) => void;

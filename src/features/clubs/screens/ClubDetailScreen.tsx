@@ -33,61 +33,13 @@ import { useProfile } from '../../profile/hooks/useProfile';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import PostMediaGallery from '../../feed/components/PostMediaGallery';
+import { useFeedStore } from '../../feed/hooks/useFeed';
 import { useMapData } from '../../map/hooks/useMapData';
 
 type Props = NativeStackScreenProps<ClubsStackParamList & ProfileStackParamList & CampusStackParamList & CalendarStackParamList & ExploreStackParamList, 'ClubDetail'>;
 type TabKey = 'About' | 'Events' | 'Media' | 'Members';
 
-interface ClubAnnouncement {
-  id: string;
-  clubId: string;
-  title: string;
-  body: string;
-  authorId: string;
-  authorName: string;
-  createdAt: string;
-}
-
-interface ClubPost {
-  id: string;
-  clubId: string;
-  body: string;
-  authorId: string;
-  authorName: string;
-  createdAt: string;
-}
-
 const tabs: TabKey[] = ['About', 'Events', 'Media', 'Members'];
-const initialAnnouncements: ClubAnnouncement[] = [
-  {
-    id: 'announcement-001',
-    clubId: 'club-001',
-    title: 'Bitcamp volunteer call',
-    body: 'Officer applications for logistics, design, and hacker experience close Friday at 11:59 PM.',
-    authorId: 'user-001',
-    authorName: 'Alex Johnson',
-    createdAt: '2026-03-27T19:30:00Z',
-  },
-  {
-    id: 'announcement-002',
-    clubId: 'club-001',
-    title: 'Workshop room update',
-    body: 'React workshop moved to IRB 2207 this week because of the engineering career fair setup.',
-    authorId: 'user-003',
-    authorName: 'Jordan Kim',
-    createdAt: '2026-03-26T22:10:00Z',
-  },
-];
-const initialPosts: ClubPost[] = [
-  {
-    id: 'club-post-001',
-    clubId: 'club-001',
-    body: 'Registration for our next web sprint opens tonight. Bring a project or find one there.',
-    authorId: 'user-001',
-    authorName: 'Alex Johnson',
-    createdAt: '2026-03-28T18:10:00Z',
-  },
-];
 
 function getRoleLabel(role: MemberRole | null | undefined): string {
   if (!role) return 'Guest';
@@ -118,14 +70,21 @@ function toClubMediaItem(item: ClubMedia): PostMediaItem {
   };
 }
 
+function splitAnnouncementContent(value: string) {
+  const [headline, ...rest] = value.split('\n');
+  const title = headline.trim();
+  const body = rest.join('\n').trim();
+  return {
+    title: title.length > 0 ? title : 'Club update',
+    body: body.length > 0 ? body : title,
+  };
+}
 
 function getInitialClubState(clubId: string) {
   return {
     members: mockClubMembers.filter((member) => member.club_id === clubId),
     requests: mockJoinRequests.filter((request) => request.club_id === clubId),
     media: mockClubMedia.filter((item) => item.club_id === clubId),
-    announcements: initialAnnouncements.filter((announcement) => announcement.clubId === clubId),
-    posts: initialPosts.filter((post) => post.clubId === clubId),
   };
 }
 
@@ -133,6 +92,8 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
   const { user: profileUser } = useProfile();
   const { user: authUser, updateProfile: updateAuthProfile } = useAuth();
   const { rawEvents } = useMapData();
+  const feedPosts = useFeedStore((state) => state.posts);
+  const createFeedPost = useFeedStore((state) => state.createPost);
   const [activeTab, setActiveTab] = useState<TabKey>('About');
   const [showAnnouncementComposer, setShowAnnouncementComposer] = useState(false);
   const [showPostComposer, setShowPostComposer] = useState(false);
@@ -168,8 +129,6 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
   const [members, setMembers] = useState<ClubMemberWithUser[]>([]);
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [media, setMedia] = useState<ClubMedia[]>([]);
-  const [announcements, setAnnouncements] = useState<ClubAnnouncement[]>([]);
-  const [posts, setPosts] = useState<ClubPost[]>([]);
 
   useEffect(() => {
     if (!club) {
@@ -180,8 +139,6 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     setMembers(initialState.members);
     setRequests(initialState.requests);
     setMedia(initialState.media);
-    setAnnouncements(initialState.announcements);
-    setPosts(initialState.posts);
     setActiveTab('About');
     setShowAnnouncementComposer(false);
     setShowPostComposer(false);
@@ -232,6 +189,22 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
   const initialApprovedCount = mockClubMembers.filter((member) => member.club_id === club.id).length;
   const memberCount = Math.max(club.member_count + (members.length - initialApprovedCount), members.length);
   const events = rawEvents.filter((event) => event.club_id === club.id);
+  const clubFeedPosts = useMemo(
+    () =>
+      feedPosts
+        .filter((post) => post.club_id === club.id)
+        .slice()
+        .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()),
+    [club.id, feedPosts],
+  );
+  const announcementPosts = useMemo(
+    () => clubFeedPosts.filter((post) => post.is_pinned),
+    [clubFeedPosts],
+  );
+  const recentClubPosts = useMemo(
+    () => clubFeedPosts.filter((post) => !post.is_pinned),
+    [clubFeedPosts],
+  );
 
   const resetComposers = () => {
     setShowAnnouncementComposer(false);
@@ -310,18 +283,14 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
       return;
     }
 
-    setAnnouncements((current) => [
-      {
-        id: `announcement-${Date.now()}`,
-        clubId: club.id,
-        title: announcementTitle.trim(),
-        body: announcementBody.trim(),
-        authorId: currentUser.id,
-        authorName: currentUser.display_name,
-        createdAt: new Date().toISOString(),
-      },
-      ...current,
-    ]);
+    createFeedPost({
+      authorId: currentUser.id,
+      author: currentUser,
+      clubId: club.id,
+      content: `${announcementTitle.trim()}\n${announcementBody.trim()}`,
+      type: 'club_announcement',
+      isPinned: true,
+    });
     setAnnouncementTitle('');
     setAnnouncementBody('');
     setShowAnnouncementComposer(false);
@@ -332,17 +301,13 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
       return;
     }
 
-    setPosts((current) => [
-      {
-        id: `club-post-${Date.now()}`,
-        clubId: club.id,
-        body: postBody.trim(),
-        authorId: currentUser.id,
-        authorName: currentUser.display_name,
-        createdAt: new Date().toISOString(),
-      },
-      ...current,
-    ]);
+    createFeedPost({
+      authorId: currentUser.id,
+      author: currentUser,
+      clubId: club.id,
+      content: postBody.trim(),
+      type: 'club_update',
+    });
     setPostBody('');
     setShowPostComposer(false);
   };
@@ -635,20 +600,23 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
 
               <Card>
                 <Text style={styles.sectionTitle}>Announcements</Text>
-                {announcements.length > 0 ? (
+                {announcementPosts.length > 0 ? (
                   <View style={styles.stack}>
-                    {announcements.map((announcement) => (
-                      <View key={announcement.id} style={styles.noticeCard}>
-                        <View style={styles.noticeHeader}>
-                          <Text style={styles.noticeTitle}>{announcement.title}</Text>
-                          <Text style={styles.noticeMeta}>{format(new Date(announcement.createdAt), 'MMM d')}</Text>
+                    {announcementPosts.map((post) => {
+                      const announcement = splitAnnouncementContent(post.content);
+                      return (
+                        <View key={post.id} style={styles.noticeCard}>
+                          <View style={styles.noticeHeader}>
+                            <Text style={styles.noticeTitle}>{announcement.title}</Text>
+                            <Text style={styles.noticeMeta}>{format(new Date(post.created_at), 'MMM d')}</Text>
+                          </View>
+                          <Text style={styles.noticeBody}>{announcement.body}</Text>
+                          <Pressable onPress={() => openUserProfile(post.author_id)}>
+                            <Text style={styles.noticeMeta}>Posted by {post.author?.display_name ?? 'UMD Student'}</Text>
+                          </Pressable>
                         </View>
-                        <Text style={styles.noticeBody}>{announcement.body}</Text>
-                        <Pressable onPress={() => openUserProfile(announcement.authorId)}>
-                          <Text style={styles.noticeMeta}>Posted by {announcement.authorName}</Text>
-                        </Pressable>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 ) : (
                   <Text style={styles.bodyText}>No announcements yet.</Text>
@@ -657,17 +625,17 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
 
               <Card>
                 <Text style={styles.sectionTitle}>Recent posts</Text>
-                {posts.length > 0 ? (
+                {recentClubPosts.length > 0 ? (
                   <View style={styles.stack}>
-                    {posts.map((post) => (
+                    {recentClubPosts.map((post) => (
                       <View key={post.id} style={styles.noticeCard}>
                         <View style={styles.noticeHeader}>
-                          <Pressable onPress={() => openUserProfile(post.authorId)}>
-                            <Text style={styles.noticeTitle}>{post.authorName}</Text>
+                          <Pressable onPress={() => openUserProfile(post.author_id)}>
+                            <Text style={styles.noticeTitle}>{post.author?.display_name ?? 'UMD Student'}</Text>
                           </Pressable>
-                          <Text style={styles.noticeMeta}>{format(new Date(post.createdAt), 'MMM d, h:mm a')}</Text>
+                          <Text style={styles.noticeMeta}>{format(new Date(post.created_at), 'MMM d, h:mm a')}</Text>
                         </View>
-                        <Text style={styles.noticeBody}>{post.body}</Text>
+                        <Text style={styles.noticeBody}>{post.content}</Text>
                       </View>
                     ))}
                   </View>

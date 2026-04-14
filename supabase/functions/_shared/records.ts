@@ -19,6 +19,7 @@ interface RawUserRow {
 interface RawPostRow {
   id: string;
   user_id: string;
+  club_id: string | null;
   content_text: string;
   media_urls: string[] | null;
   media_type: 'none' | 'image' | 'video';
@@ -26,6 +27,7 @@ interface RawPostRow {
   like_count: number;
   comment_count: number;
   share_count: number;
+  is_pinned: boolean;
   moderation_status: 'pending' | 'approved' | 'rejected';
   created_at: string;
 }
@@ -108,7 +110,7 @@ export async function fetchPostsByIds(
   const { data, error } = await admin
     .from('posts')
     .select(
-      'id, user_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, moderation_status, created_at',
+      'id, user_id, club_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at',
     )
     .in('id', postIds)
     .eq('moderation_status', 'approved');
@@ -136,6 +138,7 @@ export async function fetchPostsByIds(
       const baseRecord: FeedPostRecord = {
         id: row.id,
         userId: row.user_id,
+        clubId: row.club_id,
         contentText: row.content_text,
         mediaUrls,
         mediaType: row.media_type,
@@ -143,6 +146,7 @@ export async function fetchPostsByIds(
         likeCount: row.like_count,
         commentCount: row.comment_count,
         shareCount: row.share_count,
+        isPinned: row.is_pinned,
         moderationStatus: row.moderation_status,
         createdAt: row.created_at,
         author,
