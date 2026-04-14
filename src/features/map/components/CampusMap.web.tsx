@@ -59,6 +59,8 @@ interface CampusMapProps {
   activeDiningZoneId?: string | null;
   userLocation?: MapUserLocation | null;
   focusRequest?: MapFocusRequest | null;
+  compassInsetTop?: number;
+  compassInsetRight?: number;
   wayfindingJourney?: WayfindingJourney | null;
   onSelectEventGroup: (group: EventLocationGroup) => void;
   onSelectBuilding: (building: Building) => void;
@@ -284,7 +286,7 @@ async function ensurePinImages(map: MapboxMap) {
       return;
     }
 
-    const image = await loadMapImage(imageEntry.url);
+    const image = await loadMapImage(imageEntry);
     map.addImage(imageId, image, { pixelRatio: 2 });
   });
 

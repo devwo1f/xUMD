@@ -20,6 +20,7 @@ export interface FeedAuthorSummary {
 export interface FeedPostRecord {
   id: string;
   userId: string;
+  clubId?: string | null;
   contentText: string;
   mediaUrls: string[];
   mediaType: 'none' | 'image' | 'video';
@@ -27,6 +28,7 @@ export interface FeedPostRecord {
   likeCount: number;
   commentCount: number;
   shareCount: number;
+  isPinned?: boolean;
   moderationStatus: 'pending' | 'approved' | 'rejected';
   createdAt: string;
   author: FeedAuthorSummary;

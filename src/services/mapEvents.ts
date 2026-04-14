@@ -1,6 +1,4 @@
 ﻿import { buildings } from '../assets/data/buildings';
-import { mockCampusEvents } from '../assets/data/mockEvents';
-import { mockClubEvents } from '../assets/data/mockClubs';
 import type {
   CampusLocation,
   Event,
@@ -8,6 +6,7 @@ import type {
   EventReportReason,
   EventSearchResult,
 } from '../shared/types';
+import { getEventCatalog } from '../shared/stores/useEventCatalogStore';
 import { isSupabaseConfigured, supabase, supabaseConfigError } from './supabase';
 
 export type RemoteMapTimeFilter =
@@ -289,7 +288,7 @@ export async function searchMapEventsRemote(query: string, limit = 8) {
 }
 
 export function getFallbackMapEvents() {
-  return [...mockCampusEvents, ...mockClubEvents];
+  return getEventCatalog();
 }
 
 export function buildFallbackEventDetail(eventId: string): EventDetailPayload | null {

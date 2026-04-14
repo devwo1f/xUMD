@@ -36,6 +36,15 @@ type Props = {
   navigation: {
     goBack: () => void;
     navigate: (routeName: 'PostDetail', params: { postId: string }) => void;
+    getParent?: () => {
+      navigate: (
+        routeName: 'Campus' | 'Profile',
+        params: {
+          screen: 'ClubDetail';
+          params: { clubId: string };
+        },
+      ) => void;
+    } | undefined;
   };
   route: {
     params: {
@@ -287,30 +296,39 @@ export default function UserProfileScreen({ navigation, route }: Props) {
     return null;
   }, [clubTargetUser, demoTargetProfile, localFollowingByUser, remoteTargetProfile, targetUserId]);
 
-  const commonClubLabels = useMemo(() => {
+  const commonClubs = useMemo(() => {
+    let clubIds: string[] = [];
+
     if (remoteTargetProfile) {
       const viewerClubIds = remoteViewerProfile?.clubIds ?? getClubIdsForUser(profileUser.id);
-      return intersect(viewerClubIds, remoteTargetProfile.clubIds).map(formatClubLabel);
+      clubIds = intersect(viewerClubIds, remoteTargetProfile.clubIds);
+    } else if (clubTargetUser && clubViewerUser) {
+      clubIds = intersect(getClubIdsForUser(clubViewerUser.id), getClubIdsForUser(clubTargetUser.id));
+    } else if (demoTargetProfile) {
+      const viewerClubIds = demoViewerProfile?.clubIds ?? getClubIdsForUser(profileUser.id);
+      clubIds = intersect(viewerClubIds, demoTargetProfile.clubIds);
     }
 
-    if (clubTargetUser && clubViewerUser) {
-      return intersect(getClubIdsForUser(clubViewerUser.id), getClubIdsForUser(clubTargetUser.id)).map(formatClubLabel);
-    }
-
-    if (!demoTargetProfile) {
-      return [];
-    }
-
-    const viewerClubIds = demoViewerProfile?.clubIds ?? getClubIdsForUser(profileUser.id);
-    return intersect(viewerClubIds, demoTargetProfile.clubIds).map(formatClubLabel);
+    return clubIds.map((clubId) => ({
+      id: clubId,
+      label: formatClubLabel(clubId),
+    }));
   }, [clubTargetUser, clubViewerUser, demoTargetProfile, demoViewerProfile, profileUser.id, remoteTargetProfile, remoteViewerProfile]);
 
   const recentActivity = useMemo(() => buildActivityItems(profilePosts), [profilePosts]);
   const supportsFollow = Boolean(remoteTargetProfile || demoTargetProfile);
+  const hasLocalFallbackProfile = Boolean(demoTargetProfile || clubTargetUser);
 
   const isOwnProfile = remoteTargetProfile
     ? viewerRemoteId === targetUserId
     : targetUserId === CURRENT_SOCIAL_USER_ID || targetUserId === profileUser.id;
+
+  const openCommonClub = (clubId: string) => {
+    navigation.getParent?.()?.navigate('Campus', {
+      screen: 'ClubDetail',
+      params: { clubId },
+    });
+  };
 
   if (!profile && !loading) {
     return (
@@ -413,21 +431,27 @@ export default function UserProfileScreen({ navigation, route }: Props) {
         </View>
       </Card>
 
-      {error ? (
+      {error && !hasLocalFallbackProfile ? (
         <Card>
           <Text style={styles.errorTitle}>Profile sync paused</Text>
           <Text style={styles.errorBody}>{error}</Text>
         </Card>
       ) : null}
 
-      {commonClubLabels.length > 0 ? (
+      {commonClubs.length > 0 ? (
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Common Clubs</Text>
           <View style={styles.pillRow}>
-            {commonClubLabels.map((clubLabel) => (
-              <View key={clubLabel} style={styles.commonPill}>
-                <Text style={styles.commonPillText}>{clubLabel}</Text>
-              </View>
+            {commonClubs.map((club) => (
+              <Pressable
+                key={club.id}
+                accessibilityRole="button"
+                accessibilityHint={`Open ${club.label}`}
+                onPress={() => openCommonClub(club.id)}
+                style={styles.commonPill}
+              >
+                <Text style={styles.commonPillText}>{club.label}</Text>
+              </Pressable>
             ))}
           </View>
         </Card>

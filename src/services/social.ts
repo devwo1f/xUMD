@@ -61,6 +61,7 @@ interface RawRemoteProfile {
 interface RawRemotePost {
   id: string;
   userId: string;
+  clubId?: string | null;
   contentText: string;
   mediaUrls: string[];
   mediaType: 'none' | 'image' | 'video';
@@ -68,6 +69,7 @@ interface RawRemotePost {
   likeCount: number;
   commentCount: number;
   shareCount: number;
+  isPinned?: boolean;
   createdAt: string;
   author: RawRemoteProfile;
   suggestedReason?: string | null;
@@ -91,6 +93,7 @@ interface DbUserRow {
 interface DbPostRow {
   id: string;
   user_id: string;
+  club_id: string | null;
   content_text: string;
   media_urls: string[] | null;
   media_type: 'none' | 'image' | 'video';
@@ -98,6 +101,7 @@ interface DbPostRow {
   like_count: number;
   comment_count: number;
   share_count: number;
+  is_pinned: boolean;
   moderation_status?: 'pending' | 'approved' | 'rejected';
   created_at: string;
 }
@@ -164,7 +168,7 @@ function mapRemotePost(raw: RawRemotePost): Post & { suggested_reason?: string |
   return {
     id: raw.id,
     author_id: raw.userId,
-    club_id: null,
+    club_id: raw.clubId ?? null,
     author: mapRemoteUserToProfile(raw.author),
     content: raw.contentText,
     media_urls: raw.mediaUrls,
@@ -177,7 +181,7 @@ function mapRemotePost(raw: RawRemotePost): Post & { suggested_reason?: string |
     comment_count: raw.commentCount,
     share_count: raw.shareCount,
     hashtags: raw.hashtags,
-    is_pinned: false,
+    is_pinned: Boolean(raw.isPinned),
     created_at: raw.createdAt,
     updated_at: raw.createdAt,
     suggested_reason: raw.suggestedReason ?? null,
@@ -225,6 +229,7 @@ async function hydrateDbPosts(
       return mapRemotePost({
         id: row.id,
         userId: row.user_id,
+        clubId: row.club_id,
         contentText: row.content_text,
         mediaUrls,
         mediaType: row.media_type,
@@ -232,6 +237,7 @@ async function hydrateDbPosts(
         likeCount: row.like_count,
         commentCount: row.comment_count,
         shareCount: row.share_count,
+        isPinned: row.is_pinned,
         createdAt: row.created_at,
         author: author ?? {
           id: row.user_id,
@@ -284,7 +290,7 @@ async function fetchRemoteFeedFallback(mode: RemoteFeedMode, limit = 20): Promis
 
   let query = supabase
     .from('posts')
-    .select('id, user_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, moderation_status, created_at')
+    .select('id, user_id, club_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at')
     .eq('moderation_status', 'approved')
     .order('created_at', { ascending: false })
     .limit(Math.max(limit * 3, 40));
@@ -342,7 +348,7 @@ async function fetchTrendingSnapshotFallback() {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('id, user_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, moderation_status, created_at')
+    .select('id, user_id, club_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at')
     .eq('moderation_status', 'approved')
     .gte('created_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
     .order('created_at', { ascending: false })
@@ -588,7 +594,7 @@ export async function fetchRemotePostsByUser(userId: string, limit = 40) {
 
   let query = supabase
     .from('posts')
-    .select('id, user_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, moderation_status, created_at')
+    .select('id, user_id, club_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -610,6 +616,7 @@ export async function fetchRemotePostsByUser(userId: string, limit = 40) {
       return mapRemotePost({
         id: postRow.id,
         userId: postRow.user_id,
+        clubId: postRow.club_id,
         contentText: postRow.content_text,
         mediaUrls,
         mediaType: postRow.media_type,
@@ -617,6 +624,7 @@ export async function fetchRemotePostsByUser(userId: string, limit = 40) {
         likeCount: postRow.like_count,
         commentCount: postRow.comment_count,
         shareCount: postRow.share_count,
+        isPinned: postRow.is_pinned,
         createdAt: postRow.created_at,
         author,
       });
