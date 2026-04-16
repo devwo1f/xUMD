@@ -20,6 +20,7 @@ interface FeatureCardProps {
   tintColor: string;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
+  compact?: boolean;
 }
 
 const FeatureCard: React.FC<FeatureCardProps> = ({
@@ -30,17 +31,18 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
   tintColor,
   onPress,
   style,
+  compact = false,
 }) => {
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.card, { borderLeftColor: accentColor }, style]}
+      style={[styles.card, compact ? styles.cardCompact : null, { borderLeftColor: accentColor }, style]}
     >
-      <View style={[styles.iconBubble, { backgroundColor: tintColor }]}>
-        <MaterialCommunityIcons name={icon as never} size={22} color={accentColor} />
+      <View style={[styles.iconBubble, compact ? styles.iconBubbleCompact : null, { backgroundColor: tintColor }]}>
+        <MaterialCommunityIcons name={icon as never} size={compact ? 20 : 22} color={accentColor} />
       </View>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
+      <Text style={[styles.title, compact ? styles.titleCompact : null]}>{title}</Text>
+      <Text style={[styles.subtitle, compact ? styles.subtitleCompact : null]}>{subtitle}</Text>
     </Pressable>
   );
 };
@@ -53,6 +55,9 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     ...shadows.md,
   },
+  cardCompact: {
+    padding: spacing.sm + 2,
+  },
   iconBubble: {
     width: 44,
     height: 44,
@@ -61,16 +66,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
+  iconBubbleCompact: {
+    width: 38,
+    height: 38,
+    marginBottom: spacing.sm,
+  },
   title: {
     fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
+  },
+  titleCompact: {
+    fontSize: typography.fontSize.lg,
   },
   subtitle: {
     fontSize: typography.fontSize.base,
     lineHeight: 22,
     color: colors.text.secondary,
     marginTop: spacing.xs,
+  },
+  subtitleCompact: {
+    fontSize: typography.fontSize.sm,
+    lineHeight: 18,
+    marginTop: 2,
   },
 });
 

@@ -44,7 +44,7 @@ import type {
 } from './types';
 
 // Height of the icon row (excluding safe area). Used to size the docked bar.
-const TAB_BAR_HEIGHT = 58;
+const TAB_BAR_HEIGHT = 50;
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const ExploreStack = createNativeStackNavigator<ExploreStackParamList>();
@@ -101,6 +101,7 @@ function FeedNavigator() {
     <FeedStack.Navigator screenOptions={{ headerShown: false }}>
       <FeedStack.Screen name="FeedHome" component={FeedHomeScreen} />
       <FeedStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <FeedStack.Screen name="EventDetail" component={EventDetailScreen} />
       <FeedStack.Screen name="UserProfile" component={UserProfileScreen} />
     </FeedStack.Navigator>
   );
@@ -135,6 +136,7 @@ function CampusNavigator() {
       <CampusStack.Screen name="CampusHome" component={CampusHomeScreen} />
       <CampusStack.Screen name="ClubsHome" component={ClubsHomeScreen} />
       <CampusStack.Screen name="ClubDetail" component={ClubDetailScreen} />
+      <CampusStack.Screen name="EventDetail" component={EventDetailScreen} />
       <CampusStack.Screen name="PostDetail" component={PostDetailScreen} />
       <CampusStack.Screen name="UserProfile" component={UserProfileScreen} />
       <CampusStack.Screen name="LibrariesDirectory" component={LibrariesDirectoryScreen} />
@@ -258,7 +260,10 @@ export default function MainTabs() {
               fontWeight: typography.fontWeight.semiBold,
             },
         tabBarItemStyle: isNativeMobile
-          ? { overflow: 'visible' }
+          ? {
+              height: TAB_BAR_HEIGHT,
+              overflow: 'visible',
+            }
           : {
               maxWidth: isWide ? 120 : undefined,
             },
@@ -297,7 +302,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     position: 'relative',
     minWidth: 44,
-    minHeight: 44,
+    minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },

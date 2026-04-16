@@ -44,9 +44,9 @@ function buildRecommendationReason(
   followingByUser: Record<string, string[]>,
 ): RecommendationReason {
   const mutualIds = intersect(
-    getNeighborhoodIds(followingByUser, CURRENT_SOCIAL_USER_ID),
+    getNeighborhoodIds(followingByUser, currentUser.id),
     getNeighborhoodIds(followingByUser, candidate.id),
-  ).filter((id) => id !== CURRENT_SOCIAL_USER_ID && id !== candidate.id);
+  ).filter((id) => id !== currentUser.id && id !== candidate.id);
 
   const sharedClubIds = intersect(currentUser.clubIds, candidate.clubIds);
   const sharedInterests = intersect(currentUser.interests, candidate.interests);

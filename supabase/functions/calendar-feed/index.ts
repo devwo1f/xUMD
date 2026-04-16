@@ -1,4 +1,4 @@
-import { addDays, eachDayOfInterval, format, getDay, parseISO, set, startOfDay } from 'https://esm.sh/date-fns@4.1.0';
+ï»¿import { addDays, eachDayOfInterval, format, getDay, parseISO, set, startOfDay } from 'https://esm.sh/date-fns@4.1.0';
 import { withCorsHeaders } from '../_shared/cors.ts';
 import { HttpError } from '../_shared/errors.ts';
 import { errorResponse, handleOptions } from '../_shared/http.ts';
@@ -19,7 +19,6 @@ type UserRow = {
   id: string;
   email: string;
   display_name: string;
-  clubs: string[] | null;
   courses: string[] | null;
 };
 
@@ -366,7 +365,7 @@ Deno.serve(async (request) => {
     const preferences = preferenceRow as CalendarSyncPreferenceRow;
     const { data: userRow, error: userError } = await admin
       .from('users')
-      .select('id, email, display_name, clubs, courses')
+      .select('id, email, display_name, courses')
       .eq('id', preferences.user_id)
       .single();
 
@@ -425,8 +424,8 @@ Deno.serve(async (request) => {
             endLabel: course.end_time,
             build: (day, startsAt, endsAt) => ({
               uid: `course-${course.id}-${format(day, 'yyyyMMdd')}@xumd`,
-              summary: `${course.course_code} · ${course.title}`,
-              description: `Section ${course.section} · Synced from xUMD`,
+              summary: `${course.course_code} Â· ${course.title}`,
+              description: `Section ${course.section} Â· Synced from xUMD`,
               location: [course.building_name, course.room_number].filter(Boolean).join(' ') || 'TBA',
               startsAt,
               endsAt,
@@ -436,13 +435,27 @@ Deno.serve(async (request) => {
       }
     }
 
-    if (preferences.include_club_meetings && (user.clubs ?? []).length > 0) {
-      const { data: clubRows } = await admin
-        .from('clubs')
-        .select('id, name, meeting_schedule')
-        .in('name', user.clubs ?? []);
+    if (preferences.include_club_meetings) {
+      const { data: membershipRows } = await admin
+        .from('club_members')
+        .select('club_id')
+        .eq('user_id', user.id)
+        .eq('status', 'approved');
 
-      for (const club of (clubRows ?? []) as ClubRow[]) {
+      const clubIds = Array.from(
+        new Set((membershipRows ?? []).map((row: { club_id: string }) => row.club_id)),
+      );
+
+      let clubRows: ClubRow[] = [];
+      if (clubIds.length > 0) {
+        const { data } = await admin
+          .from('clubs')
+          .select('id, name, meeting_schedule')
+          .in('id', clubIds);
+        clubRows = (data ?? []) as ClubRow[];
+      }
+
+      for (const club of clubRows) {
         const parsed = parseMeetingSchedule(club.meeting_schedule);
         if (!parsed) {
           continue;
@@ -492,7 +505,7 @@ Deno.serve(async (request) => {
           entries.push({
             uid: `event-${event.id}-${row.status}@xumd`,
             summary: event.title,
-            description: `${row.status === 'interested' ? 'Interested' : 'Going'} · ${event.description ?? 'xUMD event'}`,
+            description: `${row.status === 'interested' ? 'Interested' : 'Going'} Â· ${event.description ?? 'xUMD event'}`,
             location: event.location_name,
             startsAt,
             endsAt: parseISO(event.ends_at),
@@ -521,3 +534,4 @@ Deno.serve(async (request) => {
     return errorResponse(error);
   }
 });
+

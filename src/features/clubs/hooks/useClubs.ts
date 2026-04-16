@@ -1,12 +1,7 @@
-/**
- * useClubs Hook
- *
- * Provides filtered, sorted, and searchable club data from mock sources.
- */
-
 import { useMemo, useState, useCallback } from 'react';
-import { mockClubs, mockClubMembers, mockClubEvents, mockClubMedia, mockJoinRequests } from '../../../assets/data/mockClubs';
 import type { Club, ClubCategory } from '../../../shared/types';
+import { useMapData } from '../../map/hooks/useMapData';
+import { useCampusClubs } from './useCampusClubs';
 
 export type ClubSortOption = 'member_count' | 'name' | 'created_at';
 
@@ -16,13 +11,15 @@ interface UseClubsOptions {
 }
 
 export function useClubs(options: UseClubsOptions = {}) {
+  const clubDirectory = useCampusClubs();
+  const { rawEvents } = useMapData();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string>(options.initialCategory ?? 'All');
   const [sort, setSort] = useState<ClubSortOption>(options.initialSort ?? 'member_count');
   const [refreshing, setRefreshing] = useState(false);
 
   const filteredClubs = useMemo(() => {
-    let result = [...mockClubs];
+    let result = [...clubDirectory.clubs];
 
     // Filter by category
     if (category !== 'All') {
@@ -55,35 +52,37 @@ export function useClubs(options: UseClubsOptions = {}) {
     }
 
     return result;
-  }, [search, category, sort]);
+  }, [category, clubDirectory.clubs, search, sort]);
 
   const getClubById = useCallback((id: string): Club | undefined => {
-    return mockClubs.find((club) => club.id === id || club.slug === id);
-  }, []);
+    return clubDirectory.getClubById(id) ?? undefined;
+  }, [clubDirectory]);
 
   const getClubMembers = useCallback((clubId: string) => {
-    return mockClubMembers.filter((m) => m.club_id === clubId);
-  }, []);
+    return clubDirectory.getClubMembers(clubId);
+  }, [clubDirectory]);
 
   const getClubEvents = useCallback((clubId: string) => {
-    return mockClubEvents.filter((e) => e.club_id === clubId);
-  }, []);
+    return rawEvents.filter((event) => event.club_id === clubId);
+  }, [rawEvents]);
 
   const getClubMedia = useCallback((clubId: string) => {
-    return mockClubMedia.filter((m) => m.club_id === clubId);
-  }, []);
+    return clubDirectory.getClubMedia(clubId);
+  }, [clubDirectory]);
 
   const getJoinRequests = useCallback((clubId: string) => {
-    return mockJoinRequests.filter((r) => r.club_id === clubId);
-  }, []);
+    return clubDirectory.getClubJoinRequests(clubId);
+  }, [clubDirectory]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Simulate network delay
-    setTimeout(() => setRefreshing(false), 800);
-  }, []);
+    void clubDirectory
+      .refetch()
+      .finally(() => setTimeout(() => setRefreshing(false), 300));
+  }, [clubDirectory]);
 
   return {
+    ...clubDirectory,
     clubs: filteredClubs,
     search,
     setSearch,

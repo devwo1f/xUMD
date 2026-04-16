@@ -21,6 +21,7 @@ export interface FeedPostRecord {
   id: string;
   userId: string;
   clubId?: string | null;
+  eventId?: string | null;
   contentText: string;
   mediaUrls: string[];
   mediaType: 'none' | 'image' | 'video';
@@ -77,6 +78,9 @@ export interface SubmitPostMediaInput {
 export interface SubmitPostRequest {
   contentText: string;
   media?: SubmitPostMediaInput[];
+  clubId?: string | null;
+  eventId?: string | null;
+  isPinned?: boolean;
 }
 
 export interface SubmitPostResponse {

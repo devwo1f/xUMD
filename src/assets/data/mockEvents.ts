@@ -9,8 +9,8 @@ export const mockCampusEvents = [
     "created_by": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
     "organizer_name": "Terp Entrepreneurs",
     "category": "career",
-    "starts_at": "2026-04-09T21:30:00.000Z",
-    "ends_at": "2026-04-09T23:00:00.000Z",
+    "starts_at": "2026-04-10T21:30:00.000Z",
+    "ends_at": "2026-04-10T23:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Van Munching Hall",
@@ -29,8 +29,8 @@ export const mockCampusEvents = [
       "networking"
     ],
     "location": "Van Munching Hall",
-    "created_at": "2026-04-07T21:30:00.000Z",
-    "updated_at": "2026-04-07T21:30:00.000Z"
+    "created_at": "2026-04-08T21:30:00.000Z",
+    "updated_at": "2026-04-08T21:30:00.000Z"
   },
   {
     "id": "5c79e535-ccf4-564b-ad21-a16f729ca080",
@@ -40,8 +40,8 @@ export const mockCampusEvents = [
     "created_by": "5a90dcaa-9700-59fb-9cc9-66b19e06e6d6",
     "organizer_name": "Maryland Running Club",
     "category": "sports",
-    "starts_at": "2026-04-08T22:00:00.000Z",
-    "ends_at": "2026-04-08T23:15:00.000Z",
+    "starts_at": "2026-04-09T22:00:00.000Z",
+    "ends_at": "2026-04-09T23:15:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Eppley Recreation Center",
@@ -60,8 +60,8 @@ export const mockCampusEvents = [
       "wellness"
     ],
     "location": "Eppley Recreation Center",
-    "created_at": "2026-04-05T22:00:00.000Z",
-    "updated_at": "2026-04-05T22:00:00.000Z"
+    "created_at": "2026-04-06T22:00:00.000Z",
+    "updated_at": "2026-04-06T22:00:00.000Z"
   },
   {
     "id": "28a04154-5255-57f5-842d-98df5fe10753",
@@ -71,8 +71,8 @@ export const mockCampusEvents = [
     "created_by": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
     "organizer_name": "Bhangra at UMD",
     "category": "arts",
-    "starts_at": "2026-04-12T23:30:00.000Z",
-    "ends_at": "2026-04-13T01:30:00.000Z",
+    "starts_at": "2026-04-13T23:30:00.000Z",
+    "ends_at": "2026-04-14T01:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "The Clarice Smith Center",
@@ -91,8 +91,8 @@ export const mockCampusEvents = [
       "performance"
     ],
     "location": "The Clarice Smith Center",
-    "created_at": "2026-04-08T23:30:00.000Z",
-    "updated_at": "2026-04-08T23:30:00.000Z"
+    "created_at": "2026-04-09T23:30:00.000Z",
+    "updated_at": "2026-04-09T23:30:00.000Z"
   },
   {
     "id": "52bc4a78-4cab-5d58-8d6f-24b526793f3a",
@@ -102,8 +102,8 @@ export const mockCampusEvents = [
     "created_by": "a49d4554-325c-5c88-afaa-ef947f0a115a",
     "organizer_name": "Terps for Change",
     "category": "other",
-    "starts_at": "2026-04-10T22:30:00.000Z",
-    "ends_at": "2026-04-11T00:15:00.000Z",
+    "starts_at": "2026-04-11T22:30:00.000Z",
+    "ends_at": "2026-04-12T00:15:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Stamp Student Union",
@@ -122,8 +122,8 @@ export const mockCampusEvents = [
       "impact"
     ],
     "location": "Stamp Student Union",
-    "created_at": "2026-04-05T22:30:00.000Z",
-    "updated_at": "2026-04-05T22:30:00.000Z"
+    "created_at": "2026-04-06T22:30:00.000Z",
+    "updated_at": "2026-04-06T22:30:00.000Z"
   },
   {
     "id": "e1681bc4-21d1-526b-9a95-d8150e59b670",
@@ -133,8 +133,8 @@ export const mockCampusEvents = [
     "created_by": "f360a23b-4f3d-566a-959f-ea05849e43ab",
     "organizer_name": "Data Science Club",
     "category": "academic",
-    "starts_at": "2026-04-11T23:00:00.000Z",
-    "ends_at": "2026-04-12T01:00:00.000Z",
+    "starts_at": "2026-04-12T23:00:00.000Z",
+    "ends_at": "2026-04-13T01:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "McKeldin Library",
@@ -153,8 +153,8 @@ export const mockCampusEvents = [
       "study"
     ],
     "location": "McKeldin Library",
-    "created_at": "2026-04-09T23:00:00.000Z",
-    "updated_at": "2026-04-09T23:00:00.000Z"
+    "created_at": "2026-04-10T23:00:00.000Z",
+    "updated_at": "2026-04-10T23:00:00.000Z"
   },
   {
     "id": "cc06e4c7-27c1-52a2-887a-148e86f78083",
@@ -164,8 +164,8 @@ export const mockCampusEvents = [
     "created_by": "6667ca7e-5d07-5fd3-ab93-276110c38063",
     "organizer_name": "UMD Hackers",
     "category": "workshop",
-    "starts_at": "2026-04-07T23:00:00.000Z",
-    "ends_at": "2026-04-08T01:30:00.000Z",
+    "starts_at": "2026-04-08T23:00:00.000Z",
+    "ends_at": "2026-04-09T01:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Brendan Iribe Center",
@@ -184,8 +184,8 @@ export const mockCampusEvents = [
       "workshop"
     ],
     "location": "Brendan Iribe Center",
-    "created_at": "2026-04-04T23:00:00.000Z",
-    "updated_at": "2026-04-04T23:00:00.000Z"
+    "created_at": "2026-04-05T23:00:00.000Z",
+    "updated_at": "2026-04-05T23:00:00.000Z"
   },
   {
     "id": "3cf3b8b8-b073-5e71-a4e2-31c6d2994712",
@@ -195,8 +195,8 @@ export const mockCampusEvents = [
     "created_by": "0b4c9322-5024-52dd-b93b-68b721c026ee",
     "organizer_name": "UMD Hackers",
     "category": "workshop",
-    "starts_at": "2026-04-14T14:44:17.951Z",
-    "ends_at": "2026-04-14T17:14:17.951Z",
+    "starts_at": "2026-04-15T21:40:38.936Z",
+    "ends_at": "2026-04-16T00:10:38.936Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Brendan Iribe Center",
@@ -215,8 +215,8 @@ export const mockCampusEvents = [
       "mentor"
     ],
     "location": "Brendan Iribe Center",
-    "created_at": "2026-04-10T14:44:17.951Z",
-    "updated_at": "2026-04-10T14:44:17.951Z"
+    "created_at": "2026-04-11T21:40:38.936Z",
+    "updated_at": "2026-04-11T21:40:38.936Z"
   },
   {
     "id": "86f93fcb-14a7-5244-9131-25ac345dd6c9",
@@ -226,8 +226,8 @@ export const mockCampusEvents = [
     "created_by": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
     "organizer_name": "Data Science Club",
     "category": "academic",
-    "starts_at": "2026-04-14T14:59:17.951Z",
-    "ends_at": "2026-04-14T16:59:17.951Z",
+    "starts_at": "2026-04-15T21:55:38.936Z",
+    "ends_at": "2026-04-15T23:55:38.936Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "McKeldin Library",
@@ -246,8 +246,8 @@ export const mockCampusEvents = [
       "study"
     ],
     "location": "McKeldin Library",
-    "created_at": "2026-04-09T14:59:17.951Z",
-    "updated_at": "2026-04-09T14:59:17.951Z"
+    "created_at": "2026-04-10T21:55:38.936Z",
+    "updated_at": "2026-04-10T21:55:38.936Z"
   },
   {
     "id": "f01a4cc6-9d60-5ec9-ad24-90c854473dcb",
@@ -257,8 +257,8 @@ export const mockCampusEvents = [
     "created_by": "1941e5a9-753c-5055-b24d-ff4990dd714e",
     "organizer_name": "Film Society at Maryland",
     "category": "arts",
-    "starts_at": "2026-04-14T15:14:17.951Z",
-    "ends_at": "2026-04-14T17:14:17.951Z",
+    "starts_at": "2026-04-15T22:10:38.936Z",
+    "ends_at": "2026-04-16T00:10:38.936Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Stamp Student Union",
@@ -277,8 +277,8 @@ export const mockCampusEvents = [
       "arts"
     ],
     "location": "Stamp Student Union",
-    "created_at": "2026-04-12T15:14:17.951Z",
-    "updated_at": "2026-04-12T15:14:17.951Z"
+    "created_at": "2026-04-13T22:10:38.936Z",
+    "updated_at": "2026-04-13T22:10:38.936Z"
   },
   {
     "id": "7f12062a-473a-56c6-98a1-f58990f4889d",
@@ -288,8 +288,8 @@ export const mockCampusEvents = [
     "created_by": "6667ca7e-5d07-5fd3-ab93-276110c38063",
     "organizer_name": "UMD Hackers",
     "category": "workshop",
-    "starts_at": "2026-04-14T23:00:00.000Z",
-    "ends_at": "2026-04-15T01:30:00.000Z",
+    "starts_at": "2026-04-15T23:00:00.000Z",
+    "ends_at": "2026-04-16T01:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Brendan Iribe Center",
@@ -309,8 +309,8 @@ export const mockCampusEvents = [
       "hackathon"
     ],
     "location": "Brendan Iribe Center",
-    "created_at": "2026-04-11T23:00:00.000Z",
-    "updated_at": "2026-04-11T23:00:00.000Z"
+    "created_at": "2026-04-12T23:00:00.000Z",
+    "updated_at": "2026-04-12T23:00:00.000Z"
   },
   {
     "id": "5835cefc-108f-53c3-b300-0cb36d2b2b4f",
@@ -320,8 +320,8 @@ export const mockCampusEvents = [
     "created_by": "f360a23b-4f3d-566a-959f-ea05849e43ab",
     "organizer_name": "Data Science Club",
     "category": "career",
-    "starts_at": "2026-04-14T22:30:00.000Z",
-    "ends_at": "2026-04-15T00:00:00.000Z",
+    "starts_at": "2026-04-15T22:30:00.000Z",
+    "ends_at": "2026-04-16T00:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "McKeldin Library",
@@ -340,8 +340,8 @@ export const mockCampusEvents = [
       "data"
     ],
     "location": "McKeldin Library",
-    "created_at": "2026-04-10T22:30:00.000Z",
-    "updated_at": "2026-04-10T22:30:00.000Z"
+    "created_at": "2026-04-11T22:30:00.000Z",
+    "updated_at": "2026-04-11T22:30:00.000Z"
   },
   {
     "id": "099b5515-59e1-5531-b5a2-4e37be566d83",
@@ -351,8 +351,8 @@ export const mockCampusEvents = [
     "created_by": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
     "organizer_name": "Maryland Running Club",
     "category": "sports",
-    "starts_at": "2026-04-14T22:00:00.000Z",
-    "ends_at": "2026-04-14T23:15:00.000Z",
+    "starts_at": "2026-04-15T22:00:00.000Z",
+    "ends_at": "2026-04-15T23:15:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Eppley Recreation Center",
@@ -371,8 +371,8 @@ export const mockCampusEvents = [
       "community"
     ],
     "location": "Eppley Recreation Center",
-    "created_at": "2026-04-09T22:00:00.000Z",
-    "updated_at": "2026-04-09T22:00:00.000Z"
+    "created_at": "2026-04-10T22:00:00.000Z",
+    "updated_at": "2026-04-10T22:00:00.000Z"
   }
 ] as Event[];
 

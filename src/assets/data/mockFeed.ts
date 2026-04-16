@@ -10,8 +10,8 @@ export const mockAuthors = {
     "major": "Computer Science",
     "graduation_year": 2026,
     "push_token": null,
-    "created_at": "2025-12-15T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-16T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   "nia_builds": {
     "id": "79af4eed-7d3d-5729-8963-46e04646d23b",
@@ -22,8 +22,8 @@ export const mockAuthors = {
     "major": "Information Science",
     "graduation_year": 2027,
     "push_token": null,
-    "created_at": "2025-12-16T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2025-12-17T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   "danielpark": {
     "id": "0b4c9322-5024-52dd-b93b-68b721c026ee",
@@ -34,8 +34,8 @@ export const mockAuthors = {
     "major": "Computer Science",
     "graduation_year": 2025,
     "push_token": null,
-    "created_at": "2025-12-17T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2025-12-18T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   "priya_shah": {
     "id": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
@@ -46,8 +46,8 @@ export const mockAuthors = {
     "major": "Biology",
     "graduation_year": 2026,
     "push_token": null,
-    "created_at": "2025-12-18T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-19T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   "marcus_t": {
     "id": "5a90dcaa-9700-59fb-9cc9-66b19e06e6d6",
@@ -58,8 +58,8 @@ export const mockAuthors = {
     "major": "Mechanical Engineering",
     "graduation_year": 2026,
     "push_token": null,
-    "created_at": "2025-12-19T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2025-12-20T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   "maya_p": {
     "id": "a49d4554-325c-5c88-afaa-ef947f0a115a",
@@ -70,8 +70,8 @@ export const mockAuthors = {
     "major": "Government and Politics",
     "graduation_year": 2027,
     "push_token": null,
-    "created_at": "2025-12-20T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2025-12-21T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   "leena_rao": {
     "id": "bf962ba5-980e-5ed4-b080-3ddad5c2e760",
@@ -82,8 +82,8 @@ export const mockAuthors = {
     "major": "Finance",
     "graduation_year": 2026,
     "push_token": null,
-    "created_at": "2025-12-21T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-22T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   "ethan_kim": {
     "id": "f360a23b-4f3d-566a-959f-ea05849e43ab",
@@ -94,8 +94,8 @@ export const mockAuthors = {
     "major": "Data Science",
     "graduation_year": 2025,
     "push_token": null,
-    "created_at": "2025-12-22T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2025-12-23T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   "sofia_alvarez": {
     "id": "ca86602c-434a-50de-af39-90312889c45d",
@@ -106,8 +106,8 @@ export const mockAuthors = {
     "major": "Journalism",
     "graduation_year": 2027,
     "push_token": null,
-    "created_at": "2025-12-23T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2025-12-24T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   "jordank_umd": {
     "id": "dceb7801-ef4a-5c0d-8c77-d45c18b15df1",
@@ -118,8 +118,8 @@ export const mockAuthors = {
     "major": "Environmental Science",
     "graduation_year": 2026,
     "push_token": null,
-    "created_at": "2025-12-24T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-25T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   "aaliyah_green": {
     "id": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
@@ -130,8 +130,8 @@ export const mockAuthors = {
     "major": "Kinesiology",
     "graduation_year": 2027,
     "push_token": null,
-    "created_at": "2025-12-25T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2025-12-26T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   "rahulm": {
     "id": "7ebd3331-9d3e-5d07-b957-dbb6cb18760f",
@@ -142,8 +142,8 @@ export const mockAuthors = {
     "major": "Electrical Engineering",
     "graduation_year": 2026,
     "push_token": null,
-    "created_at": "2025-12-26T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2025-12-27T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   "gracechen": {
     "id": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
@@ -154,8 +154,8 @@ export const mockAuthors = {
     "major": "Finance",
     "graduation_year": 2025,
     "push_token": null,
-    "created_at": "2025-12-27T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-28T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   "omarh": {
     "id": "c0957686-8810-518a-8a56-df06c240f785",
@@ -166,8 +166,8 @@ export const mockAuthors = {
     "major": "Computer Science",
     "graduation_year": 2026,
     "push_token": null,
-    "created_at": "2025-12-28T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2025-12-29T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   "hannah_lee": {
     "id": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
@@ -178,8 +178,8 @@ export const mockAuthors = {
     "major": "Public Health Science",
     "graduation_year": 2027,
     "push_token": null,
-    "created_at": "2025-12-29T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2025-12-30T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   "davidok": {
     "id": "9e36e2f6-f994-573b-b8f8-5e7ee6c3a6f4",
@@ -190,8 +190,8 @@ export const mockAuthors = {
     "major": "Computer Engineering",
     "graduation_year": 2025,
     "push_token": null,
-    "created_at": "2025-12-30T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-31T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   "chloecreates": {
     "id": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
@@ -202,8 +202,8 @@ export const mockAuthors = {
     "major": "Studio Art",
     "graduation_year": 2026,
     "push_token": null,
-    "created_at": "2025-12-31T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2026-01-01T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   "aaronfeldman": {
     "id": "1941e5a9-753c-5055-b24d-ff4990dd714e",
@@ -214,8 +214,8 @@ export const mockAuthors = {
     "major": "English",
     "graduation_year": 2027,
     "push_token": null,
-    "created_at": "2026-01-01T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2026-01-02T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   "sana_mir": {
     "id": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
@@ -226,8 +226,8 @@ export const mockAuthors = {
     "major": "Neuroscience",
     "graduation_year": 2026,
     "push_token": null,
-    "created_at": "2026-01-02T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2026-01-03T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   "tyler_bennett": {
     "id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
@@ -238,8 +238,8 @@ export const mockAuthors = {
     "major": "Economics",
     "graduation_year": 2025,
     "push_token": null,
-    "created_at": "2026-01-03T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2026-01-04T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   }
 } as Record<string, UserProfile>;
 
@@ -267,6 +267,71 @@ export const authorHandles = {
 } as Record<string, string>;
 
 export const mockPosts = [
+  {
+    "id": "b5c518f0-27b4-5258-b441-a0df791c203b",
+    "author_id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
+    "author": {
+      "id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
+      "email": "alexj_test@terpmail.umd.edu",
+      "username": "alexj_terp",
+      "display_name": "Alex Johnson",
+      "avatar_url": "https://i.pravatar.cc/300?u=alexj_terp",
+      "major": "Computer Science",
+      "graduation_year": 2026,
+      "degree_type": "bs",
+      "minor": "Technology Entrepreneurship",
+      "bio": "Building things at UMD. Coffee enthusiast, campus explorer, and always down for a late-night build sprint.",
+      "pronouns": "they/them",
+      "clubs": [
+        "UMD Hackers",
+        "Data Science Club",
+        "Terp Entrepreneurs",
+        "Maryland Outdoors Club"
+      ],
+      "courses": [
+        "CMSC216",
+        "CMSC330",
+        "STAT400",
+        "BMGT220"
+      ],
+      "interests": [
+        "builders",
+        "startups",
+        "campus-life",
+        "design",
+        "coffee",
+        "community"
+      ],
+      "follower_count": 10,
+      "following_count": 5,
+      "notification_prefs": {
+        "push_enabled": true,
+        "email_enabled": true,
+        "club_updates": true,
+        "event_reminders": true,
+        "feed_activity": true
+      },
+      "push_token": null,
+      "profile_completed": true,
+      "onboarding_step": 3,
+      "created_at": "2025-12-16T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
+    },
+    "club_id": null,
+    "event_id": "eb0a2d13-7e58-5e6e-92f9-5521ded64158",
+    "type": "text",
+    "content": "Outdoors trip info session tonight feels like the exact study-break energy I needed. Strong chance I end up signing up.",
+    "media_urls": [],
+    "media_items": [],
+    "hashtags": [],
+    "like_count": 7,
+    "comment_count": 0,
+    "share_count": 0,
+    "is_pinned": false,
+    "created_at": "2026-04-15T20:40:00.000Z",
+    "updated_at": "2026-04-15T20:40:00.000Z",
+    "is_liked": false
+  },
   {
     "id": "3fe6d5d1-4bc1-5445-b5e6-2273bd0dcc6d",
     "author_id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
@@ -311,10 +376,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2026-01-03T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2026-01-04T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     },
     "club_id": null,
+    "event_id": null,
     "type": "text",
     "content": "Anyone else's ELMS acting up right now or is it just choosing violence against me specifically?",
     "media_urls": [],
@@ -324,8 +390,8 @@ export const mockPosts = [
     "comment_count": 3,
     "share_count": 0,
     "is_pinned": false,
-    "created_at": "2026-04-14T10:29:17.970Z",
-    "updated_at": "2026-04-14T10:29:17.970Z",
+    "created_at": "2026-04-15T17:25:38.952Z",
+    "updated_at": "2026-04-15T17:25:38.952Z",
     "is_liked": false
   },
   {
@@ -375,10 +441,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-15T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-16T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     },
     "club_id": "aaa41ac9-63e0-592f-a177-be36e8b212ee",
+    "event_id": "7f12062a-473a-56c6-98a1-f58990f4889d",
     "type": "club_announcement",
     "content": "Hack Night #4 this week\nWe are back in IRB with mentor tables, pizza, and a sponsor challenge at the end. Bring a half-baked idea or just show up and find a team.",
     "media_urls": [],
@@ -390,8 +457,8 @@ export const mockPosts = [
     "comment_count": 3,
     "share_count": 2,
     "is_pinned": true,
-    "created_at": "2026-04-14T08:29:17.969Z",
-    "updated_at": "2026-04-14T08:29:17.969Z",
+    "created_at": "2026-04-15T15:25:38.952Z",
+    "updated_at": "2026-04-15T15:25:38.952Z",
     "is_liked": false
   },
   {
@@ -437,10 +504,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-23T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-24T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     },
     "club_id": null,
+    "event_id": null,
     "type": "image",
     "content": "The sunset over McKeldin Mall tonight was unreal. Campus looked cinematic for like fifteen straight minutes.",
     "media_urls": [
@@ -458,8 +526,8 @@ export const mockPosts = [
     "comment_count": 4,
     "share_count": 2,
     "is_pinned": false,
-    "created_at": "2026-04-14T00:10:00.000Z",
-    "updated_at": "2026-04-14T00:10:00.000Z",
+    "created_at": "2026-04-15T00:10:00.000Z",
+    "updated_at": "2026-04-15T00:10:00.000Z",
     "is_liked": false
   },
   {
@@ -504,10 +572,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2026-01-01T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2026-01-02T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     },
     "club_id": "44f63ee3-2917-5ac3-84f4-0ab9aa8cbe2a",
+    "event_id": "ee667319-f1cb-5b07-9324-35d19c05336f",
     "type": "image",
     "content": "Student Shorts Screening tomorrow night. We have a really strong lineup and the directors are staying for the discussion after.",
     "media_urls": [
@@ -525,8 +594,8 @@ export const mockPosts = [
     "comment_count": 2,
     "share_count": 0,
     "is_pinned": false,
-    "created_at": "2026-04-13T17:00:00.000Z",
-    "updated_at": "2026-04-13T17:00:00.000Z",
+    "created_at": "2026-04-14T17:00:00.000Z",
+    "updated_at": "2026-04-14T17:00:00.000Z",
     "is_liked": false
   },
   {
@@ -573,10 +642,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-29T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-30T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     },
     "club_id": "572b2a79-031d-5b9e-b4bb-5a727906def8",
+    "event_id": "11ee7049-283f-5473-9178-30363e87ec04",
     "type": "text",
     "content": "Street food social tomorrow at Stamp. No pressure, just come hungry and bring a friend if you want.",
     "media_urls": [],
@@ -586,8 +656,8 @@ export const mockPosts = [
     "comment_count": 0,
     "share_count": 0,
     "is_pinned": false,
-    "created_at": "2026-04-13T15:45:00.000Z",
-    "updated_at": "2026-04-13T15:45:00.000Z",
+    "created_at": "2026-04-14T15:45:00.000Z",
+    "updated_at": "2026-04-14T15:45:00.000Z",
     "is_liked": false
   },
   {
@@ -633,10 +703,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-27T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-28T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     },
     "club_id": "0e68c4f2-2b14-505c-972d-dda49fca824a",
+    "event_id": "ca8008b4-cf50-542a-8f86-e3bd5e003531",
     "type": "club_announcement",
     "content": "Founder Fireside is almost here\nIf you have ever wanted to hear the honest version of startup life, come through on Thursday. Alumni are staying after for small-group Q&A.",
     "media_urls": [],
@@ -646,8 +717,8 @@ export const mockPosts = [
     "comment_count": 2,
     "share_count": 2,
     "is_pinned": true,
-    "created_at": "2026-04-13T14:15:00.000Z",
-    "updated_at": "2026-04-13T14:15:00.000Z",
+    "created_at": "2026-04-14T14:15:00.000Z",
+    "updated_at": "2026-04-14T14:15:00.000Z",
     "is_liked": false
   },
   {
@@ -694,10 +765,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-20T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-21T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     },
     "club_id": "b934a1b0-cf09-5fba-b612-1b8d8ee70570",
+    "event_id": "1eefe324-a89e-5aed-8d1d-2d929ff076dc",
     "type": "club_announcement",
     "content": "Care kit volunteers needed\nWe are packing finals-week care kits this Sunday in Stamp. Easy way to help for an hour between study blocks.",
     "media_urls": [],
@@ -707,8 +779,8 @@ export const mockPosts = [
     "comment_count": 3,
     "share_count": 0,
     "is_pinned": true,
-    "created_at": "2026-04-12T18:20:00.000Z",
-    "updated_at": "2026-04-12T18:20:00.000Z",
+    "created_at": "2026-04-13T18:20:00.000Z",
+    "updated_at": "2026-04-13T18:20:00.000Z",
     "is_liked": false
   },
   {
@@ -755,10 +827,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-17T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-18T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     },
     "club_id": "aaa41ac9-63e0-592f-a177-be36e8b212ee",
+    "event_id": "63325ef7-e61a-5b6e-b676-555541b6e076",
     "type": "text",
     "content": "Bitcamp Team Match Night is in two days. If you have an idea but no team, that is literally what the room is for.",
     "media_urls": [],
@@ -768,8 +841,8 @@ export const mockPosts = [
     "comment_count": 0,
     "share_count": 2,
     "is_pinned": false,
-    "created_at": "2026-04-12T16:05:00.000Z",
-    "updated_at": "2026-04-12T16:05:00.000Z",
+    "created_at": "2026-04-13T16:05:00.000Z",
+    "updated_at": "2026-04-13T16:05:00.000Z",
     "is_liked": false
   },
   {
@@ -816,10 +889,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-22T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-23T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     },
     "club_id": "94dc4785-694a-5b8a-b73d-d6e896187afb",
+    "event_id": "5835cefc-108f-53c3-b300-0cb36d2b2b4f",
     "type": "text",
     "content": "Resume clinic + SQL help tomorrow at McKeldin. Bring your laptop and something specific you want feedback on.",
     "media_urls": [],
@@ -829,8 +903,8 @@ export const mockPosts = [
     "comment_count": 3,
     "share_count": 2,
     "is_pinned": false,
-    "created_at": "2026-04-12T13:15:00.000Z",
-    "updated_at": "2026-04-12T13:15:00.000Z",
+    "created_at": "2026-04-13T13:15:00.000Z",
+    "updated_at": "2026-04-13T13:15:00.000Z",
     "is_liked": false
   },
   {
@@ -876,10 +950,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2026-01-02T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2026-01-03T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     },
     "club_id": "2c3160cc-928d-54c2-817c-2abc9ad857bf",
+    "event_id": "5fffd4d5-3b75-5b84-a53e-23a9996c3233",
     "type": "text",
     "content": "Our Clarice showcase is finally coming together and rehearsal energy tonight was the exact reset I needed.",
     "media_urls": [],
@@ -889,8 +964,73 @@ export const mockPosts = [
     "comment_count": 3,
     "share_count": 2,
     "is_pinned": false,
-    "created_at": "2026-04-12T02:30:00.000Z",
-    "updated_at": "2026-04-12T02:30:00.000Z",
+    "created_at": "2026-04-13T02:30:00.000Z",
+    "updated_at": "2026-04-13T02:30:00.000Z",
+    "is_liked": false
+  },
+  {
+    "id": "7313e10a-fb20-5508-9dbd-1477bbf3b299",
+    "author_id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
+    "author": {
+      "id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
+      "email": "alexj_test@terpmail.umd.edu",
+      "username": "alexj_terp",
+      "display_name": "Alex Johnson",
+      "avatar_url": "https://i.pravatar.cc/300?u=alexj_terp",
+      "major": "Computer Science",
+      "graduation_year": 2026,
+      "degree_type": "bs",
+      "minor": "Technology Entrepreneurship",
+      "bio": "Building things at UMD. Coffee enthusiast, campus explorer, and always down for a late-night build sprint.",
+      "pronouns": "they/them",
+      "clubs": [
+        "UMD Hackers",
+        "Data Science Club",
+        "Terp Entrepreneurs",
+        "Maryland Outdoors Club"
+      ],
+      "courses": [
+        "CMSC216",
+        "CMSC330",
+        "STAT400",
+        "BMGT220"
+      ],
+      "interests": [
+        "builders",
+        "startups",
+        "campus-life",
+        "design",
+        "coffee",
+        "community"
+      ],
+      "follower_count": 10,
+      "following_count": 5,
+      "notification_prefs": {
+        "push_enabled": true,
+        "email_enabled": true,
+        "club_updates": true,
+        "event_reminders": true,
+        "feed_activity": true
+      },
+      "push_token": null,
+      "profile_completed": true,
+      "onboarding_step": 3,
+      "created_at": "2025-12-16T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
+    },
+    "club_id": null,
+    "event_id": "ca8008b4-cf50-542a-8f86-e3bd5e003531",
+    "type": "text",
+    "content": "Founder Fireside delivered. The small-group Q&A after the main talk was easily the most useful part of my week.",
+    "media_urls": [],
+    "media_items": [],
+    "hashtags": [],
+    "like_count": 8,
+    "comment_count": 0,
+    "share_count": 0,
+    "is_pinned": false,
+    "created_at": "2026-04-13T02:05:00.000Z",
+    "updated_at": "2026-04-13T02:05:00.000Z",
     "is_liked": false
   },
   {
@@ -938,10 +1078,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-18T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-19T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     },
     "club_id": null,
+    "event_id": "e1681bc4-21d1-526b-9a95-d8150e59b670",
     "type": "text",
     "content": "Study Jam at McKeldin was exactly what I needed before this analytics project deadline. Shoutout to Data Science Club for making it feel way less chaotic.",
     "media_urls": [],
@@ -951,8 +1092,8 @@ export const mockPosts = [
     "comment_count": 2,
     "share_count": 2,
     "is_pinned": false,
-    "created_at": "2026-04-12T01:05:00.000Z",
-    "updated_at": "2026-04-12T01:05:00.000Z",
+    "created_at": "2026-04-13T01:05:00.000Z",
+    "updated_at": "2026-04-13T01:05:00.000Z",
     "is_liked": false
   },
   {
@@ -1002,10 +1143,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-15T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-16T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     },
     "club_id": null,
+    "event_id": null,
     "type": "text",
     "content": "Today somehow included a mentor meeting in Iribe, coffee in Stamp, and accidentally staying at McKeldin until dark. Very xUMD-coded day.",
     "media_urls": [],
@@ -1015,8 +1157,8 @@ export const mockPosts = [
     "comment_count": 2,
     "share_count": 0,
     "is_pinned": false,
-    "created_at": "2026-04-11T01:45:00.000Z",
-    "updated_at": "2026-04-11T01:45:00.000Z",
+    "created_at": "2026-04-12T01:45:00.000Z",
+    "updated_at": "2026-04-12T01:45:00.000Z",
     "is_liked": false
   },
   {
@@ -1062,10 +1204,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-24T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-25T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     },
     "club_id": "646d7bc1-956c-593b-baec-109a7a9720b6",
+    "event_id": "a62f5bc6-f49a-5de8-ab3c-bd348f017d84",
     "type": "image",
     "content": "Maryland Outdoors is planning our next Shenandoah weekend and the trip briefing is up. Join if you want in before seats disappear.",
     "media_urls": [
@@ -1083,8 +1226,8 @@ export const mockPosts = [
     "comment_count": 2,
     "share_count": 0,
     "is_pinned": false,
-    "created_at": "2026-04-10T22:40:00.000Z",
-    "updated_at": "2026-04-10T22:40:00.000Z",
+    "created_at": "2026-04-11T22:40:00.000Z",
+    "updated_at": "2026-04-11T22:40:00.000Z",
     "is_liked": false
   },
   {
@@ -1131,10 +1274,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-31T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2026-01-01T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     },
     "club_id": "673363a9-c22b-5446-98ac-37c379aaed6a",
+    "event_id": "1d11e033-2f83-5006-99c2-8c5271fe5367",
     "type": "image",
     "content": "Creative Coding Collective gallery night is getting dangerously cool. Projection tests looked incredible tonight.",
     "media_urls": [
@@ -1152,8 +1296,8 @@ export const mockPosts = [
     "comment_count": 0,
     "share_count": 0,
     "is_pinned": false,
-    "created_at": "2026-04-10T02:10:00.000Z",
-    "updated_at": "2026-04-10T02:10:00.000Z",
+    "created_at": "2026-04-11T02:10:00.000Z",
+    "updated_at": "2026-04-11T02:10:00.000Z",
     "is_liked": false
   },
   {
@@ -1199,10 +1343,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-21T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-22T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     },
     "club_id": "0e68c4f2-2b14-505c-972d-dda49fca824a",
+    "event_id": "b97103cd-1bca-58a3-ae1b-8fbcf6158e82",
     "type": "text",
     "content": "Makers + Founders Brunch is going to be low-key but very useful. If you want collaborators, come early and actually talk to people.",
     "media_urls": [],
@@ -1212,8 +1357,8 @@ export const mockPosts = [
     "comment_count": 0,
     "share_count": 0,
     "is_pinned": false,
-    "created_at": "2026-04-09T16:30:00.000Z",
-    "updated_at": "2026-04-09T16:30:00.000Z",
+    "created_at": "2026-04-10T16:30:00.000Z",
+    "updated_at": "2026-04-10T16:30:00.000Z",
     "is_liked": false
   },
   {
@@ -1259,10 +1404,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-19T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-20T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     },
     "club_id": null,
+    "event_id": null,
     "type": "text",
     "content": "If you saw a group of us absolutely fighting for our lives near Eppley, that was running club hill reps and yes, they were brutal.",
     "media_urls": [],
@@ -1272,8 +1418,8 @@ export const mockPosts = [
     "comment_count": 0,
     "share_count": 0,
     "is_pinned": false,
-    "created_at": "2026-04-09T00:25:00.000Z",
-    "updated_at": "2026-04-09T00:25:00.000Z",
+    "created_at": "2026-04-10T00:25:00.000Z",
+    "updated_at": "2026-04-10T00:25:00.000Z",
     "is_liked": false
   },
   {
@@ -1321,10 +1467,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-16T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-17T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     },
     "club_id": null,
+    "event_id": null,
     "type": "text",
     "content": "ESJ has quietly become my favorite place to work when McKeldin feels too loud. The lighting just works.",
     "media_urls": [],
@@ -1334,8 +1481,8 @@ export const mockPosts = [
     "comment_count": 0,
     "share_count": 0,
     "is_pinned": false,
-    "created_at": "2026-04-06T19:20:00.000Z",
-    "updated_at": "2026-04-06T19:20:00.000Z",
+    "created_at": "2026-04-07T19:20:00.000Z",
+    "updated_at": "2026-04-07T19:20:00.000Z",
     "is_liked": false
   },
   {
@@ -1382,10 +1529,11 @@ export const mockPosts = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-30T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-31T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     },
     "club_id": null,
+    "event_id": null,
     "type": "text",
     "content": "Service night reminder: it always feels worth showing up, even when you only have one hour to spare.",
     "media_urls": [],
@@ -1395,8 +1543,8 @@ export const mockPosts = [
     "comment_count": 2,
     "share_count": 0,
     "is_pinned": false,
-    "created_at": "2026-04-05T23:10:00.000Z",
-    "updated_at": "2026-04-05T23:10:00.000Z",
+    "created_at": "2026-04-06T23:10:00.000Z",
+    "updated_at": "2026-04-06T23:10:00.000Z",
     "is_liked": false
   }
 ] as Post[];
@@ -1453,14 +1601,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-22T14:00:00.000Z",
-        "updated_at": "2026-04-11T16:00:00.000Z"
+        "created_at": "2025-12-23T14:00:00.000Z",
+        "updated_at": "2026-04-12T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "We have extra mentor coverage this week too, so bring whatever bug has been blocking you.",
       "like_count": 5,
-      "created_at": "2026-04-14T08:41:17.969Z",
-      "updated_at": "2026-04-14T08:41:17.969Z",
+      "created_at": "2026-04-15T15:37:38.952Z",
+      "updated_at": "2026-04-15T15:37:38.952Z",
       "is_liked": false,
       "replies": []
     },
@@ -1510,14 +1658,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-16T14:00:00.000Z",
-        "updated_at": "2026-04-11T16:00:00.000Z"
+        "created_at": "2025-12-17T14:00:00.000Z",
+        "updated_at": "2026-04-12T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Can confirm the pizza lineup is better than usual.",
       "like_count": 1,
-      "created_at": "2026-04-14T08:50:17.969Z",
-      "updated_at": "2026-04-14T08:50:17.969Z",
+      "created_at": "2026-04-15T15:46:38.952Z",
+      "updated_at": "2026-04-15T15:46:38.952Z",
       "is_liked": false,
       "replies": [
         {
@@ -1568,14 +1716,14 @@ export const mockComments = {
             "push_token": null,
             "profile_completed": true,
             "onboarding_step": 3,
-            "created_at": "2025-12-15T14:00:00.000Z",
-            "updated_at": "2026-04-12T16:00:00.000Z"
+            "created_at": "2025-12-16T14:00:00.000Z",
+            "updated_at": "2026-04-13T16:00:00.000Z"
           },
           "parent_id": "2736b0ed-4833-50d8-b2c3-f6c28b915691",
           "content": "I fought for that line item in the budget and I stand by it.",
           "like_count": 0,
-          "created_at": "2026-04-14T08:59:17.969Z",
-          "updated_at": "2026-04-14T08:59:17.969Z",
+          "created_at": "2026-04-15T15:55:38.952Z",
+          "updated_at": "2026-04-15T15:55:38.952Z",
           "is_liked": false,
           "replies": []
         }
@@ -1627,14 +1775,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-21T14:00:00.000Z",
-        "updated_at": "2026-04-12T16:00:00.000Z"
+        "created_at": "2025-12-22T14:00:00.000Z",
+        "updated_at": "2026-04-13T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Please come ready with real questions. The alumni asked for the honest version, not the polished one.",
       "like_count": 2,
-      "created_at": "2026-04-13T14:27:00.000Z",
-      "updated_at": "2026-04-13T14:27:00.000Z",
+      "created_at": "2026-04-14T14:27:00.000Z",
+      "updated_at": "2026-04-14T14:27:00.000Z",
       "is_liked": false,
       "replies": []
     },
@@ -1683,14 +1831,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2026-01-03T14:00:00.000Z",
-        "updated_at": "2026-04-11T16:00:00.000Z"
+        "created_at": "2026-01-04T14:00:00.000Z",
+        "updated_at": "2026-04-12T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "This is the first founder event I have actually cleared my calendar for all semester.",
       "like_count": 1,
-      "created_at": "2026-04-13T14:36:00.000Z",
-      "updated_at": "2026-04-13T14:36:00.000Z",
+      "created_at": "2026-04-14T14:36:00.000Z",
+      "updated_at": "2026-04-14T14:36:00.000Z",
       "is_liked": false,
       "replies": []
     }
@@ -1740,14 +1888,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-25T14:00:00.000Z",
-        "updated_at": "2026-04-11T16:00:00.000Z"
+        "created_at": "2025-12-26T14:00:00.000Z",
+        "updated_at": "2026-04-12T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "We can always use another set of hands during the first hour.",
       "like_count": 2,
-      "created_at": "2026-04-12T18:32:00.000Z",
-      "updated_at": "2026-04-12T18:32:00.000Z",
+      "created_at": "2026-04-13T18:32:00.000Z",
+      "updated_at": "2026-04-13T18:32:00.000Z",
       "is_liked": false,
       "replies": []
     },
@@ -1795,14 +1943,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-23T14:00:00.000Z",
-        "updated_at": "2026-04-10T16:00:00.000Z"
+        "created_at": "2025-12-24T14:00:00.000Z",
+        "updated_at": "2026-04-11T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "I will bring tape and markers again.",
       "like_count": 2,
-      "created_at": "2026-04-12T18:41:00.000Z",
-      "updated_at": "2026-04-12T18:41:00.000Z",
+      "created_at": "2026-04-13T18:41:00.000Z",
+      "updated_at": "2026-04-13T18:41:00.000Z",
       "is_liked": false,
       "replies": [
         {
@@ -1850,14 +1998,14 @@ export const mockComments = {
             "push_token": null,
             "profile_completed": true,
             "onboarding_step": 3,
-            "created_at": "2025-12-20T14:00:00.000Z",
-            "updated_at": "2026-04-10T16:00:00.000Z"
+            "created_at": "2025-12-21T14:00:00.000Z",
+            "updated_at": "2026-04-11T16:00:00.000Z"
           },
           "parent_id": "9999a818-9e4c-5a54-8eac-ef7b47462af0",
           "content": "Perfect. Poster station is yours if you want it.",
           "like_count": 0,
-          "created_at": "2026-04-12T18:50:00.000Z",
-          "updated_at": "2026-04-12T18:50:00.000Z",
+          "created_at": "2026-04-13T18:50:00.000Z",
+          "updated_at": "2026-04-13T18:50:00.000Z",
           "is_liked": false,
           "replies": []
         }
@@ -1910,14 +2058,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-22T14:00:00.000Z",
-        "updated_at": "2026-04-11T16:00:00.000Z"
+        "created_at": "2025-12-23T14:00:00.000Z",
+        "updated_at": "2026-04-12T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Glad it helped. McKeldin on study-jam nights has such good focus energy.",
       "like_count": 3,
-      "created_at": "2026-04-12T01:17:00.000Z",
-      "updated_at": "2026-04-12T01:17:00.000Z",
+      "created_at": "2026-04-13T01:17:00.000Z",
+      "updated_at": "2026-04-13T01:17:00.000Z",
       "is_liked": false,
       "replies": []
     },
@@ -1965,14 +2113,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2026-01-02T14:00:00.000Z",
-        "updated_at": "2026-04-12T16:00:00.000Z"
+        "created_at": "2026-01-03T14:00:00.000Z",
+        "updated_at": "2026-04-13T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "You locked in for that whole last hour. Respect.",
       "like_count": 4,
-      "created_at": "2026-04-12T01:26:00.000Z",
-      "updated_at": "2026-04-12T01:26:00.000Z",
+      "created_at": "2026-04-13T01:26:00.000Z",
+      "updated_at": "2026-04-13T01:26:00.000Z",
       "is_liked": false,
       "replies": []
     }
@@ -2026,14 +2174,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-15T14:00:00.000Z",
-        "updated_at": "2026-04-12T16:00:00.000Z"
+        "created_at": "2025-12-16T14:00:00.000Z",
+        "updated_at": "2026-04-13T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "This campus really knows when to randomly look its best.",
       "like_count": 2,
-      "created_at": "2026-04-14T00:22:00.000Z",
-      "updated_at": "2026-04-14T00:22:00.000Z",
+      "created_at": "2026-04-15T00:22:00.000Z",
+      "updated_at": "2026-04-15T00:22:00.000Z",
       "is_liked": false,
       "replies": []
     },
@@ -2083,14 +2231,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-18T14:00:00.000Z",
-        "updated_at": "2026-04-12T16:00:00.000Z"
+        "created_at": "2025-12-19T14:00:00.000Z",
+        "updated_at": "2026-04-13T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Please send me the original because this deserves to be wallpaper status.",
       "like_count": 4,
-      "created_at": "2026-04-14T00:31:00.000Z",
-      "updated_at": "2026-04-14T00:31:00.000Z",
+      "created_at": "2026-04-15T00:31:00.000Z",
+      "updated_at": "2026-04-15T00:31:00.000Z",
       "is_liked": false,
       "replies": [
         {
@@ -2137,14 +2285,14 @@ export const mockComments = {
             "push_token": null,
             "profile_completed": true,
             "onboarding_step": 3,
-            "created_at": "2025-12-23T14:00:00.000Z",
-            "updated_at": "2026-04-10T16:00:00.000Z"
+            "created_at": "2025-12-24T14:00:00.000Z",
+            "updated_at": "2026-04-11T16:00:00.000Z"
           },
           "parent_id": "8f59ec51-46b2-5dda-9798-d5770f87c06e",
           "content": "On it. I have a couple more from five minutes later too.",
           "like_count": 0,
-          "created_at": "2026-04-14T00:40:00.000Z",
-          "updated_at": "2026-04-14T00:40:00.000Z",
+          "created_at": "2026-04-15T00:40:00.000Z",
+          "updated_at": "2026-04-15T00:40:00.000Z",
           "is_liked": false,
           "replies": []
         }
@@ -2193,14 +2341,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2026-01-01T14:00:00.000Z",
-        "updated_at": "2026-04-10T16:00:00.000Z"
+        "created_at": "2026-01-02T14:00:00.000Z",
+        "updated_at": "2026-04-11T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "The color grade on this is ridiculous.",
       "like_count": 4,
-      "created_at": "2026-04-14T00:49:00.000Z",
-      "updated_at": "2026-04-14T00:49:00.000Z",
+      "created_at": "2026-04-15T00:49:00.000Z",
+      "updated_at": "2026-04-15T00:49:00.000Z",
       "is_liked": false,
       "replies": []
     }
@@ -2249,14 +2397,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2026-01-01T14:00:00.000Z",
-        "updated_at": "2026-04-10T16:00:00.000Z"
+        "created_at": "2026-01-02T14:00:00.000Z",
+        "updated_at": "2026-04-11T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "I am in if somebody reminds me about gear pickup.",
       "like_count": 5,
-      "created_at": "2026-04-10T22:52:00.000Z",
-      "updated_at": "2026-04-10T22:52:00.000Z",
+      "created_at": "2026-04-11T22:52:00.000Z",
+      "updated_at": "2026-04-11T22:52:00.000Z",
       "is_liked": false,
       "replies": []
     },
@@ -2308,14 +2456,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-15T14:00:00.000Z",
-        "updated_at": "2026-04-12T16:00:00.000Z"
+        "created_at": "2025-12-16T14:00:00.000Z",
+        "updated_at": "2026-04-13T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Same. Need a definitive shoe answer before I commit.",
       "like_count": 3,
-      "created_at": "2026-04-10T23:01:00.000Z",
-      "updated_at": "2026-04-10T23:01:00.000Z",
+      "created_at": "2026-04-11T23:01:00.000Z",
+      "updated_at": "2026-04-11T23:01:00.000Z",
       "is_liked": false,
       "replies": []
     }
@@ -2369,14 +2517,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-15T14:00:00.000Z",
-        "updated_at": "2026-04-12T16:00:00.000Z"
+        "created_at": "2025-12-16T14:00:00.000Z",
+        "updated_at": "2026-04-13T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "ELMS saw your syllabus and chose chaos.",
       "like_count": 5,
-      "created_at": "2026-04-14T10:41:17.970Z",
-      "updated_at": "2026-04-14T10:41:17.970Z",
+      "created_at": "2026-04-15T17:37:38.952Z",
+      "updated_at": "2026-04-15T17:37:38.952Z",
       "is_liked": false,
       "replies": []
     },
@@ -2425,14 +2573,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-20T14:00:00.000Z",
-        "updated_at": "2026-04-10T16:00:00.000Z"
+        "created_at": "2025-12-21T14:00:00.000Z",
+        "updated_at": "2026-04-11T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Not just you. I got booted out twice this afternoon.",
       "like_count": 3,
-      "created_at": "2026-04-14T10:50:17.970Z",
-      "updated_at": "2026-04-14T10:50:17.970Z",
+      "created_at": "2026-04-15T17:46:38.952Z",
+      "updated_at": "2026-04-15T17:46:38.952Z",
       "is_liked": false,
       "replies": []
     },
@@ -2480,14 +2628,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-27T14:00:00.000Z",
-        "updated_at": "2026-04-12T16:00:00.000Z"
+        "created_at": "2025-12-28T14:00:00.000Z",
+        "updated_at": "2026-04-13T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "This app picks the worst possible times to fall apart.",
       "like_count": 5,
-      "created_at": "2026-04-14T10:59:17.970Z",
-      "updated_at": "2026-04-14T10:59:17.970Z",
+      "created_at": "2026-04-15T17:55:38.952Z",
+      "updated_at": "2026-04-15T17:55:38.952Z",
       "is_liked": false,
       "replies": []
     }
@@ -2539,14 +2687,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-18T14:00:00.000Z",
-        "updated_at": "2026-04-12T16:00:00.000Z"
+        "created_at": "2025-12-19T14:00:00.000Z",
+        "updated_at": "2026-04-13T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Bringing mine. It needs help and I have accepted that.",
       "like_count": 5,
-      "created_at": "2026-04-12T13:27:00.000Z",
-      "updated_at": "2026-04-12T13:27:00.000Z",
+      "created_at": "2026-04-13T13:27:00.000Z",
+      "updated_at": "2026-04-13T13:27:00.000Z",
       "is_liked": false,
       "replies": []
     },
@@ -2598,14 +2746,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-15T14:00:00.000Z",
-        "updated_at": "2026-04-12T16:00:00.000Z"
+        "created_at": "2025-12-16T14:00:00.000Z",
+        "updated_at": "2026-04-13T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Can people bring product resumes too or strictly analytics?",
       "like_count": 5,
-      "created_at": "2026-04-12T13:36:00.000Z",
-      "updated_at": "2026-04-12T13:36:00.000Z",
+      "created_at": "2026-04-13T13:36:00.000Z",
+      "updated_at": "2026-04-13T13:36:00.000Z",
       "is_liked": false,
       "replies": [
         {
@@ -2653,14 +2801,14 @@ export const mockComments = {
             "push_token": null,
             "profile_completed": true,
             "onboarding_step": 3,
-            "created_at": "2025-12-22T14:00:00.000Z",
-            "updated_at": "2026-04-11T16:00:00.000Z"
+            "created_at": "2025-12-23T14:00:00.000Z",
+            "updated_at": "2026-04-12T16:00:00.000Z"
           },
           "parent_id": "1dceb0d2-9067-5bca-9115-35a8f29b2bd8",
           "content": "Bring it. We can still tighten the story and bullets.",
           "like_count": 1,
-          "created_at": "2026-04-12T13:45:00.000Z",
-          "updated_at": "2026-04-12T13:45:00.000Z",
+          "created_at": "2026-04-13T13:45:00.000Z",
+          "updated_at": "2026-04-13T13:45:00.000Z",
           "is_liked": false,
           "replies": []
         }
@@ -2712,14 +2860,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-23T14:00:00.000Z",
-        "updated_at": "2026-04-10T16:00:00.000Z"
+        "created_at": "2025-12-24T14:00:00.000Z",
+        "updated_at": "2026-04-11T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "The lineup is actually so strong. There is a documentary short in there I cannot stop thinking about.",
       "like_count": 2,
-      "created_at": "2026-04-13T17:12:00.000Z",
-      "updated_at": "2026-04-13T17:12:00.000Z",
+      "created_at": "2026-04-14T17:12:00.000Z",
+      "updated_at": "2026-04-14T17:12:00.000Z",
       "is_liked": false,
       "replies": []
     },
@@ -2768,14 +2916,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-31T14:00:00.000Z",
-        "updated_at": "2026-04-11T16:00:00.000Z"
+        "created_at": "2026-01-01T14:00:00.000Z",
+        "updated_at": "2026-04-12T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Saving a seat near the front for the discussion after.",
       "like_count": 5,
-      "created_at": "2026-04-13T17:21:00.000Z",
-      "updated_at": "2026-04-13T17:21:00.000Z",
+      "created_at": "2026-04-14T17:21:00.000Z",
+      "updated_at": "2026-04-14T17:21:00.000Z",
       "is_liked": false,
       "replies": []
     }
@@ -2825,14 +2973,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-21T14:00:00.000Z",
-        "updated_at": "2026-04-12T16:00:00.000Z"
+        "created_at": "2025-12-22T14:00:00.000Z",
+        "updated_at": "2026-04-13T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Tonight felt sharp. The transitions finally clicked.",
       "like_count": 3,
-      "created_at": "2026-04-12T02:42:00.000Z",
-      "updated_at": "2026-04-12T02:42:00.000Z",
+      "created_at": "2026-04-13T02:42:00.000Z",
+      "updated_at": "2026-04-13T02:42:00.000Z",
       "is_liked": false,
       "replies": []
     },
@@ -2882,14 +3030,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-18T14:00:00.000Z",
-        "updated_at": "2026-04-12T16:00:00.000Z"
+        "created_at": "2025-12-19T14:00:00.000Z",
+        "updated_at": "2026-04-13T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Proud of this team every single time.",
       "like_count": 3,
-      "created_at": "2026-04-12T02:51:00.000Z",
-      "updated_at": "2026-04-12T02:51:00.000Z",
+      "created_at": "2026-04-13T02:51:00.000Z",
+      "updated_at": "2026-04-13T02:51:00.000Z",
       "is_liked": false,
       "replies": [
         {
@@ -2936,14 +3084,14 @@ export const mockComments = {
             "push_token": null,
             "profile_completed": true,
             "onboarding_step": 3,
-            "created_at": "2026-01-02T14:00:00.000Z",
-            "updated_at": "2026-04-12T16:00:00.000Z"
+            "created_at": "2026-01-03T14:00:00.000Z",
+            "updated_at": "2026-04-13T16:00:00.000Z"
           },
           "parent_id": "db2188e4-baeb-5355-8c64-d18e94cf6a4a",
           "content": "Okay now I am emotional again.",
           "like_count": 2,
-          "created_at": "2026-04-12T03:00:00.000Z",
-          "updated_at": "2026-04-12T03:00:00.000Z",
+          "created_at": "2026-04-13T03:00:00.000Z",
+          "updated_at": "2026-04-13T03:00:00.000Z",
           "is_liked": false,
           "replies": []
         }
@@ -2997,14 +3145,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-16T14:00:00.000Z",
-        "updated_at": "2026-04-11T16:00:00.000Z"
+        "created_at": "2025-12-17T14:00:00.000Z",
+        "updated_at": "2026-04-12T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "This is basically the whole promise of the app in one post.",
       "like_count": 5,
-      "created_at": "2026-04-11T01:57:00.000Z",
-      "updated_at": "2026-04-11T01:57:00.000Z",
+      "created_at": "2026-04-12T01:57:00.000Z",
+      "updated_at": "2026-04-12T01:57:00.000Z",
       "is_liked": false,
       "replies": []
     },
@@ -3053,14 +3201,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-17T14:00:00.000Z",
-        "updated_at": "2026-04-10T16:00:00.000Z"
+        "created_at": "2025-12-18T14:00:00.000Z",
+        "updated_at": "2026-04-11T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "If you did not end the day at McKeldin, was it even a real campus day?",
       "like_count": 1,
-      "created_at": "2026-04-11T02:06:00.000Z",
-      "updated_at": "2026-04-11T02:06:00.000Z",
+      "created_at": "2026-04-12T02:06:00.000Z",
+      "updated_at": "2026-04-12T02:06:00.000Z",
       "is_liked": false,
       "replies": []
     }
@@ -3111,14 +3259,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-20T14:00:00.000Z",
-        "updated_at": "2026-04-10T16:00:00.000Z"
+        "created_at": "2025-12-21T14:00:00.000Z",
+        "updated_at": "2026-04-11T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Exactly. Consistency matters more than people think.",
       "like_count": 3,
-      "created_at": "2026-04-05T23:22:00.000Z",
-      "updated_at": "2026-04-05T23:22:00.000Z",
+      "created_at": "2026-04-06T23:22:00.000Z",
+      "updated_at": "2026-04-06T23:22:00.000Z",
       "is_liked": false,
       "replies": []
     },
@@ -3166,14 +3314,14 @@ export const mockComments = {
         "push_token": null,
         "profile_completed": true,
         "onboarding_step": 3,
-        "created_at": "2025-12-25T14:00:00.000Z",
-        "updated_at": "2026-04-11T16:00:00.000Z"
+        "created_at": "2025-12-26T14:00:00.000Z",
+        "updated_at": "2026-04-12T16:00:00.000Z"
       },
       "parent_id": null,
       "content": "Small volunteer shifts keep the whole thing moving.",
       "like_count": 2,
-      "created_at": "2026-04-05T23:31:00.000Z",
-      "updated_at": "2026-04-05T23:31:00.000Z",
+      "created_at": "2026-04-06T23:31:00.000Z",
+      "updated_at": "2026-04-06T23:31:00.000Z",
       "is_liked": false,
       "replies": []
     }

@@ -98,7 +98,7 @@ export async function getClubMembers(
 ): Promise<ServiceResult<ClubMemberWithUser[]>> {
   const { data, error } = await supabase
     .from('club_members')
-    .select('*, user:profiles!user_id(*)')
+    .select('*, user:users!club_members_user_id_fkey(*)')
     .eq('club_id', clubId)
     .eq('status', MemberStatus.Approved)
     .order('role', { ascending: true });

@@ -69,7 +69,7 @@ function groupSuggestions(suggestions: AutocompleteSuggestion[]) {
 }
 
 export default function SearchHomeScreen({ navigation }: Props) {
-  const { isWide, isDesktop } = useResponsive();
+  const { isMobile, isWide, isDesktop } = useResponsive();
   const searchContentWidthStyle = isDesktop
     ? styles.searchContentDesktop
     : isWide
@@ -458,6 +458,68 @@ export default function SearchHomeScreen({ navigation }: Props) {
       </View>
     );
   };
+
+  const renderTrendingHashtagsCard = () => {
+    if (!discoveryData || discoveryData.trending_hashtags.length === 0) {
+      return null;
+    }
+
+    return (
+      <Card style={styles.hashtagCard}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Trending hashtags</Text>
+          <Text style={styles.sectionMeta}>Campus pulse</Text>
+        </View>
+        <View style={styles.trendingTagsWrap}>
+          {discoveryData.trending_hashtags.slice(0, 8).map((item) => (
+            <Pressable
+              key={item.hashtag}
+              onPress={() => void handleSubmitSearch(`#${item.hashtag}`)}
+              style={styles.hashtagChip}
+            >
+              <Text style={styles.hashtagChipLabel}>#{item.hashtag}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </Card>
+    );
+  };
+
+  const renderRecentSearchesCard = () => (
+    <Card style={[styles.recentCard, isWide && styles.utilityCardWide]}>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Recent Searches</Text>
+        {recentSearches.length > 0 ? (
+          <Pressable onPress={() => void clearAll()}>
+            <Text style={styles.clearLabel}>Clear All</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {hydrated && recentSearches.length > 0 ? (
+        <View style={styles.recentList}>
+          {recentSearches.map((entry) => (
+            <View key={`${entry.query}-${entry.timestamp}`} style={styles.recentRow}>
+              <Pressable onPress={() => void handleSubmitSearch(entry.query)} style={styles.recentPrimaryAction}>
+                <Ionicons name="time-outline" size={16} color={colors.text.secondary} />
+                <Text style={styles.recentQueryLabel}>{entry.query}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void removeSearch(entry.query)}
+                accessibilityLabel={`Remove ${entry.query} from recent searches`}
+              >
+                <Ionicons name="close" size={18} color={colors.text.tertiary} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <Text style={styles.emptyBody}>
+          Recent searches will stay on this device so it is quick to jump back into what you were exploring.
+        </Text>
+      )}
+    </Card>
+  );
+
   const renderDiscovery = () => (
     <View style={[styles.discoveryShell, isWide && styles.discoveryShellWide]}>
       {discoveryLoading && !discoveryData ? (
@@ -466,6 +528,9 @@ export default function SearchHomeScreen({ navigation }: Props) {
           <View style={styles.skeletonLine} />
         </Card>
       ) : null}
+
+      {isMobile ? renderRecentSearchesCard() : null}
+      {isMobile ? renderTrendingHashtagsCard() : null}
 
       {discoveryData ? (
         <>
@@ -496,25 +561,7 @@ export default function SearchHomeScreen({ navigation }: Props) {
             </ScrollView>
           </View>
 
-          {discoveryData.trending_hashtags.length > 0 ? (
-            <Card style={styles.hashtagCard}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Trending hashtags</Text>
-                <Text style={styles.sectionMeta}>Campus pulse</Text>
-              </View>
-              <View style={styles.trendingTagsWrap}>
-                {discoveryData.trending_hashtags.slice(0, 8).map((item) => (
-                  <Pressable
-                    key={item.hashtag}
-                    onPress={() => void handleSubmitSearch(`#${item.hashtag}`)}
-                    style={styles.hashtagChip}
-                  >
-                    <Text style={styles.hashtagChipLabel}>#{item.hashtag}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </Card>
-          ) : null}
+          {!isMobile ? renderTrendingHashtagsCard() : null}
 
           <View style={styles.sectionBlock}>
             <View style={styles.sectionHeaderRow}>
@@ -589,38 +636,7 @@ export default function SearchHomeScreen({ navigation }: Props) {
           </View>
         </Card>
 
-        <Card style={[styles.recentCard, isWide && styles.utilityCardWide]}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Recent Searches</Text>
-            {recentSearches.length > 0 ? (
-              <Pressable onPress={() => void clearAll()}>
-                <Text style={styles.clearLabel}>Clear All</Text>
-              </Pressable>
-            ) : null}
-          </View>
-          {hydrated && recentSearches.length > 0 ? (
-            <View style={styles.recentList}>
-              {recentSearches.map((entry) => (
-                <View key={`${entry.query}-${entry.timestamp}`} style={styles.recentRow}>
-                  <Pressable onPress={() => void handleSubmitSearch(entry.query)} style={styles.recentPrimaryAction}>
-                    <Ionicons name="time-outline" size={16} color={colors.text.secondary} />
-                    <Text style={styles.recentQueryLabel}>{entry.query}</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => void removeSearch(entry.query)}
-                    accessibilityLabel={`Remove ${entry.query} from recent searches`}
-                  >
-                    <Ionicons name="close" size={18} color={colors.text.tertiary} />
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.emptyBody}>
-              Recent searches will stay on this device so it is quick to jump back into what you were exploring.
-            </Text>
-          )}
-        </Card>
+        {!isMobile ? renderRecentSearchesCard() : null}
       </View>
     </View>
   );
@@ -629,20 +645,25 @@ export default function SearchHomeScreen({ navigation }: Props) {
     <ScreenLayout
       title="Search"
       subtitle="People, events, clubs, and places in one campus brain."
-      headerTopContent={<UMDBrandLockup />}
-      headerMetaContent={
+      showHeader={!isMobile}
+      headerTopContent={isMobile ? undefined : <UMDBrandLockup />}
+      headerMetaContent={isMobile ? undefined : (
         <HeaderTag
           icon="search-outline"
           label="Unified Search"
           color={colors.primary.main}
           tintColor={colors.primary.lightest}
         />
-      }
-      headerStyle={styles.headerShell}
+      )}
+      headerStyle={isMobile ? undefined : styles.headerShell}
       scroll={false}
-      contentContainerStyle={styles.screenBody}
+      contentContainerStyle={[
+        styles.screenBody,
+        isMobile ? styles.screenBodyMobile : null,
+        isMobile ? styles.screenBodyMobileTightBottom : null,
+      ]}
     >
-      <View style={styles.searchShell}>
+      <View style={[styles.searchShell, isMobile ? styles.searchShellMobile : null]}>
         <View style={[styles.searchShellInner, searchContentWidthStyle]}>
           <View style={styles.searchBarCard}>
             <Ionicons name="search" size={20} color={colors.text.secondary} />
@@ -726,7 +747,7 @@ export default function SearchHomeScreen({ navigation }: Props) {
 
       <ScrollView
         style={styles.flexFill}
-        contentContainerStyle={[styles.scrollContent, searchContentWidthStyle]}
+        contentContainerStyle={[styles.scrollContent, isMobile ? styles.scrollContentMobile : null, searchContentWidthStyle]}
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
       >
@@ -750,6 +771,12 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.md,
   },
+  screenBodyMobile: {
+    gap: spacing.sm,
+  },
+  screenBodyMobileTightBottom: {
+    paddingBottom: 0,
+  },
   flexFill: {
     flex: 1,
   },
@@ -758,6 +785,9 @@ const styles = StyleSheet.create({
     zIndex: 4,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
+  },
+  searchShellMobile: {
+    paddingTop: spacing.xs,
   },
   searchShellInner: {
     width: '100%',
@@ -861,6 +891,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     gap: spacing.lg,
     paddingBottom: spacing.xxl + spacing.lg,
+  },
+  scrollContentMobile: {
+    paddingTop: spacing.xs,
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
   },
   discoveryShell: {
     gap: spacing.lg,

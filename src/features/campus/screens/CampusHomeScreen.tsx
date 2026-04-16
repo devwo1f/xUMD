@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HeaderTag from '../../../shared/components/HeaderTag';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import UMDBrandLockup from '../../../shared/components/UMDBrandLockup';
+import { useResponsive } from '../../../shared/hooks/useResponsive';
 import FeatureCard from '../components/FeatureCard';
 import { campusCards, quickLinks } from '../../../experience/content';
 import { colors } from '../../../shared/theme/colors';
@@ -35,6 +36,8 @@ const quickLinkMap: Record<string, QuickLinkKey> = {
 };
 
 export default function CampusHomeScreen({ navigation }: Props) {
+  const { isMobile } = useResponsive();
+
   return (
     <ScreenLayout
       title="Campus"
@@ -50,7 +53,7 @@ export default function CampusHomeScreen({ navigation }: Props) {
       }
       headerStyle={styles.headerShell}
     >
-      <View style={styles.grid}>
+      <View style={[styles.grid, isMobile ? styles.gridCompact : null]}>
         {campusCards.map((card, index) => {
           const destination = featureMap[card.title];
           const isLastOddCard = campusCards.length % 2 === 1 && index === campusCards.length - 1;
@@ -63,6 +66,7 @@ export default function CampusHomeScreen({ navigation }: Props) {
               icon={card.icon}
               accentColor={card.color}
               tintColor={card.tint}
+              compact={isMobile}
               onPress={() => {
                 if (destination === 'libraries-directory') {
                   navigation.navigate('LibrariesDirectory');
@@ -76,7 +80,7 @@ export default function CampusHomeScreen({ navigation }: Props) {
 
                 navigation.navigate('CampusFeature', { featureKey: destination });
               }}
-              style={[styles.featureCard, isLastOddCard && styles.featureCardWide]}
+              style={[styles.featureCard, isMobile ? styles.featureCardCompact : null, isLastOddCard && styles.featureCardWide]}
             />
           );
         })}
@@ -124,7 +128,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.md,
   },
+  gridCompact: {
+    gap: spacing.sm,
+  },
   featureCard: {
+    width: '47%',
+  },
+  featureCardCompact: {
     width: '47%',
   },
   featureCardWide: {

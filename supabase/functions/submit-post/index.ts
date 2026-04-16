@@ -1,4 +1,5 @@
 import { handleOptions, parseJsonBody, jsonResponse, errorResponse } from '../_shared/http.ts';
+import { HttpError } from '../_shared/errors.ts';
 import { syncPostToMeilisearch } from '../_shared/meilisearch.ts';
 import { moderatePost } from '../_shared/moderation.ts';
 import { embedText } from '../_shared/openai.ts';
@@ -57,6 +58,8 @@ async function buildResponsePost(input: {
   adminClient: Awaited<ReturnType<typeof requireAuthenticatedUser>>['adminClient'];
   userId: string;
   postId: string;
+  clubId: string | null;
+  eventId: string | null;
   contentText: string;
   hashtags: string[];
   mediaPaths: string[];
@@ -76,6 +79,8 @@ async function buildResponsePost(input: {
   return {
     id: input.postId,
     userId: input.userId,
+    clubId: input.clubId,
+    eventId: input.eventId,
     contentText: input.contentText,
     mediaUrls,
     mediaType: input.mediaType,
@@ -143,6 +148,9 @@ Deno.serve(async (request) => {
     const body = await parseJsonBody<SubmitPostRequest>(request);
     const contentText = body.contentText?.trim() ?? '';
     const media = body.media ?? [];
+    const requestedClubId = body.clubId?.trim() || null;
+    const requestedEventId = body.eventId?.trim() || null;
+    const requestedPinned = Boolean(body.isPinned);
 
     if (!contentText && media.length === 0) {
       throw new Error('A post needs text, media, or both.');
@@ -162,6 +170,57 @@ Deno.serve(async (request) => {
     const mediaPaths: string[] = [];
     const hashtags = extractHashtags(contentText);
     const mediaType = inferMediaType(media);
+    let resolvedEventId: string | null = requestedEventId;
+    let resolvedClubId: string | null = requestedClubId;
+    let canPinPost = false;
+
+    if (requestedEventId) {
+      const { data: eventRow, error: eventError } = await adminClient
+        .from('events')
+        .select('id, club_id')
+        .eq('id', requestedEventId)
+        .maybeSingle();
+
+      if (eventError) {
+        throw eventError;
+      }
+
+      if (!eventRow) {
+        throw new HttpError(404, 'not_found', 'That event could not be found.');
+      }
+
+      resolvedEventId = eventRow.id;
+      if (resolvedClubId && eventRow.club_id && resolvedClubId !== eventRow.club_id) {
+        throw new HttpError(400, 'bad_request', 'The selected club does not match the linked event.');
+      }
+    }
+
+    if (resolvedClubId || requestedPinned) {
+      if (!resolvedClubId) {
+        throw new HttpError(400, 'bad_request', 'Pinned announcements must be associated with a club.');
+      }
+
+      const { data: membershipRow, error: membershipError } = await adminClient
+        .from('club_members')
+        .select('role, status')
+        .eq('club_id', resolvedClubId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (membershipError) {
+        throw membershipError;
+      }
+
+      if (!membershipRow || membershipRow.status !== 'approved') {
+        throw new HttpError(403, 'forbidden', 'You need to be an approved member of this club to post on its behalf.');
+      }
+
+      canPinPost = ['officer', 'admin', 'president'].includes(String(membershipRow.role));
+    }
+
+    if (requestedPinned && !canPinPost) {
+      throw new HttpError(403, 'forbidden', 'Only club officers can pin announcements.');
+    }
 
     for (let index = 0; index < media.length; index += 1) {
       const item = media[index];
@@ -185,10 +244,13 @@ Deno.serve(async (request) => {
     const { error: postError } = await adminClient.from('posts').insert({
       id: postId,
       user_id: userId,
+      club_id: resolvedClubId,
+      event_id: resolvedEventId,
       content_text: contentText,
       media_urls: mediaPaths,
       media_type: mediaType,
       hashtags,
+      is_pinned: requestedPinned,
       moderation_status: moderation.moderationStatus,
       created_at: createdAt,
     });
@@ -215,6 +277,8 @@ Deno.serve(async (request) => {
       adminClient,
       userId,
       postId,
+      clubId: resolvedClubId,
+      eventId: resolvedEventId,
       contentText,
       hashtags,
       mediaPaths,

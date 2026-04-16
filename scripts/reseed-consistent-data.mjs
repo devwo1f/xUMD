@@ -1320,6 +1320,7 @@ const POST_BLUEPRINTS = [
     key: 'alex-hack-night',
     authorKey: 'alex',
     clubKey: 'hackers',
+    eventKey: 'hack-night-4',
     title: 'Hack Night #4 this week',
     body: 'We are back in IRB with mentor tables, pizza, and a sponsor challenge at the end. Bring a half-baked idea or just show up and find a team.',
     isPinned: true,
@@ -1332,6 +1333,7 @@ const POST_BLUEPRINTS = [
     key: 'grace-founder-fireside',
     authorKey: 'grace',
     clubKey: 'entrepreneurs',
+    eventKey: 'founder-fireside',
     title: 'Founder Fireside is almost here',
     body: 'If you have ever wanted to hear the honest version of startup life, come through on Thursday. Alumni are staying after for small-group Q&A.',
     isPinned: true,
@@ -1344,6 +1346,7 @@ const POST_BLUEPRINTS = [
     key: 'maya-care-kits',
     authorKey: 'maya',
     clubKey: 'terps-for-change',
+    eventKey: 'community-care-kits',
     title: 'Care kit volunteers needed',
     body: 'We are packing finals-week care kits this Sunday in Stamp. Easy way to help for an hour between study blocks.',
     isPinned: true,
@@ -1356,6 +1359,7 @@ const POST_BLUEPRINTS = [
     key: 'priya-study-jam',
     authorKey: 'priya',
     clubKey: null,
+    eventKey: 'sql-study-jam',
     content: 'Study Jam at McKeldin was exactly what I needed before this analytics project deadline. Shoutout to Data Science Club for making it feel way less chaotic.',
     isPinned: false,
     type: 'text',
@@ -1378,6 +1382,7 @@ const POST_BLUEPRINTS = [
     key: 'daniel-team-match',
     authorKey: 'daniel',
     clubKey: 'hackers',
+    eventKey: 'bitcamp-team-match',
     content: 'Bitcamp Team Match Night is in two days. If you have an idea but no team, that is literally what the room is for.',
     isPinned: false,
     type: 'club_update',
@@ -1389,6 +1394,7 @@ const POST_BLUEPRINTS = [
     key: 'jordan-trip',
     authorKey: 'jordan',
     clubKey: 'outdoors',
+    eventKey: 'shenandoah-trip-briefing',
     content: 'Maryland Outdoors is planning our next Shenandoah weekend and the trip briefing is up. Join if you want in before seats disappear.',
     isPinned: false,
     type: 'club_update',
@@ -1400,6 +1406,7 @@ const POST_BLUEPRINTS = [
     key: 'chloe-gallery',
     authorKey: 'chloe',
     clubKey: 'creative-coding',
+    eventKey: 'gallery-night',
     content: 'Creative Coding Collective gallery night is getting dangerously cool. Projection tests looked incredible tonight.',
     isPinned: false,
     type: 'club_update',
@@ -1422,6 +1429,7 @@ const POST_BLUEPRINTS = [
     key: 'hannah-ksa-social',
     authorKey: 'hannah',
     clubKey: 'ksa',
+    eventKey: 'street-food-social',
     content: 'Street food social tomorrow at Stamp. No pressure, just come hungry and bring a friend if you want.',
     isPinned: false,
     type: 'club_update',
@@ -1455,6 +1463,7 @@ const POST_BLUEPRINTS = [
     key: 'ethan-resume-clinic',
     authorKey: 'ethan',
     clubKey: 'data-science',
+    eventKey: 'analytics-resume-clinic',
     content: 'Resume clinic + SQL help tomorrow at McKeldin. Bring your laptop and something specific you want feedback on.',
     isPinned: false,
     type: 'club_update',
@@ -1466,6 +1475,7 @@ const POST_BLUEPRINTS = [
     key: 'aaron-screening',
     authorKey: 'aaron',
     clubKey: 'film-society',
+    eventKey: 'film-shorts-screening',
     content: 'Student Shorts Screening tomorrow night. We have a really strong lineup and the directors are staying for the discussion after.',
     isPinned: false,
     type: 'club_update',
@@ -1477,6 +1487,7 @@ const POST_BLUEPRINTS = [
     key: 'sana-showcase',
     authorKey: 'sana',
     clubKey: 'bhangra',
+    eventKey: 'bhangra-at-the-clarice',
     content: 'Our Clarice showcase is finally coming together and rehearsal energy tonight was the exact reset I needed.',
     isPinned: false,
     type: 'club_update',
@@ -1496,9 +1507,34 @@ const POST_BLUEPRINTS = [
     targetLikes: 10,
   },
   {
+    key: 'alex-fireside-notes',
+    authorKey: 'alex',
+    clubKey: null,
+    eventKey: 'founder-fireside',
+    content: 'Founder Fireside delivered. The small-group Q&A after the main talk was easily the most useful part of my week.',
+    isPinned: false,
+    type: 'text',
+    createdAt: { kind: 'daysAgo', dayOffset: 3, hour: 22, minute: 5 },
+    mediaUrls: [],
+    targetLikes: 8,
+  },
+  {
+    key: 'alex-outdoors-briefing',
+    authorKey: 'alex',
+    clubKey: null,
+    eventKey: 'trip-info-session',
+    content: 'Outdoors trip info session tonight feels like the exact study-break energy I needed. Strong chance I end up signing up.',
+    isPinned: false,
+    type: 'text',
+    createdAt: { kind: 'daysAgo', dayOffset: 0, hour: 16, minute: 40 },
+    mediaUrls: [],
+    targetLikes: 7,
+  },
+  {
     key: 'leena-brunch',
     authorKey: 'leena',
     clubKey: 'entrepreneurs',
+    eventKey: 'founders-brunch',
     content: 'Makers + Founders Brunch is going to be low-key but very useful. If you want collaborators, come early and actually talk to people.',
     isPinned: false,
     type: 'club_update',
@@ -2209,6 +2245,7 @@ function buildPostRows({ usersByKey, clubsByKey }) {
   return POST_BLUEPRINTS.map((blueprint) => {
     const author = usersByKey.get(blueprint.authorKey);
     const club = blueprint.clubKey ? clubsByKey.get(blueprint.clubKey) : null;
+    const event = blueprint.eventKey ? EVENT_BLUEPRINTS.find((item) => item.key === blueprint.eventKey) : null;
     const content = blueprint.title ? `${blueprint.title}\n${blueprint.body}` : blueprint.content;
     const createdAt = activityToDate(blueprint.createdAt);
     return {
@@ -2216,6 +2253,7 @@ function buildPostRows({ usersByKey, clubsByKey }) {
       user_id: author.id,
       author_id: author.id,
       club_id: club?.id ?? null,
+      event_id: event ? stableUuid('event', event.key) : null,
       content_text: content,
       content,
       media_urls: blueprint.mediaUrls,
@@ -2230,6 +2268,7 @@ function buildPostRows({ usersByKey, clubsByKey }) {
       updated_at: iso(createdAt),
       postKey: blueprint.key,
       authorKey: blueprint.authorKey,
+      eventKey: blueprint.eventKey ?? null,
     };
   }).sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime());
 }
@@ -2462,6 +2501,25 @@ function validateDataset(dataset) {
     if (post.postKey in COMMENT_BLUEPRINTS && comments < 2) {
       throw new Error(`Post ${post.postKey} should have at least 2 comments.`);
     }
+
+    if (post.event_id) {
+      const linkedEvent = dataset.events.find((event) => event.id === post.event_id);
+      if (!linkedEvent) {
+        throw new Error(`Post ${post.postKey} references a missing event.`);
+      }
+
+      if (post.club_id && linkedEvent.club_id !== post.club_id) {
+        throw new Error(`Post ${post.postKey} must point to an event hosted by the same club.`);
+      }
+
+      const authorConnectedToEvent =
+        linkedEvent.organizer_id === post.user_id
+        || dataset.eventRsvps.some((row) => row.event_id === linkedEvent.id && row.user_id === post.user_id);
+
+      if (!authorConnectedToEvent) {
+        throw new Error(`Post ${post.postKey} should belong to the organizer or an attendee of the linked event.`);
+      }
+    }
   }
 
   for (const event of dataset.events) {
@@ -2560,7 +2618,7 @@ async function seedAllData(supabase, dataset) {
   await insertInChunks(
     supabase,
     'posts',
-    stripKeys(dataset.posts, ['postKey', 'authorKey']),
+    stripKeys(dataset.posts, ['postKey', 'authorKey', 'eventKey']),
   );
   await insertInChunks(
     supabase,
@@ -2782,6 +2840,7 @@ function buildLocalPosts(dataset, userById) {
     author_id: post.user_id,
     author: userById.get(post.user_id),
     club_id: post.club_id,
+    event_id: post.event_id,
     type: post.media_type === 'image' ? 'image' : post.is_pinned ? 'club_announcement' : 'text',
     content: post.content,
     media_urls: post.media_urls,

@@ -62,6 +62,7 @@ interface RawRemotePost {
   id: string;
   userId: string;
   clubId?: string | null;
+  eventId?: string | null;
   contentText: string;
   mediaUrls: string[];
   mediaType: 'none' | 'image' | 'video';
@@ -94,6 +95,7 @@ interface DbPostRow {
   id: string;
   user_id: string;
   club_id: string | null;
+  event_id: string | null;
   content_text: string;
   media_urls: string[] | null;
   media_type: 'none' | 'image' | 'video';
@@ -169,6 +171,7 @@ function mapRemotePost(raw: RawRemotePost): Post & { suggested_reason?: string |
     id: raw.id,
     author_id: raw.userId,
     club_id: raw.clubId ?? null,
+    event_id: raw.eventId ?? null,
     author: mapRemoteUserToProfile(raw.author),
     content: raw.contentText,
     media_urls: raw.mediaUrls,
@@ -193,6 +196,30 @@ function unique(values: string[]) {
   return Array.from(new Set(values));
 }
 
+async function fetchApprovedClubIdsByUserIds(userIds: string[]) {
+  if (userIds.length === 0) {
+    return new Map<string, string[]>();
+  }
+
+  const { data, error } = await supabase
+    .from('club_members')
+    .select('user_id, club_id')
+    .eq('status', 'approved')
+    .in('user_id', unique(userIds));
+
+  if (error) {
+    throw error;
+  }
+
+  const mapping = new Map<string, string[]>();
+  (data ?? []).forEach((row: { user_id: string; club_id: string }) => {
+    const current = mapping.get(row.user_id) ?? [];
+    mapping.set(row.user_id, [...current, row.club_id]);
+  });
+
+  return mapping;
+}
+
 async function fetchUsersByIdsDirect(userIds: string[]) {
   if (userIds.length === 0) {
     return new Map<string, RawRemoteProfile>();
@@ -207,10 +234,18 @@ async function fetchUsersByIdsDirect(userIds: string[]) {
     throw error;
   }
 
+  const clubIdsByUserId = await fetchApprovedClubIdsByUserIds(unique(userIds));
+
   return new Map(
     (data ?? []).map((row) => {
       const profile = mapDbUserRow(row as DbUserRow);
-      return [profile.id, profile];
+      return [
+        profile.id,
+        {
+          ...profile,
+          clubs: clubIdsByUserId.get(profile.id) ?? profile.clubs,
+        },
+      ];
     }),
   );
 }
@@ -230,6 +265,7 @@ async function hydrateDbPosts(
         id: row.id,
         userId: row.user_id,
         clubId: row.club_id,
+        eventId: row.event_id,
         contentText: row.content_text,
         mediaUrls,
         mediaType: row.media_type,
@@ -290,7 +326,7 @@ async function fetchRemoteFeedFallback(mode: RemoteFeedMode, limit = 20): Promis
 
   let query = supabase
     .from('posts')
-    .select('id, user_id, club_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at')
+    .select('id, user_id, club_id, event_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at')
     .eq('moderation_status', 'approved')
     .order('created_at', { ascending: false })
     .limit(Math.max(limit * 3, 40));
@@ -348,7 +384,7 @@ async function fetchTrendingSnapshotFallback() {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('id, user_id, club_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at')
+    .select('id, user_id, club_id, event_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at')
     .eq('moderation_status', 'approved')
     .gte('created_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
     .order('created_at', { ascending: false })
@@ -531,7 +567,14 @@ async function getProfilesByIds(userIds: string[]) {
     throw error;
   }
 
-  return (data ?? []).map((row) => mapRemoteUserToSocialProfile(mapDbUserRow(row as DbUserRow)));
+  const clubIdsByUserId = await fetchApprovedClubIdsByUserIds(userIds);
+
+  return (data ?? []).map((row) =>
+    mapRemoteUserToSocialProfile({
+      ...mapDbUserRow(row as DbUserRow),
+      clubs: clubIdsByUserId.get((row as DbUserRow).id) ?? mapDbUserRow(row as DbUserRow).clubs,
+    }),
+  );
 }
 
 export async function fetchRemoteProfileById(userId: string) {
@@ -547,7 +590,12 @@ export async function fetchRemoteProfileById(userId: string) {
     throw error;
   }
 
-  return mapRemoteUserToSocialProfile(mapDbUserRow(data as DbUserRow));
+  const clubIdsByUserId = await fetchApprovedClubIdsByUserIds([userId]);
+  const mapped = mapDbUserRow(data as DbUserRow);
+  return mapRemoteUserToSocialProfile({
+    ...mapped,
+    clubs: clubIdsByUserId.get(userId) ?? mapped.clubs,
+  });
 }
 
 export async function fetchFollowingProfiles(userId: string) {
@@ -578,6 +626,58 @@ export async function fetchFollowerProfiles(userId: string) {
   return getProfilesByIds((data ?? []).map((row: { follower_id: string }) => row.follower_id));
 }
 
+/**
+ * For each target in `targetIds`, returns how many people are connected to BOTH
+ * the viewer and the target (mutual connections). Makes 3 Supabase queries total:
+ * viewer's following, viewer's followers, and a batch follows lookup.
+ */
+export async function fetchMutualCounts(
+  viewerId: string,
+  targetIds: string[],
+): Promise<Map<string, number>> {
+  if (!isSupabaseConfigured || targetIds.length === 0) {
+    return new Map(targetIds.map((id) => [id, 0]));
+  }
+
+  const [followingRes, followersRes] = await Promise.all([
+    supabase.from('follows').select('following_id').eq('follower_id', viewerId),
+    supabase.from('follows').select('follower_id').eq('following_id', viewerId),
+  ]);
+
+  const targetSet = new Set(targetIds);
+  const neighborhoodIds = unique([
+    ...(followingRes.data ?? []).map((r: { following_id: string }) => r.following_id),
+    ...(followersRes.data ?? []).map((r: { follower_id: string }) => r.follower_id),
+  ].filter((id) => id !== viewerId && !targetSet.has(id)));
+
+  if (neighborhoodIds.length === 0) {
+    return new Map(targetIds.map((id) => [id, 0]));
+  }
+
+  // Fetch all follows edges between neighborhood members and targets in one query.
+  const allRelevantIds = [...neighborhoodIds, ...targetIds];
+  const { data: edges } = await supabase
+    .from('follows')
+    .select('follower_id, following_id')
+    .in('follower_id', allRelevantIds)
+    .in('following_id', allRelevantIds);
+
+  // For each target, collect unique neighborhood members connected to them.
+  const mutualsByTarget = new Map<string, Set<string>>(targetIds.map((id) => [id, new Set()]));
+  (edges ?? []).forEach((row: { follower_id: string; following_id: string }) => {
+    if (!targetSet.has(row.follower_id) && targetSet.has(row.following_id)) {
+      // A neighborhood member follows this target.
+      mutualsByTarget.get(row.following_id)?.add(row.follower_id);
+    }
+    if (targetSet.has(row.follower_id) && !targetSet.has(row.following_id)) {
+      // This target follows a neighborhood member.
+      mutualsByTarget.get(row.follower_id)?.add(row.following_id);
+    }
+  });
+
+  return new Map(Array.from(mutualsByTarget.entries()).map(([id, mutuals]) => [id, mutuals.size]));
+}
+
 export async function fetchRemotePostsByUser(userId: string, limit = 40) {
   requireConfigured();
   const currentUserId = await fetchCurrentRemoteUserId();
@@ -592,9 +692,11 @@ export async function fetchRemotePostsByUser(userId: string, limit = 40) {
     throw userError;
   }
 
+  const clubIdsByUserId = await fetchApprovedClubIdsByUserIds([userId]);
+
   let query = supabase
     .from('posts')
-    .select('id, user_id, club_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at')
+    .select('id, user_id, club_id, event_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -608,7 +710,11 @@ export async function fetchRemotePostsByUser(userId: string, limit = 40) {
     throw postsError;
   }
 
-  const author = mapDbUserRow(userRow as DbUserRow);
+  const mappedAuthor = mapDbUserRow(userRow as DbUserRow);
+  const author = {
+    ...mappedAuthor,
+    clubs: clubIdsByUserId.get(userId) ?? mappedAuthor.clubs,
+  };
   const posts = await Promise.all(
     (postRows ?? []).map(async (row) => {
       const postRow = row as DbPostRow;
@@ -617,6 +723,7 @@ export async function fetchRemotePostsByUser(userId: string, limit = 40) {
         id: postRow.id,
         userId: postRow.user_id,
         clubId: postRow.club_id,
+        eventId: postRow.event_id,
         contentText: postRow.content_text,
         mediaUrls,
         mediaType: postRow.media_type,
@@ -637,11 +744,17 @@ export async function fetchRemotePostsByUser(userId: string, limit = 40) {
 export async function submitRemotePost(input: {
   contentText: string;
   mediaItems: Array<{ base64Data: string; fileName: string; mimeType: string }>;
+  clubId?: string | null;
+  eventId?: string | null;
+  isPinned?: boolean;
 }) {
   const response = await invokeFunction<
     {
       contentText: string;
       media: Array<{ base64Data: string; fileName: string; mimeType: string }>;
+      clubId?: string | null;
+      eventId?: string | null;
+      isPinned?: boolean;
     },
     {
       post: RawRemotePost | null;
@@ -651,6 +764,9 @@ export async function submitRemotePost(input: {
   >('submit-post', {
     contentText: input.contentText,
     media: input.mediaItems,
+    clubId: input.clubId ?? null,
+    eventId: input.eventId ?? null,
+    isPinned: Boolean(input.isPinned),
   });
 
   return {

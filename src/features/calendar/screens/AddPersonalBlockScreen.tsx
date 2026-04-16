@@ -1,6 +1,7 @@
-﻿import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { format, parseISO } from 'date-fns';
 import Button from '../../../shared/components/Button';
@@ -30,6 +31,8 @@ const WEEKDAY_OPTIONS = [
   { label: 'Sat', value: 6 },
 ];
 
+type PickerTarget = 'date' | 'start' | 'end';
+
 function combineDateAndTime(dateText: string, timeText: string) {
   const iso = `${dateText}T${timeText}:00`;
   return parseISO(iso);
@@ -37,6 +40,7 @@ function combineDateAndTime(dateText: string, timeText: string) {
 
 export default function AddPersonalBlockScreen({ navigation }: NativeStackScreenProps<CalendarStackParamList, 'AddPersonalBlock'>) {
   const today = new Date();
+  const isNativeMobile = Platform.OS !== 'web';
   const [title, setTitle] = useState('');
   const [locationName, setLocationName] = useState('');
   const [dateText, setDateText] = useState(format(today, 'yyyy-MM-dd'));
@@ -47,6 +51,9 @@ export default function AddPersonalBlockScreen({ navigation }: NativeStackScreen
   const [error, setError] = useState<string | null>(null);
 
   const anchorDate = useMemo(() => parseISO(`${dateText}T12:00:00`), [dateText]);
+  const selectedDateValue = useMemo(() => parseISO(`${dateText}T12:00:00`), [dateText]);
+  const startDateValue = useMemo(() => combineDateAndTime(dateText, startTimeText), [dateText, startTimeText]);
+  const endDateValue = useMemo(() => combineDateAndTime(dateText, endTimeText), [dateText, endTimeText]);
   const { selectedDayEntries, addOrUpdatePersonalBlock } = useCalendarEntries({
     anchorDate,
     viewMode: 'day',
@@ -80,6 +87,34 @@ export default function AddPersonalBlockScreen({ navigation }: NativeStackScreen
       return start < entryEnd && entryStart < end;
     }).length;
   }, [dateText, endTimeText, selectedDayEntries, startTimeText, title]);
+
+  const applyPickerValue = (target: PickerTarget, nextValue: Date) => {
+    if (target === 'date') {
+      setDateText(format(nextValue, 'yyyy-MM-dd'));
+      return;
+    }
+
+    const nextTimeValue = format(nextValue, 'HH:mm');
+    if (target === 'start') {
+      setStartTimeText(nextTimeValue);
+      return;
+    }
+
+    setEndTimeText(nextTimeValue);
+  };
+
+  const openAndroidPicker = (target: PickerTarget) => {
+    const value = target === 'date' ? selectedDateValue : target === 'start' ? startDateValue : endDateValue;
+    DateTimePickerAndroid.open({
+      value,
+      mode: target === 'date' ? 'date' : 'time',
+      display: target === 'date' ? 'calendar' : 'clock',
+      is24Hour: false,
+      onValueChange: (_event, nextValue) => {
+        applyPickerValue(target, nextValue);
+      },
+    });
+  };
 
   const handleSave = async () => {
     setError(null);
@@ -126,6 +161,7 @@ export default function AddPersonalBlockScreen({ navigation }: NativeStackScreen
     <ScreenLayout
       title="Add Personal Block"
       subtitle="Reserve focus time, workouts, meals, or anything else that owns your day."
+      keyboardShouldPersistTaps="handled"
       leftAction={
         <Pressable onPress={() => navigation.goBack()} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={20} color={colors.text.primary} />
@@ -169,17 +205,102 @@ export default function AddPersonalBlockScreen({ navigation }: NativeStackScreen
         <View style={styles.fieldRow}>
           <View style={styles.fieldColumn}>
             <Text style={styles.label}>Date</Text>
-            <TextInput value={dateText} onChangeText={setDateText} placeholder="2026-04-06" placeholderTextColor={colors.text.tertiary} style={styles.input} autoCapitalize="none" />
+            {isNativeMobile ? (
+              Platform.OS === 'ios' ? (
+                <View style={[styles.pickerField, styles.pickerFieldIos]}>
+                  <DateTimePicker
+                    value={selectedDateValue}
+                    mode="date"
+                    display="compact"
+                    onValueChange={(_event, nextValue) => {
+                      applyPickerValue('date', nextValue);
+                    }}
+                    style={styles.inlinePicker}
+                  />
+                </View>
+              ) : (
+                <Pressable onPress={() => openAndroidPicker('date')} style={styles.pickerField}>
+                  <Text style={styles.pickerFieldValue}>{format(selectedDateValue, 'EEE, MMM d')}</Text>
+                  <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
+                </Pressable>
+              )
+            ) : (
+              <TextInput
+                value={dateText}
+                onChangeText={setDateText}
+                placeholder="2026-04-06"
+                placeholderTextColor={colors.text.tertiary}
+                style={styles.input}
+                autoCapitalize="none"
+              />
+            )}
           </View>
           <View style={styles.fieldColumn}>
             <Text style={styles.label}>Start</Text>
-            <TextInput value={startTimeText} onChangeText={setStartTimeText} placeholder="18:00" placeholderTextColor={colors.text.tertiary} style={styles.input} autoCapitalize="none" />
+            {isNativeMobile ? (
+              Platform.OS === 'ios' ? (
+                <View style={[styles.pickerField, styles.pickerFieldIos]}>
+                  <DateTimePicker
+                    value={startDateValue}
+                    mode="time"
+                    display="compact"
+                    onValueChange={(_event, nextValue) => {
+                      applyPickerValue('start', nextValue);
+                    }}
+                    style={styles.inlinePicker}
+                  />
+                </View>
+              ) : (
+                <Pressable onPress={() => openAndroidPicker('start')} style={styles.pickerField}>
+                  <Text style={styles.pickerFieldValue}>{format(startDateValue, 'h:mm a')}</Text>
+                  <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
+                </Pressable>
+              )
+            ) : (
+              <TextInput
+                value={startTimeText}
+                onChangeText={setStartTimeText}
+                placeholder="18:00"
+                placeholderTextColor={colors.text.tertiary}
+                style={styles.input}
+                autoCapitalize="none"
+              />
+            )}
           </View>
           <View style={styles.fieldColumn}>
             <Text style={styles.label}>End</Text>
-            <TextInput value={endTimeText} onChangeText={setEndTimeText} placeholder="19:30" placeholderTextColor={colors.text.tertiary} style={styles.input} autoCapitalize="none" />
+            {isNativeMobile ? (
+              Platform.OS === 'ios' ? (
+                <View style={[styles.pickerField, styles.pickerFieldIos]}>
+                  <DateTimePicker
+                    value={endDateValue}
+                    mode="time"
+                    display="compact"
+                    onValueChange={(_event, nextValue) => {
+                      applyPickerValue('end', nextValue);
+                    }}
+                    style={styles.inlinePicker}
+                  />
+                </View>
+              ) : (
+                <Pressable onPress={() => openAndroidPicker('end')} style={styles.pickerField}>
+                  <Text style={styles.pickerFieldValue}>{format(endDateValue, 'h:mm a')}</Text>
+                  <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
+                </Pressable>
+              )
+            ) : (
+              <TextInput
+                value={endTimeText}
+                onChangeText={setEndTimeText}
+                placeholder="19:30"
+                placeholderTextColor={colors.text.tertiary}
+                style={styles.input}
+                autoCapitalize="none"
+              />
+            )}
           </View>
         </View>
+
       </Card>
 
       <Card style={styles.card}>
@@ -276,6 +397,49 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand.white,
     paddingHorizontal: spacing.md,
     color: colors.text.primary,
+  },
+  pickerField: {
+    minHeight: 48,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    backgroundColor: colors.brand.white,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  pickerFieldValue: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
+  },
+  pickerFieldIos: {
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  inlinePicker: {
+    width: '100%',
+  },
+  pickerCard: {
+    gap: spacing.sm,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  pickerTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+  },
+  pickerDone: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary.main,
   },
   chipRow: {
     flexDirection: 'row',

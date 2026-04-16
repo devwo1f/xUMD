@@ -33,6 +33,7 @@ export type MapStackParamList = {
 export type FeedStackParamList = {
   FeedHome: undefined;
   PostDetail: { postId: string };
+  EventDetail: { eventId: string };
   UserProfile: { userId: string };
 };
 
@@ -72,6 +73,7 @@ export type CampusStackParamList = {
   CampusHome: undefined;
   ClubsHome: undefined;
   ClubDetail: { clubId: string };
+  EventDetail: { eventId: string };
   PostDetail: { postId: string };
   UserProfile: { userId: string };
   CampusFeature: { featureKey: CampusFeatureKey };

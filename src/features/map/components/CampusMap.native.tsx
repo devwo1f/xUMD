@@ -3,9 +3,9 @@ import { Image, NativeModules, Platform, StyleProp, StyleSheet, Text, UIManager,
 import {
   Camera,
   CircleLayer,
+  FillExtrusionLayer,
   FillLayer,
   HeatmapLayer,
-  Images,
   LineLayer,
   MapView as MapboxMapView,
   setAccessToken,
@@ -48,10 +48,9 @@ import {
   createUserLocationFeatureCollection,
   createWayfindingFeatureCollection,
   getFeatureItemId,
+  type EventMarkerFeatureProperties,
 } from '../utils/geojson';
 import {
-  buildClusterDominantColorExpression,
-  buildClusterProperties,
   MAP_PIN_IMAGE_ENTRIES,
 } from '../utils/pinAssets';
 
@@ -100,40 +99,12 @@ const lawnFilter = ['==', ['get', 'kind'], 'lawn'] as any;
 const treeFilter = ['==', ['get', 'kind'], 'trees'] as any;
 const sportsFilter = ['==', ['get', 'kind'], 'sports'] as any;
 const multiPinFilter = ['all', unclusteredFilter, ['==', ['get', 'isMultiEvent'], true]] as any;
-const regularPinFilter = [
-  'all',
-  unclusteredFilter,
-  ['==', ['get', 'isMultiEvent'], false],
-  ['==', ['get', 'isLive'], false],
-  ['==', ['get', 'isFeatured'], false],
-  ['==', ['get', 'isGoing'], false],
-] as any;
-const goingPinFilter = [
-  'all',
-  unclusteredFilter,
-  ['==', ['get', 'isMultiEvent'], false],
-  ['==', ['get', 'isLive'], false],
-  ['==', ['get', 'isFeatured'], false],
-  ['==', ['get', 'isGoing'], true],
-] as any;
-const featuredPinFilter = [
-  'all',
-  unclusteredFilter,
-  ['==', ['get', 'isMultiEvent'], false],
-  ['==', ['get', 'isLive'], false],
-  ['==', ['get', 'isFeatured'], true],
-] as any;
-const livePinFilter = [
-  'all',
-  unclusteredFilter,
-  ['==', ['get', 'isMultiEvent'], false],
-  ['==', ['get', 'isLive'], true],
-] as any;
 const pulseFilter = [
   'all',
   unclusteredFilter,
   ['==', ['get', 'isLive'], true],
 ] as any;
+const singlePinFilter = ['all', unclusteredFilter, ['==', ['get', 'isMultiEvent'], false]] as any;
 function buildBuildingLabelFieldExpression(activeBuildingId?: string | null) {
   return [
     'case',
@@ -257,6 +228,24 @@ export default function CampusMap({
     () => createEventMarkerFeatureCollection(showEvents ? eventGroups : [], 'category'),
     [eventGroups, showEvents],
   );
+  const nativeEventDebugStats = useMemo(() => {
+    const features = eventMarkerShape.features as Array<GeoJSON.Feature<GeoJSON.Point, EventMarkerFeatureProperties>>;
+    const invalidCoordinates = features.filter((feature) => {
+      const [longitude, latitude] = feature.geometry.coordinates;
+      return !Number.isFinite(longitude) || !Number.isFinite(latitude);
+    });
+
+    return {
+      featureCount: features.length,
+      invalidCoordinateCount: invalidCoordinates.length,
+      sampleCoordinates: features.slice(0, 3).map((feature) => ({
+        id: feature.id,
+        coordinates: feature.geometry.coordinates,
+        eventCount: feature.properties.eventCount,
+        color: feature.properties.color,
+      })),
+    };
+  }, [eventMarkerShape]);
   const eventHeatShape = useMemo(
     () => createEventHeatFeatureCollection(showEvents ? events : [], weightMap),
     [events, showEvents, weightMap],
@@ -296,11 +285,29 @@ export default function CampusMap({
     [activeBuildingKey],
   ) as any;
 
-  const clusterCountExpression = ['coalesce', ['get', 'totalEvents'], ['get', 'point_count']];
+  const buildingExtrusionStyle = useMemo(
+    () => ({
+      fillExtrusionColor: [
+        'case',
+        ['==', ['get', 'itemId'], activeBuildingKey],
+        campusMapPalette.buildingActiveFill,
+        ['boolean', ['get', 'isLandmark'], false],
+        campusMapPalette.buildingLandmarkFill,
+        campusMapPalette.buildingFill,
+      ],
+      fillExtrusionHeight: ['get', 'heightMeters'],
+      fillExtrusionBase: 0,
+      fillExtrusionOpacity: 0.88,
+      fillExtrusionVerticalGradient: true,
+    }),
+    [activeBuildingKey],
+  ) as any;
+
+  const clusterCountExpression = ['get', 'point_count'];
 
   const eventClusterBubbleStyle = useMemo(
     () => ({
-      circleColor: buildClusterDominantColorExpression(),
+      circleColor: colors.primary.main,
       circleRadius: ['step', clusterCountExpression, 22, 8, 26, 16, 31, 24, 35],
       circleStrokeColor: colors.brand.white,
       circleStrokeWidth: 3,
@@ -321,20 +328,48 @@ export default function CampusMap({
   const eventLivePulseStyle = useMemo(
     () => ({
       circleColor: ['get', 'color'],
-      circleRadius: ['+', ['get', 'pulseRadius'], 2 + pulsePhase * 8],
+      circleRadius: ['+', 10, pulsePhase * 8],
       circleOpacity: Math.max(0.04, 0.2 - pulsePhase * 0.16),
-      circleTranslate: [0, -24],
     }),
     [pulsePhase],
   ) as any;
 
-  const pinSymbolStyle = {
-    iconImage: ['get', 'pinImageId'],
-    iconSize: ['get', 'pinScale'],
-    iconAnchor: 'bottom',
-    iconAllowOverlap: true,
-    iconIgnorePlacement: true,
-    iconOpacity: ['get', 'markerOpacity'],
+  const nativeMultiEventCircleStyle = {
+    circleColor: ['get', 'color'],
+    circleRadius: ['step', ['get', 'eventCount'], 14, 3, 15.5, 6, 17, 10, 19],
+    circleStrokeColor: colors.brand.white,
+    circleStrokeWidth: 3,
+    circleOpacity: ['get', 'markerOpacity'],
+  } as any;
+
+  const nativeSingleEventCircleStyle = {
+    circleColor: ['get', 'color'],
+    circleRadius: [
+      'case',
+      ['==', ['get', 'isFeatured'], true], 12,
+      ['==', ['get', 'isLive'], true], 10.5,
+      9.5,
+    ],
+    circleStrokeColor: [
+      'case',
+      ['==', ['get', 'isGoing'], true], colors.status.success,
+      colors.brand.white,
+    ],
+    circleStrokeWidth: [
+      'case',
+      ['==', ['get', 'isGoing'], true], 4,
+      3,
+    ],
+    circleOpacity: ['get', 'markerOpacity'],
+  } as any;
+
+  const nativeSingleEventGlyphStyle = {
+    textField: ['get', 'glyph'],
+    textColor: colors.brand.white,
+    textSize: 10.5,
+    textFont: ['Open Sans Bold'],
+    textAllowOverlap: true,
+    textIgnorePlacement: true,
   } as any;
 
   const multiPinCountStyle = {
@@ -364,6 +399,14 @@ export default function CampusMap({
     ],
     heatmapWeight: ['interpolate', ['linear'], ['get', 'weight'], 0.5, 0.2, 6, 1],
   } as any;
+
+  useEffect(() => {
+    if (!__DEV__ || !canRenderNativeMapbox) {
+      return;
+    }
+
+    console.log('[CampusMap] native event source', nativeEventDebugStats);
+  }, [nativeEventDebugStats]);
 
   useEffect(() => {
     if (canRenderNativeMapbox || !focusRequest) {
@@ -548,11 +591,6 @@ export default function CampusMap({
         onLongPressCoordinate?.([longitude, latitude]);
       }}
     >
-      <Images
-        images={MAP_PIN_IMAGE_ENTRIES}
-        onImageMissing={(imageKey) => console.warn(`Missing native map pin image: ${imageKey}`)}
-      />
-
       <Camera
         ref={cameraRef}
         defaultSettings={{
@@ -660,6 +698,12 @@ export default function CampusMap({
           }
         }}
       >
+        <FillExtrusionLayer
+          id={mapLayerIds.buildingExtrusion}
+          minZoomLevel={15}
+          maxZoomLevel={22}
+          style={buildingExtrusionStyle}
+        />
         <FillLayer id={mapLayerIds.buildingFill} style={buildingFillStyle} />
         <LineLayer id={mapLayerIds.buildingLine} style={buildingLineStyle} />
         <SymbolLayer
@@ -686,7 +730,6 @@ export default function CampusMap({
           cluster={clusterEvents}
           clusterRadius={58}
           clusterMaxZoomLevel={16}
-          clusterProperties={buildClusterProperties()}
           hitbox={{ width: 48, height: 48 }}
           onPress={async (pressEvent) => {
             const feature = pressEvent.features[0];
@@ -727,11 +770,9 @@ export default function CampusMap({
             ) : null}
           </>
           <CircleLayer id={mapLayerIds.eventLivePulse} filter={clusterEvents ? pulseFilter : ['==', ['get', 'isLive'], true]} style={eventLivePulseStyle} />
-          <SymbolLayer id={mapLayerIds.eventPinMulti} filter={multiPinFilter} style={pinSymbolStyle} />
-          <SymbolLayer id={mapLayerIds.eventPinRegular} filter={regularPinFilter} style={pinSymbolStyle} />
-          <SymbolLayer id={mapLayerIds.eventPinGoing} filter={goingPinFilter} style={pinSymbolStyle} />
-          <SymbolLayer id={mapLayerIds.eventPinFeatured} filter={featuredPinFilter} style={pinSymbolStyle} />
-          <SymbolLayer id={mapLayerIds.eventPinLive} filter={livePinFilter} style={pinSymbolStyle} />
+          <CircleLayer id={mapLayerIds.eventPinMultiCircle} filter={multiPinFilter} style={nativeMultiEventCircleStyle} />
+          <CircleLayer id={mapLayerIds.eventPinSingleCircle} filter={singlePinFilter} style={nativeSingleEventCircleStyle} />
+          <SymbolLayer id={mapLayerIds.eventPinSingleGlyph} filter={singlePinFilter} style={nativeSingleEventGlyphStyle} />
           <SymbolLayer id={mapLayerIds.eventPinCountLabel} filter={multiPinFilter} style={multiPinCountStyle} />
         </ShapeSource>
       ) : null}

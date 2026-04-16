@@ -7,6 +7,7 @@ import type {
   EventSearchResult,
 } from '../shared/types';
 import { getEventCatalog } from '../shared/stores/useEventCatalogStore';
+import { ensureCurrentUserProfileRow } from './auth';
 import { isSupabaseConfigured, supabase, supabaseConfigError } from './supabase';
 
 export type RemoteMapTimeFilter =
@@ -65,6 +66,59 @@ function requireConfigured() {
   if (!isSupabaseConfigured) {
     throw new Error(supabaseConfigError);
   }
+}
+
+async function getFunctionErrorMessage(error: unknown) {
+  if (error && typeof error === 'object') {
+    const maybeError = error as {
+      message?: string;
+      context?: {
+        error?: { message?: string };
+        json?: () => Promise<unknown>;
+        text?: () => Promise<string>;
+      } | null;
+    };
+
+    if (maybeError.context?.error?.message) {
+      return maybeError.context.error.message;
+    }
+
+    if (typeof maybeError.context?.json === 'function') {
+      try {
+        const payload = await maybeError.context.json();
+        if (
+          payload &&
+          typeof payload === 'object' &&
+          'error' in payload &&
+          payload.error &&
+          typeof payload.error === 'object' &&
+          'message' in payload.error &&
+          typeof payload.error.message === 'string'
+        ) {
+          return payload.error.message;
+        }
+      } catch {
+        // Fall through to the next available error shape.
+      }
+    }
+
+    if (typeof maybeError.context?.text === 'function') {
+      try {
+        const text = await maybeError.context.text();
+        if (text.trim().length > 0) {
+          return text;
+        }
+      } catch {
+        // Fall through to the generic message.
+      }
+    }
+
+    if (typeof maybeError.message === 'string' && maybeError.message.trim().length > 0) {
+      return maybeError.message;
+    }
+  }
+
+  return error instanceof Error ? error.message : 'Something went wrong.';
 }
 
 function mapEventRecord(record: Partial<Event> & Record<string, unknown>): Event {
@@ -217,12 +271,17 @@ export async function fetchMapEventDetailRemote(eventId: string) {
 export async function submitEventRsvpRemote(input: EventRsvpMutationInput) {
   requireConfigured();
 
+  const ensuredProfile = await ensureCurrentUserProfileRow();
+  if (ensuredProfile.error) {
+    throw new Error(ensuredProfile.error);
+  }
+
   const { data, error } = await supabase.functions.invoke('rsvp-event', {
     body: input,
   });
 
   if (error) {
-    throw error;
+    throw new Error(await getFunctionErrorMessage(error));
   }
 
   return data as {

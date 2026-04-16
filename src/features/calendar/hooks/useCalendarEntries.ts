@@ -1,7 +1,9 @@
 ﻿import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { addDays, format, parseISO, startOfDay } from 'date-fns';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useProfile } from '../../profile/hooks/useProfile';
+import { useCampusClubs } from '../../clubs/hooks/useCampusClubs';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import {
   buildCalendarConflicts,
@@ -33,22 +35,21 @@ export function useCalendarEntries({
   const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
   const { user: profileUser } = useProfile();
-  const { joinedClubIds, goingEventIds, savedEventIds } = useDemoAppStore();
+  const { viewerClubIds } = useCampusClubs();
+  const { goingEventIds, savedEventIds } = useDemoAppStore();
 
   const viewerId = authUser?.id ?? profileUser.id;
   const viewer = authUser ?? null;
-  const joinedClubKey = joinedClubIds.slice().sort().join('|');
-  const goingKey = goingEventIds.slice().sort().join('|');
-  const savedKey = savedEventIds.slice().sort().join('|');
+  const joinedClubKey = viewerClubIds.slice().sort().join('|');
 
   const sourceQuery = useQuery({
-    queryKey: ['calendar-data', viewerId, joinedClubKey, goingKey, savedKey],
+    queryKey: ['calendar-data', viewerId, joinedClubKey],
     staleTime: 60_000,
     queryFn: () =>
       loadCalendarSourceData({
         viewerId,
         user: viewer,
-        joinedClubIds,
+        joinedClubIds: viewerClubIds,
         goingEventIds,
         interestedEventIds: savedEventIds,
       }),
@@ -71,14 +72,15 @@ export function useCalendarEntries({
   const conflicts = useMemo(() => buildCalendarConflicts(entries), [entries]);
   const todayEntries = useMemo(() => buildTodayEntries(sourceData), [sourceData]);
   const todayConflicts = useMemo(() => buildCalendarConflicts(todayEntries), [todayEntries]);
+  const anchorDateKey = useMemo(() => format(anchorDate, 'yyyy-MM-dd'), [anchorDate]);
+  const anchorDayStart = useMemo(() => startOfDay(anchorDate), [anchorDate]);
+  const anchorDayEnd = useMemo(() => addDays(anchorDayStart, 1), [anchorDayStart]);
   const selectedDayEntries = useMemo(
     () =>
       entries.filter(
-        (entry) =>
-          entry.startsAt.slice(0, 10) === anchorDate.toISOString().slice(0, 10) ||
-          entry.endsAt.slice(0, 10) === anchorDate.toISOString().slice(0, 10),
+        (entry) => parseISO(entry.startsAt) < anchorDayEnd && parseISO(entry.endsAt) > anchorDayStart,
       ),
-    [anchorDate, entries],
+    [anchorDateKey, anchorDayEnd, anchorDayStart, entries],
   );
   const upNextEntry = useMemo(() => getUpNextEntry(todayEntries), [todayEntries]);
   const miniSummary = useMemo(() => buildMiniCalendarSummary(todayEntries), [todayEntries]);

@@ -20,7 +20,7 @@ export const mockClubs = [
     "member_count": 7,
     "is_active": true,
     "created_by": "0b4c9322-5024-52dd-b93b-68b721c026ee",
-    "created_at": "2025-06-18T14:00:00.000Z"
+    "created_at": "2025-06-19T14:00:00.000Z"
   },
   {
     "id": "94dc4785-694a-5b8a-b73d-d6e896187afb",
@@ -40,7 +40,7 @@ export const mockClubs = [
     "member_count": 8,
     "is_active": true,
     "created_by": "f360a23b-4f3d-566a-959f-ea05849e43ab",
-    "created_at": "2025-06-17T14:00:00.000Z"
+    "created_at": "2025-06-18T14:00:00.000Z"
   },
   {
     "id": "0e68c4f2-2b14-505c-972d-dda49fca824a",
@@ -61,7 +61,7 @@ export const mockClubs = [
     "member_count": 7,
     "is_active": true,
     "created_by": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
-    "created_at": "2025-06-16T14:00:00.000Z"
+    "created_at": "2025-06-17T14:00:00.000Z"
   },
   {
     "id": "93df5013-9ec9-56e2-8f1e-dbbb52ad5feb",
@@ -80,7 +80,7 @@ export const mockClubs = [
     "member_count": 6,
     "is_active": true,
     "created_by": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
-    "created_at": "2025-06-15T14:00:00.000Z"
+    "created_at": "2025-06-16T14:00:00.000Z"
   },
   {
     "id": "2c3160cc-928d-54c2-817c-2abc9ad857bf",
@@ -99,7 +99,7 @@ export const mockClubs = [
     "member_count": 7,
     "is_active": true,
     "created_by": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
-    "created_at": "2025-06-14T14:00:00.000Z"
+    "created_at": "2025-06-15T14:00:00.000Z"
   },
   {
     "id": "189a718a-77c7-592f-b26f-c25f576a21b8",
@@ -119,7 +119,7 @@ export const mockClubs = [
     "member_count": 5,
     "is_active": true,
     "created_by": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
-    "created_at": "2025-06-13T14:00:00.000Z"
+    "created_at": "2025-06-14T14:00:00.000Z"
   },
   {
     "id": "646d7bc1-956c-593b-baec-109a7a9720b6",
@@ -139,7 +139,7 @@ export const mockClubs = [
     "member_count": 5,
     "is_active": true,
     "created_by": "dceb7801-ef4a-5c0d-8c77-d45c18b15df1",
-    "created_at": "2025-06-12T14:00:00.000Z"
+    "created_at": "2025-06-13T14:00:00.000Z"
   },
   {
     "id": "572b2a79-031d-5b9e-b4bb-5a727906def8",
@@ -158,7 +158,7 @@ export const mockClubs = [
     "member_count": 6,
     "is_active": true,
     "created_by": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
-    "created_at": "2025-06-11T14:00:00.000Z"
+    "created_at": "2025-06-12T14:00:00.000Z"
   },
   {
     "id": "673363a9-c22b-5446-98ac-37c379aaed6a",
@@ -177,7 +177,7 @@ export const mockClubs = [
     "member_count": 6,
     "is_active": true,
     "created_by": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
-    "created_at": "2025-06-10T14:00:00.000Z"
+    "created_at": "2025-06-11T14:00:00.000Z"
   },
   {
     "id": "b934a1b0-cf09-5fba-b612-1b8d8ee70570",
@@ -196,7 +196,7 @@ export const mockClubs = [
     "member_count": 5,
     "is_active": true,
     "created_by": "a49d4554-325c-5c88-afaa-ef947f0a115a",
-    "created_at": "2025-06-09T14:00:00.000Z"
+    "created_at": "2025-06-10T14:00:00.000Z"
   },
   {
     "id": "44f63ee3-2917-5ac3-84f4-0ab9aa8cbe2a",
@@ -215,7 +215,7 @@ export const mockClubs = [
     "member_count": 7,
     "is_active": true,
     "created_by": "1941e5a9-753c-5055-b24d-ff4990dd714e",
-    "created_at": "2025-06-08T14:00:00.000Z"
+    "created_at": "2025-06-09T14:00:00.000Z"
   }
 ] as Club[];
 
@@ -264,8 +264,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-15T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-16T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   {
     "id": "79af4eed-7d3d-5729-8963-46e04646d23b",
@@ -309,8 +309,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-16T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2025-12-17T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   {
     "id": "0b4c9322-5024-52dd-b93b-68b721c026ee",
@@ -353,8 +353,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-17T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2025-12-18T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   {
     "id": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
@@ -398,8 +398,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-18T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-19T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   {
     "id": "5a90dcaa-9700-59fb-9cc9-66b19e06e6d6",
@@ -441,8 +441,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-19T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2025-12-20T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   {
     "id": "a49d4554-325c-5c88-afaa-ef947f0a115a",
@@ -485,8 +485,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-20T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2025-12-21T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   {
     "id": "bf962ba5-980e-5ed4-b080-3ddad5c2e760",
@@ -528,8 +528,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-21T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-22T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   {
     "id": "f360a23b-4f3d-566a-959f-ea05849e43ab",
@@ -572,8 +572,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-22T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2025-12-23T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   {
     "id": "ca86602c-434a-50de-af39-90312889c45d",
@@ -615,8 +615,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-23T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2025-12-24T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   {
     "id": "dceb7801-ef4a-5c0d-8c77-d45c18b15df1",
@@ -658,8 +658,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-24T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-25T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   {
     "id": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
@@ -701,8 +701,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-25T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2025-12-26T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   {
     "id": "7ebd3331-9d3e-5d07-b957-dbb6cb18760f",
@@ -745,8 +745,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-26T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2025-12-27T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   {
     "id": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
@@ -788,8 +788,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-27T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-28T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   {
     "id": "c0957686-8810-518a-8a56-df06c240f785",
@@ -833,8 +833,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-28T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2025-12-29T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   {
     "id": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
@@ -877,8 +877,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-29T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2025-12-30T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   {
     "id": "9e36e2f6-f994-573b-b8f8-5e7ee6c3a6f4",
@@ -921,8 +921,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-30T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2025-12-31T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   {
     "id": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
@@ -965,8 +965,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2025-12-31T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2026-01-01T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   },
   {
     "id": "1941e5a9-753c-5055-b24d-ff4990dd714e",
@@ -1007,8 +1007,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2026-01-01T14:00:00.000Z",
-    "updated_at": "2026-04-10T16:00:00.000Z"
+    "created_at": "2026-01-02T14:00:00.000Z",
+    "updated_at": "2026-04-11T16:00:00.000Z"
   },
   {
     "id": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
@@ -1050,8 +1050,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2026-01-02T14:00:00.000Z",
-    "updated_at": "2026-04-12T16:00:00.000Z"
+    "created_at": "2026-01-03T14:00:00.000Z",
+    "updated_at": "2026-04-13T16:00:00.000Z"
   },
   {
     "id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
@@ -1094,8 +1094,8 @@ export const mockUsers = [
     "push_token": null,
     "profile_completed": true,
     "onboarding_step": 3,
-    "created_at": "2026-01-03T14:00:00.000Z",
-    "updated_at": "2026-04-11T16:00:00.000Z"
+    "created_at": "2026-01-04T14:00:00.000Z",
+    "updated_at": "2026-04-12T16:00:00.000Z"
   }
 ] as User[];
 
@@ -1105,7 +1105,7 @@ export const mockClubMembers = [
     "user_id": "0b4c9322-5024-52dd-b93b-68b721c026ee",
     "role": "president",
     "status": "approved",
-    "joined_at": "2026-01-14T17:00:00.000Z",
+    "joined_at": "2026-01-15T17:00:00.000Z",
     "user": {
       "id": "0b4c9322-5024-52dd-b93b-68b721c026ee",
       "email": "daniel.park@terpmail.umd.edu",
@@ -1147,8 +1147,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-17T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-18T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -1156,7 +1156,7 @@ export const mockClubMembers = [
     "user_id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2026-01-13T17:00:00.000Z",
+    "joined_at": "2026-01-14T17:00:00.000Z",
     "user": {
       "id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
       "email": "alexj_test@terpmail.umd.edu",
@@ -1201,8 +1201,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-15T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-16T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -1210,7 +1210,7 @@ export const mockClubMembers = [
     "user_id": "f360a23b-4f3d-566a-959f-ea05849e43ab",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2026-01-12T17:00:00.000Z",
+    "joined_at": "2026-01-13T17:00:00.000Z",
     "user": {
       "id": "f360a23b-4f3d-566a-959f-ea05849e43ab",
       "email": "ethan.kim@terpmail.umd.edu",
@@ -1252,8 +1252,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-22T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-23T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -1261,7 +1261,7 @@ export const mockClubMembers = [
     "user_id": "79af4eed-7d3d-5729-8963-46e04646d23b",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-11T17:00:00.000Z",
+    "joined_at": "2026-01-12T17:00:00.000Z",
     "user": {
       "id": "79af4eed-7d3d-5729-8963-46e04646d23b",
       "email": "nia.brooks@terpmail.umd.edu",
@@ -1304,8 +1304,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-16T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-17T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -1313,7 +1313,7 @@ export const mockClubMembers = [
     "user_id": "7ebd3331-9d3e-5d07-b957-dbb6cb18760f",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-10T17:00:00.000Z",
+    "joined_at": "2026-01-11T17:00:00.000Z",
     "user": {
       "id": "7ebd3331-9d3e-5d07-b957-dbb6cb18760f",
       "email": "rahul.mehta@terpmail.umd.edu",
@@ -1355,8 +1355,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-26T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-27T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -1364,7 +1364,7 @@ export const mockClubMembers = [
     "user_id": "c0957686-8810-518a-8a56-df06c240f785",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-09T17:00:00.000Z",
+    "joined_at": "2026-01-10T17:00:00.000Z",
     "user": {
       "id": "c0957686-8810-518a-8a56-df06c240f785",
       "email": "omar.hassan@terpmail.umd.edu",
@@ -1407,8 +1407,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-28T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-29T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -1416,7 +1416,7 @@ export const mockClubMembers = [
     "user_id": "9e36e2f6-f994-573b-b8f8-5e7ee6c3a6f4",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-08T17:00:00.000Z",
+    "joined_at": "2026-01-09T17:00:00.000Z",
     "user": {
       "id": "9e36e2f6-f994-573b-b8f8-5e7ee6c3a6f4",
       "email": "david.okafor@terpmail.umd.edu",
@@ -1458,8 +1458,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-30T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-31T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -1467,7 +1467,7 @@ export const mockClubMembers = [
     "user_id": "f360a23b-4f3d-566a-959f-ea05849e43ab",
     "role": "president",
     "status": "approved",
-    "joined_at": "2026-01-10T17:00:00.000Z",
+    "joined_at": "2026-01-11T17:00:00.000Z",
     "user": {
       "id": "f360a23b-4f3d-566a-959f-ea05849e43ab",
       "email": "ethan.kim@terpmail.umd.edu",
@@ -1509,8 +1509,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-22T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-23T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -1518,7 +1518,7 @@ export const mockClubMembers = [
     "user_id": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2026-01-09T17:00:00.000Z",
+    "joined_at": "2026-01-10T17:00:00.000Z",
     "user": {
       "id": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
       "email": "sana.mir@terpmail.umd.edu",
@@ -1559,8 +1559,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2026-01-02T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2026-01-03T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -1568,7 +1568,7 @@ export const mockClubMembers = [
     "user_id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-08T17:00:00.000Z",
+    "joined_at": "2026-01-09T17:00:00.000Z",
     "user": {
       "id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
       "email": "alexj_test@terpmail.umd.edu",
@@ -1613,8 +1613,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-15T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-16T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -1622,7 +1622,7 @@ export const mockClubMembers = [
     "user_id": "0b4c9322-5024-52dd-b93b-68b721c026ee",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-07T17:00:00.000Z",
+    "joined_at": "2026-01-08T17:00:00.000Z",
     "user": {
       "id": "0b4c9322-5024-52dd-b93b-68b721c026ee",
       "email": "daniel.park@terpmail.umd.edu",
@@ -1664,8 +1664,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-17T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-18T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -1673,7 +1673,7 @@ export const mockClubMembers = [
     "user_id": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-06T17:00:00.000Z",
+    "joined_at": "2026-01-07T17:00:00.000Z",
     "user": {
       "id": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
       "email": "priya.shah@terpmail.umd.edu",
@@ -1716,8 +1716,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-18T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-19T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -1725,7 +1725,7 @@ export const mockClubMembers = [
     "user_id": "7ebd3331-9d3e-5d07-b957-dbb6cb18760f",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-05T17:00:00.000Z",
+    "joined_at": "2026-01-06T17:00:00.000Z",
     "user": {
       "id": "7ebd3331-9d3e-5d07-b957-dbb6cb18760f",
       "email": "rahul.mehta@terpmail.umd.edu",
@@ -1767,8 +1767,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-26T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-27T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -1776,7 +1776,7 @@ export const mockClubMembers = [
     "user_id": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-04T17:00:00.000Z",
+    "joined_at": "2026-01-05T17:00:00.000Z",
     "user": {
       "id": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
       "email": "grace.chen@terpmail.umd.edu",
@@ -1817,8 +1817,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-27T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-28T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -1826,7 +1826,7 @@ export const mockClubMembers = [
     "user_id": "9e36e2f6-f994-573b-b8f8-5e7ee6c3a6f4",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-03T17:00:00.000Z",
+    "joined_at": "2026-01-04T17:00:00.000Z",
     "user": {
       "id": "9e36e2f6-f994-573b-b8f8-5e7ee6c3a6f4",
       "email": "david.okafor@terpmail.umd.edu",
@@ -1868,8 +1868,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-30T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-31T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -1877,7 +1877,7 @@ export const mockClubMembers = [
     "user_id": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
     "role": "president",
     "status": "approved",
-    "joined_at": "2026-01-06T17:00:00.000Z",
+    "joined_at": "2026-01-07T17:00:00.000Z",
     "user": {
       "id": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
       "email": "grace.chen@terpmail.umd.edu",
@@ -1918,8 +1918,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-27T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-28T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -1927,7 +1927,7 @@ export const mockClubMembers = [
     "user_id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2026-01-05T17:00:00.000Z",
+    "joined_at": "2026-01-06T17:00:00.000Z",
     "user": {
       "id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
       "email": "alexj_test@terpmail.umd.edu",
@@ -1972,8 +1972,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-15T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-16T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -1981,7 +1981,7 @@ export const mockClubMembers = [
     "user_id": "bf962ba5-980e-5ed4-b080-3ddad5c2e760",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2026-01-04T17:00:00.000Z",
+    "joined_at": "2026-01-05T17:00:00.000Z",
     "user": {
       "id": "bf962ba5-980e-5ed4-b080-3ddad5c2e760",
       "email": "leena.rao@terpmail.umd.edu",
@@ -2022,8 +2022,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-21T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-22T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -2031,7 +2031,7 @@ export const mockClubMembers = [
     "user_id": "79af4eed-7d3d-5729-8963-46e04646d23b",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-03T17:00:00.000Z",
+    "joined_at": "2026-01-04T17:00:00.000Z",
     "user": {
       "id": "79af4eed-7d3d-5729-8963-46e04646d23b",
       "email": "nia.brooks@terpmail.umd.edu",
@@ -2074,8 +2074,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-16T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-17T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -2083,7 +2083,7 @@ export const mockClubMembers = [
     "user_id": "c0957686-8810-518a-8a56-df06c240f785",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-02T17:00:00.000Z",
+    "joined_at": "2026-01-03T17:00:00.000Z",
     "user": {
       "id": "c0957686-8810-518a-8a56-df06c240f785",
       "email": "omar.hassan@terpmail.umd.edu",
@@ -2126,8 +2126,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-28T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-29T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -2135,7 +2135,7 @@ export const mockClubMembers = [
     "user_id": "ca86602c-434a-50de-af39-90312889c45d",
     "role": "member",
     "status": "approved",
-    "joined_at": "2026-01-01T17:00:00.000Z",
+    "joined_at": "2026-01-02T17:00:00.000Z",
     "user": {
       "id": "ca86602c-434a-50de-af39-90312889c45d",
       "email": "sofia.alvarez@terpmail.umd.edu",
@@ -2176,8 +2176,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-23T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-24T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -2185,7 +2185,7 @@ export const mockClubMembers = [
     "user_id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-31T17:00:00.000Z",
+    "joined_at": "2026-01-01T17:00:00.000Z",
     "user": {
       "id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
       "email": "tyler.bennett@terpmail.umd.edu",
@@ -2227,8 +2227,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2026-01-03T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2026-01-04T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -2236,7 +2236,7 @@ export const mockClubMembers = [
     "user_id": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
     "role": "president",
     "status": "approved",
-    "joined_at": "2026-01-02T17:00:00.000Z",
+    "joined_at": "2026-01-03T17:00:00.000Z",
     "user": {
       "id": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
       "email": "aaliyah.green@terpmail.umd.edu",
@@ -2277,8 +2277,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-25T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-26T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -2286,7 +2286,7 @@ export const mockClubMembers = [
     "user_id": "5a90dcaa-9700-59fb-9cc9-66b19e06e6d6",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2026-01-01T17:00:00.000Z",
+    "joined_at": "2026-01-02T17:00:00.000Z",
     "user": {
       "id": "5a90dcaa-9700-59fb-9cc9-66b19e06e6d6",
       "email": "marcus.thompson@terpmail.umd.edu",
@@ -2327,8 +2327,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-19T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-20T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -2336,7 +2336,7 @@ export const mockClubMembers = [
     "user_id": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2025-12-31T17:00:00.000Z",
+    "joined_at": "2026-01-01T17:00:00.000Z",
     "user": {
       "id": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
       "email": "hannah.lee@terpmail.umd.edu",
@@ -2378,8 +2378,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-29T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-30T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -2387,7 +2387,7 @@ export const mockClubMembers = [
     "user_id": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-30T17:00:00.000Z",
+    "joined_at": "2025-12-31T17:00:00.000Z",
     "user": {
       "id": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
       "email": "priya.shah@terpmail.umd.edu",
@@ -2430,8 +2430,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-18T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-19T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -2439,7 +2439,7 @@ export const mockClubMembers = [
     "user_id": "dceb7801-ef4a-5c0d-8c77-d45c18b15df1",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-29T17:00:00.000Z",
+    "joined_at": "2025-12-30T17:00:00.000Z",
     "user": {
       "id": "dceb7801-ef4a-5c0d-8c77-d45c18b15df1",
       "email": "jordan.kim@terpmail.umd.edu",
@@ -2480,8 +2480,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-24T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-25T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -2489,7 +2489,7 @@ export const mockClubMembers = [
     "user_id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-28T17:00:00.000Z",
+    "joined_at": "2025-12-29T17:00:00.000Z",
     "user": {
       "id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
       "email": "tyler.bennett@terpmail.umd.edu",
@@ -2531,8 +2531,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2026-01-03T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2026-01-04T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -2540,7 +2540,7 @@ export const mockClubMembers = [
     "user_id": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
     "role": "president",
     "status": "approved",
-    "joined_at": "2025-12-29T17:00:00.000Z",
+    "joined_at": "2025-12-30T17:00:00.000Z",
     "user": {
       "id": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
       "email": "sana.mir@terpmail.umd.edu",
@@ -2581,8 +2581,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2026-01-02T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2026-01-03T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -2590,7 +2590,7 @@ export const mockClubMembers = [
     "user_id": "bf962ba5-980e-5ed4-b080-3ddad5c2e760",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2025-12-28T17:00:00.000Z",
+    "joined_at": "2025-12-29T17:00:00.000Z",
     "user": {
       "id": "bf962ba5-980e-5ed4-b080-3ddad5c2e760",
       "email": "leena.rao@terpmail.umd.edu",
@@ -2631,8 +2631,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-21T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-22T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -2640,7 +2640,7 @@ export const mockClubMembers = [
     "user_id": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-27T17:00:00.000Z",
+    "joined_at": "2025-12-28T17:00:00.000Z",
     "user": {
       "id": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
       "email": "priya.shah@terpmail.umd.edu",
@@ -2683,8 +2683,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-18T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-19T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -2692,7 +2692,7 @@ export const mockClubMembers = [
     "user_id": "a49d4554-325c-5c88-afaa-ef947f0a115a",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-26T17:00:00.000Z",
+    "joined_at": "2025-12-27T17:00:00.000Z",
     "user": {
       "id": "a49d4554-325c-5c88-afaa-ef947f0a115a",
       "email": "maya.patel@terpmail.umd.edu",
@@ -2734,8 +2734,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-20T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-21T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -2743,7 +2743,7 @@ export const mockClubMembers = [
     "user_id": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-25T17:00:00.000Z",
+    "joined_at": "2025-12-26T17:00:00.000Z",
     "user": {
       "id": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
       "email": "hannah.lee@terpmail.umd.edu",
@@ -2785,8 +2785,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-29T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-30T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -2794,7 +2794,7 @@ export const mockClubMembers = [
     "user_id": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-24T17:00:00.000Z",
+    "joined_at": "2025-12-25T17:00:00.000Z",
     "user": {
       "id": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
       "email": "chloe.nguyen@terpmail.umd.edu",
@@ -2836,8 +2836,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-31T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2026-01-01T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -2845,7 +2845,7 @@ export const mockClubMembers = [
     "user_id": "7ebd3331-9d3e-5d07-b957-dbb6cb18760f",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-23T17:00:00.000Z",
+    "joined_at": "2025-12-24T17:00:00.000Z",
     "user": {
       "id": "7ebd3331-9d3e-5d07-b957-dbb6cb18760f",
       "email": "rahul.mehta@terpmail.umd.edu",
@@ -2887,8 +2887,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-26T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-27T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -2896,7 +2896,7 @@ export const mockClubMembers = [
     "user_id": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
     "role": "president",
     "status": "approved",
-    "joined_at": "2025-12-25T17:00:00.000Z",
+    "joined_at": "2025-12-26T17:00:00.000Z",
     "user": {
       "id": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
       "email": "priya.shah@terpmail.umd.edu",
@@ -2939,8 +2939,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-18T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-19T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -2948,7 +2948,7 @@ export const mockClubMembers = [
     "user_id": "79af4eed-7d3d-5729-8963-46e04646d23b",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2025-12-24T17:00:00.000Z",
+    "joined_at": "2025-12-25T17:00:00.000Z",
     "user": {
       "id": "79af4eed-7d3d-5729-8963-46e04646d23b",
       "email": "nia.brooks@terpmail.umd.edu",
@@ -2991,8 +2991,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-16T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-17T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -3000,7 +3000,7 @@ export const mockClubMembers = [
     "user_id": "a49d4554-325c-5c88-afaa-ef947f0a115a",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-23T17:00:00.000Z",
+    "joined_at": "2025-12-24T17:00:00.000Z",
     "user": {
       "id": "a49d4554-325c-5c88-afaa-ef947f0a115a",
       "email": "maya.patel@terpmail.umd.edu",
@@ -3042,8 +3042,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-20T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-21T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -3051,7 +3051,7 @@ export const mockClubMembers = [
     "user_id": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-22T17:00:00.000Z",
+    "joined_at": "2025-12-23T17:00:00.000Z",
     "user": {
       "id": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
       "email": "grace.chen@terpmail.umd.edu",
@@ -3092,8 +3092,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-27T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-28T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -3101,7 +3101,7 @@ export const mockClubMembers = [
     "user_id": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-21T17:00:00.000Z",
+    "joined_at": "2025-12-22T17:00:00.000Z",
     "user": {
       "id": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
       "email": "aaliyah.green@terpmail.umd.edu",
@@ -3142,8 +3142,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-25T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-26T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -3151,7 +3151,7 @@ export const mockClubMembers = [
     "user_id": "dceb7801-ef4a-5c0d-8c77-d45c18b15df1",
     "role": "president",
     "status": "approved",
-    "joined_at": "2025-12-21T17:00:00.000Z",
+    "joined_at": "2025-12-22T17:00:00.000Z",
     "user": {
       "id": "dceb7801-ef4a-5c0d-8c77-d45c18b15df1",
       "email": "jordan.kim@terpmail.umd.edu",
@@ -3192,8 +3192,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-24T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-25T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -3201,7 +3201,7 @@ export const mockClubMembers = [
     "user_id": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2025-12-20T17:00:00.000Z",
+    "joined_at": "2025-12-21T17:00:00.000Z",
     "user": {
       "id": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
       "email": "hannah.lee@terpmail.umd.edu",
@@ -3243,8 +3243,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-29T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-30T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -3252,7 +3252,7 @@ export const mockClubMembers = [
     "user_id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-19T17:00:00.000Z",
+    "joined_at": "2025-12-20T17:00:00.000Z",
     "user": {
       "id": "6667ca7e-5d07-5fd3-ab93-276110c38063",
       "email": "alexj_test@terpmail.umd.edu",
@@ -3297,8 +3297,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-15T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-16T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -3306,7 +3306,7 @@ export const mockClubMembers = [
     "user_id": "5a90dcaa-9700-59fb-9cc9-66b19e06e6d6",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-18T17:00:00.000Z",
+    "joined_at": "2025-12-19T17:00:00.000Z",
     "user": {
       "id": "5a90dcaa-9700-59fb-9cc9-66b19e06e6d6",
       "email": "marcus.thompson@terpmail.umd.edu",
@@ -3347,8 +3347,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-19T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-20T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -3356,7 +3356,7 @@ export const mockClubMembers = [
     "user_id": "1941e5a9-753c-5055-b24d-ff4990dd714e",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-17T17:00:00.000Z",
+    "joined_at": "2025-12-18T17:00:00.000Z",
     "user": {
       "id": "1941e5a9-753c-5055-b24d-ff4990dd714e",
       "email": "aaron.feldman@terpmail.umd.edu",
@@ -3396,8 +3396,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2026-01-01T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2026-01-02T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -3405,7 +3405,7 @@ export const mockClubMembers = [
     "user_id": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
     "role": "president",
     "status": "approved",
-    "joined_at": "2025-12-17T17:00:00.000Z",
+    "joined_at": "2025-12-18T17:00:00.000Z",
     "user": {
       "id": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
       "email": "hannah.lee@terpmail.umd.edu",
@@ -3447,8 +3447,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-29T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-30T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -3456,7 +3456,7 @@ export const mockClubMembers = [
     "user_id": "0b4c9322-5024-52dd-b93b-68b721c026ee",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2025-12-16T17:00:00.000Z",
+    "joined_at": "2025-12-17T17:00:00.000Z",
     "user": {
       "id": "0b4c9322-5024-52dd-b93b-68b721c026ee",
       "email": "daniel.park@terpmail.umd.edu",
@@ -3498,8 +3498,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-17T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-18T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -3507,7 +3507,7 @@ export const mockClubMembers = [
     "user_id": "5a90dcaa-9700-59fb-9cc9-66b19e06e6d6",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-15T17:00:00.000Z",
+    "joined_at": "2025-12-16T17:00:00.000Z",
     "user": {
       "id": "5a90dcaa-9700-59fb-9cc9-66b19e06e6d6",
       "email": "marcus.thompson@terpmail.umd.edu",
@@ -3548,14 +3548,166 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-19T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-20T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
     "club_id": "572b2a79-031d-5b9e-b4bb-5a727906def8",
     "user_id": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
     "role": "member",
+    "status": "approved",
+    "joined_at": "2025-12-15T17:00:00.000Z",
+    "user": {
+      "id": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
+      "email": "chloe.nguyen@terpmail.umd.edu",
+      "username": "chloecreates",
+      "display_name": "Chloe Nguyen",
+      "avatar_url": "https://i.pravatar.cc/300?u=chloecreates",
+      "major": "Studio Art",
+      "graduation_year": 2026,
+      "degree_type": "ba",
+      "minor": "Computer Science",
+      "bio": "Creative Coding Collective president, poster-maker, and curator of niche but excellent campus playlists.",
+      "pronouns": "she/her",
+      "clubs": [
+        "Bhangra at UMD",
+        "Korean Student Association",
+        "Creative Coding Collective",
+        "Film Society at Maryland"
+      ],
+      "courses": [
+        "ENGL101",
+        "INST201"
+      ],
+      "interests": [
+        "arts",
+        "creative-tech",
+        "design",
+        "film",
+        "culture"
+      ],
+      "follower_count": 2,
+      "following_count": 4,
+      "notification_prefs": {
+        "push_enabled": true,
+        "email_enabled": true,
+        "club_updates": true,
+        "event_reminders": true,
+        "feed_activity": true
+      },
+      "push_token": null,
+      "profile_completed": true,
+      "onboarding_step": 3,
+      "created_at": "2026-01-01T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
+    }
+  },
+  {
+    "club_id": "572b2a79-031d-5b9e-b4bb-5a727906def8",
+    "user_id": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
+    "role": "member",
+    "status": "approved",
+    "joined_at": "2025-12-14T17:00:00.000Z",
+    "user": {
+      "id": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
+      "email": "sana.mir@terpmail.umd.edu",
+      "username": "sana_mir",
+      "display_name": "Sana Mir",
+      "avatar_url": "https://i.pravatar.cc/300?u=sana_mir",
+      "major": "Neuroscience",
+      "graduation_year": 2026,
+      "degree_type": "bs",
+      "minor": "Statistics",
+      "bio": "Bhangra captain with equal love for stage lights, careful planning, and a solid post-event debrief.",
+      "pronouns": "she/her",
+      "clubs": [
+        "Data Science Club",
+        "Bhangra at UMD",
+        "Korean Student Association"
+      ],
+      "courses": [
+        "STAT400",
+        "ENGL101"
+      ],
+      "interests": [
+        "dance",
+        "culture",
+        "community",
+        "wellness",
+        "data"
+      ],
+      "follower_count": 9,
+      "following_count": 3,
+      "notification_prefs": {
+        "push_enabled": true,
+        "email_enabled": true,
+        "club_updates": true,
+        "event_reminders": true,
+        "feed_activity": true
+      },
+      "push_token": null,
+      "profile_completed": true,
+      "onboarding_step": 3,
+      "created_at": "2026-01-03T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
+    }
+  },
+  {
+    "club_id": "572b2a79-031d-5b9e-b4bb-5a727906def8",
+    "user_id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
+    "role": "member",
+    "status": "approved",
+    "joined_at": "2025-12-13T17:00:00.000Z",
+    "user": {
+      "id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
+      "email": "tyler.bennett@terpmail.umd.edu",
+      "username": "tyler_bennett",
+      "display_name": "Tyler Bennett",
+      "avatar_url": "https://i.pravatar.cc/300?u=tyler_bennett",
+      "major": "Economics",
+      "graduation_year": 2025,
+      "degree_type": "ba",
+      "minor": "General Business",
+      "bio": "Shows up for founder talks, club screenings, and basically any event with a good crowd and better snacks.",
+      "pronouns": "he/him",
+      "clubs": [
+        "Terp Entrepreneurs",
+        "Maryland Running Club",
+        "Korean Student Association",
+        "Film Society at Maryland"
+      ],
+      "courses": [
+        "BMGT220",
+        "STAT400"
+      ],
+      "interests": [
+        "careers",
+        "community",
+        "culture",
+        "film",
+        "running"
+      ],
+      "follower_count": 0,
+      "following_count": 4,
+      "notification_prefs": {
+        "push_enabled": true,
+        "email_enabled": true,
+        "club_updates": true,
+        "event_reminders": true,
+        "feed_activity": true
+      },
+      "push_token": null,
+      "profile_completed": true,
+      "onboarding_step": 3,
+      "created_at": "2026-01-04T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
+    }
+  },
+  {
+    "club_id": "673363a9-c22b-5446-98ac-37c379aaed6a",
+    "user_id": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
+    "role": "president",
     "status": "approved",
     "joined_at": "2025-12-14T17:00:00.000Z",
     "user": {
@@ -3599,160 +3751,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-31T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
-    }
-  },
-  {
-    "club_id": "572b2a79-031d-5b9e-b4bb-5a727906def8",
-    "user_id": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
-    "role": "member",
-    "status": "approved",
-    "joined_at": "2025-12-13T17:00:00.000Z",
-    "user": {
-      "id": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
-      "email": "sana.mir@terpmail.umd.edu",
-      "username": "sana_mir",
-      "display_name": "Sana Mir",
-      "avatar_url": "https://i.pravatar.cc/300?u=sana_mir",
-      "major": "Neuroscience",
-      "graduation_year": 2026,
-      "degree_type": "bs",
-      "minor": "Statistics",
-      "bio": "Bhangra captain with equal love for stage lights, careful planning, and a solid post-event debrief.",
-      "pronouns": "she/her",
-      "clubs": [
-        "Data Science Club",
-        "Bhangra at UMD",
-        "Korean Student Association"
-      ],
-      "courses": [
-        "STAT400",
-        "ENGL101"
-      ],
-      "interests": [
-        "dance",
-        "culture",
-        "community",
-        "wellness",
-        "data"
-      ],
-      "follower_count": 9,
-      "following_count": 3,
-      "notification_prefs": {
-        "push_enabled": true,
-        "email_enabled": true,
-        "club_updates": true,
-        "event_reminders": true,
-        "feed_activity": true
-      },
-      "push_token": null,
-      "profile_completed": true,
-      "onboarding_step": 3,
-      "created_at": "2026-01-02T14:00:00.000Z",
+      "created_at": "2026-01-01T14:00:00.000Z",
       "updated_at": "2026-04-12T16:00:00.000Z"
-    }
-  },
-  {
-    "club_id": "572b2a79-031d-5b9e-b4bb-5a727906def8",
-    "user_id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
-    "role": "member",
-    "status": "approved",
-    "joined_at": "2025-12-12T17:00:00.000Z",
-    "user": {
-      "id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
-      "email": "tyler.bennett@terpmail.umd.edu",
-      "username": "tyler_bennett",
-      "display_name": "Tyler Bennett",
-      "avatar_url": "https://i.pravatar.cc/300?u=tyler_bennett",
-      "major": "Economics",
-      "graduation_year": 2025,
-      "degree_type": "ba",
-      "minor": "General Business",
-      "bio": "Shows up for founder talks, club screenings, and basically any event with a good crowd and better snacks.",
-      "pronouns": "he/him",
-      "clubs": [
-        "Terp Entrepreneurs",
-        "Maryland Running Club",
-        "Korean Student Association",
-        "Film Society at Maryland"
-      ],
-      "courses": [
-        "BMGT220",
-        "STAT400"
-      ],
-      "interests": [
-        "careers",
-        "community",
-        "culture",
-        "film",
-        "running"
-      ],
-      "follower_count": 0,
-      "following_count": 4,
-      "notification_prefs": {
-        "push_enabled": true,
-        "email_enabled": true,
-        "club_updates": true,
-        "event_reminders": true,
-        "feed_activity": true
-      },
-      "push_token": null,
-      "profile_completed": true,
-      "onboarding_step": 3,
-      "created_at": "2026-01-03T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
-    }
-  },
-  {
-    "club_id": "673363a9-c22b-5446-98ac-37c379aaed6a",
-    "user_id": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
-    "role": "president",
-    "status": "approved",
-    "joined_at": "2025-12-13T17:00:00.000Z",
-    "user": {
-      "id": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
-      "email": "chloe.nguyen@terpmail.umd.edu",
-      "username": "chloecreates",
-      "display_name": "Chloe Nguyen",
-      "avatar_url": "https://i.pravatar.cc/300?u=chloecreates",
-      "major": "Studio Art",
-      "graduation_year": 2026,
-      "degree_type": "ba",
-      "minor": "Computer Science",
-      "bio": "Creative Coding Collective president, poster-maker, and curator of niche but excellent campus playlists.",
-      "pronouns": "she/her",
-      "clubs": [
-        "Bhangra at UMD",
-        "Korean Student Association",
-        "Creative Coding Collective",
-        "Film Society at Maryland"
-      ],
-      "courses": [
-        "ENGL101",
-        "INST201"
-      ],
-      "interests": [
-        "arts",
-        "creative-tech",
-        "design",
-        "film",
-        "culture"
-      ],
-      "follower_count": 2,
-      "following_count": 4,
-      "notification_prefs": {
-        "push_enabled": true,
-        "email_enabled": true,
-        "club_updates": true,
-        "event_reminders": true,
-        "feed_activity": true
-      },
-      "push_token": null,
-      "profile_completed": true,
-      "onboarding_step": 3,
-      "created_at": "2025-12-31T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -3760,7 +3760,7 @@ export const mockClubMembers = [
     "user_id": "c0957686-8810-518a-8a56-df06c240f785",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2025-12-12T17:00:00.000Z",
+    "joined_at": "2025-12-13T17:00:00.000Z",
     "user": {
       "id": "c0957686-8810-518a-8a56-df06c240f785",
       "email": "omar.hassan@terpmail.umd.edu",
@@ -3803,8 +3803,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-28T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-29T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -3812,7 +3812,7 @@ export const mockClubMembers = [
     "user_id": "79af4eed-7d3d-5729-8963-46e04646d23b",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-11T17:00:00.000Z",
+    "joined_at": "2025-12-12T17:00:00.000Z",
     "user": {
       "id": "79af4eed-7d3d-5729-8963-46e04646d23b",
       "email": "nia.brooks@terpmail.umd.edu",
@@ -3855,8 +3855,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-16T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-17T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -3864,7 +3864,7 @@ export const mockClubMembers = [
     "user_id": "f360a23b-4f3d-566a-959f-ea05849e43ab",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-10T17:00:00.000Z",
+    "joined_at": "2025-12-11T17:00:00.000Z",
     "user": {
       "id": "f360a23b-4f3d-566a-959f-ea05849e43ab",
       "email": "ethan.kim@terpmail.umd.edu",
@@ -3906,8 +3906,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-22T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-23T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -3915,7 +3915,7 @@ export const mockClubMembers = [
     "user_id": "ca86602c-434a-50de-af39-90312889c45d",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-09T17:00:00.000Z",
+    "joined_at": "2025-12-10T17:00:00.000Z",
     "user": {
       "id": "ca86602c-434a-50de-af39-90312889c45d",
       "email": "sofia.alvarez@terpmail.umd.edu",
@@ -3956,8 +3956,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-23T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-24T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -3965,7 +3965,7 @@ export const mockClubMembers = [
     "user_id": "1941e5a9-753c-5055-b24d-ff4990dd714e",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-08T17:00:00.000Z",
+    "joined_at": "2025-12-09T17:00:00.000Z",
     "user": {
       "id": "1941e5a9-753c-5055-b24d-ff4990dd714e",
       "email": "aaron.feldman@terpmail.umd.edu",
@@ -4005,8 +4005,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2026-01-01T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2026-01-02T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -4014,7 +4014,7 @@ export const mockClubMembers = [
     "user_id": "a49d4554-325c-5c88-afaa-ef947f0a115a",
     "role": "president",
     "status": "approved",
-    "joined_at": "2025-12-09T17:00:00.000Z",
+    "joined_at": "2025-12-10T17:00:00.000Z",
     "user": {
       "id": "a49d4554-325c-5c88-afaa-ef947f0a115a",
       "email": "maya.patel@terpmail.umd.edu",
@@ -4056,8 +4056,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-20T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-21T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -4065,7 +4065,7 @@ export const mockClubMembers = [
     "user_id": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2025-12-08T17:00:00.000Z",
+    "joined_at": "2025-12-09T17:00:00.000Z",
     "user": {
       "id": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
       "email": "aaliyah.green@terpmail.umd.edu",
@@ -4106,8 +4106,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-25T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-26T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -4115,7 +4115,7 @@ export const mockClubMembers = [
     "user_id": "dceb7801-ef4a-5c0d-8c77-d45c18b15df1",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-07T17:00:00.000Z",
+    "joined_at": "2025-12-08T17:00:00.000Z",
     "user": {
       "id": "dceb7801-ef4a-5c0d-8c77-d45c18b15df1",
       "email": "jordan.kim@terpmail.umd.edu",
@@ -4156,8 +4156,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-24T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-25T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -4165,7 +4165,7 @@ export const mockClubMembers = [
     "user_id": "ca86602c-434a-50de-af39-90312889c45d",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-06T17:00:00.000Z",
+    "joined_at": "2025-12-07T17:00:00.000Z",
     "user": {
       "id": "ca86602c-434a-50de-af39-90312889c45d",
       "email": "sofia.alvarez@terpmail.umd.edu",
@@ -4206,8 +4206,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-23T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-24T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -4215,7 +4215,7 @@ export const mockClubMembers = [
     "user_id": "9e36e2f6-f994-573b-b8f8-5e7ee6c3a6f4",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-05T17:00:00.000Z",
+    "joined_at": "2025-12-06T17:00:00.000Z",
     "user": {
       "id": "9e36e2f6-f994-573b-b8f8-5e7ee6c3a6f4",
       "email": "david.okafor@terpmail.umd.edu",
@@ -4257,8 +4257,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-30T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-31T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -4266,7 +4266,7 @@ export const mockClubMembers = [
     "user_id": "1941e5a9-753c-5055-b24d-ff4990dd714e",
     "role": "president",
     "status": "approved",
-    "joined_at": "2025-12-05T17:00:00.000Z",
+    "joined_at": "2025-12-06T17:00:00.000Z",
     "user": {
       "id": "1941e5a9-753c-5055-b24d-ff4990dd714e",
       "email": "aaron.feldman@terpmail.umd.edu",
@@ -4306,8 +4306,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2026-01-01T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2026-01-02T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -4315,7 +4315,7 @@ export const mockClubMembers = [
     "user_id": "ca86602c-434a-50de-af39-90312889c45d",
     "role": "officer",
     "status": "approved",
-    "joined_at": "2025-12-04T17:00:00.000Z",
+    "joined_at": "2025-12-05T17:00:00.000Z",
     "user": {
       "id": "ca86602c-434a-50de-af39-90312889c45d",
       "email": "sofia.alvarez@terpmail.umd.edu",
@@ -4356,8 +4356,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-23T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-24T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -4365,7 +4365,7 @@ export const mockClubMembers = [
     "user_id": "a49d4554-325c-5c88-afaa-ef947f0a115a",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-03T17:00:00.000Z",
+    "joined_at": "2025-12-04T17:00:00.000Z",
     "user": {
       "id": "a49d4554-325c-5c88-afaa-ef947f0a115a",
       "email": "maya.patel@terpmail.umd.edu",
@@ -4407,8 +4407,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-20T14:00:00.000Z",
-      "updated_at": "2026-04-10T16:00:00.000Z"
+      "created_at": "2025-12-21T14:00:00.000Z",
+      "updated_at": "2026-04-11T16:00:00.000Z"
     }
   },
   {
@@ -4416,7 +4416,7 @@ export const mockClubMembers = [
     "user_id": "bf962ba5-980e-5ed4-b080-3ddad5c2e760",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-02T17:00:00.000Z",
+    "joined_at": "2025-12-03T17:00:00.000Z",
     "user": {
       "id": "bf962ba5-980e-5ed4-b080-3ddad5c2e760",
       "email": "leena.rao@terpmail.umd.edu",
@@ -4457,8 +4457,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-21T14:00:00.000Z",
-      "updated_at": "2026-04-12T16:00:00.000Z"
+      "created_at": "2025-12-22T14:00:00.000Z",
+      "updated_at": "2026-04-13T16:00:00.000Z"
     }
   },
   {
@@ -4466,7 +4466,7 @@ export const mockClubMembers = [
     "user_id": "c0957686-8810-518a-8a56-df06c240f785",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-12-01T17:00:00.000Z",
+    "joined_at": "2025-12-02T17:00:00.000Z",
     "user": {
       "id": "c0957686-8810-518a-8a56-df06c240f785",
       "email": "omar.hassan@terpmail.umd.edu",
@@ -4509,8 +4509,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-28T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2025-12-29T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -4518,7 +4518,7 @@ export const mockClubMembers = [
     "user_id": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-11-30T17:00:00.000Z",
+    "joined_at": "2025-12-01T17:00:00.000Z",
     "user": {
       "id": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
       "email": "chloe.nguyen@terpmail.umd.edu",
@@ -4560,8 +4560,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2025-12-31T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2026-01-01T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   },
   {
@@ -4569,7 +4569,7 @@ export const mockClubMembers = [
     "user_id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
     "role": "member",
     "status": "approved",
-    "joined_at": "2025-11-29T17:00:00.000Z",
+    "joined_at": "2025-11-30T17:00:00.000Z",
     "user": {
       "id": "ee83f346-1b89-59ad-83b3-5ac6a979327e",
       "email": "tyler.bennett@terpmail.umd.edu",
@@ -4611,8 +4611,8 @@ export const mockClubMembers = [
       "push_token": null,
       "profile_completed": true,
       "onboarding_step": 3,
-      "created_at": "2026-01-03T14:00:00.000Z",
-      "updated_at": "2026-04-11T16:00:00.000Z"
+      "created_at": "2026-01-04T14:00:00.000Z",
+      "updated_at": "2026-04-12T16:00:00.000Z"
     }
   }
 ] as ClubMemberWithUser[];
@@ -4637,8 +4637,8 @@ export const mockClubEvents = [
     "created_by": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
     "organizer_name": "Terp Entrepreneurs",
     "category": "career",
-    "starts_at": "2026-04-09T21:30:00.000Z",
-    "ends_at": "2026-04-09T23:00:00.000Z",
+    "starts_at": "2026-04-10T21:30:00.000Z",
+    "ends_at": "2026-04-10T23:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Van Munching Hall",
@@ -4657,8 +4657,8 @@ export const mockClubEvents = [
       "networking"
     ],
     "location": "Van Munching Hall",
-    "created_at": "2026-04-07T21:30:00.000Z",
-    "updated_at": "2026-04-07T21:30:00.000Z"
+    "created_at": "2026-04-08T21:30:00.000Z",
+    "updated_at": "2026-04-08T21:30:00.000Z"
   },
   {
     "id": "5c79e535-ccf4-564b-ad21-a16f729ca080",
@@ -4668,8 +4668,8 @@ export const mockClubEvents = [
     "created_by": "5a90dcaa-9700-59fb-9cc9-66b19e06e6d6",
     "organizer_name": "Maryland Running Club",
     "category": "sports",
-    "starts_at": "2026-04-08T22:00:00.000Z",
-    "ends_at": "2026-04-08T23:15:00.000Z",
+    "starts_at": "2026-04-09T22:00:00.000Z",
+    "ends_at": "2026-04-09T23:15:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Eppley Recreation Center",
@@ -4688,8 +4688,8 @@ export const mockClubEvents = [
       "wellness"
     ],
     "location": "Eppley Recreation Center",
-    "created_at": "2026-04-05T22:00:00.000Z",
-    "updated_at": "2026-04-05T22:00:00.000Z"
+    "created_at": "2026-04-06T22:00:00.000Z",
+    "updated_at": "2026-04-06T22:00:00.000Z"
   },
   {
     "id": "28a04154-5255-57f5-842d-98df5fe10753",
@@ -4699,8 +4699,8 @@ export const mockClubEvents = [
     "created_by": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
     "organizer_name": "Bhangra at UMD",
     "category": "arts",
-    "starts_at": "2026-04-12T23:30:00.000Z",
-    "ends_at": "2026-04-13T01:30:00.000Z",
+    "starts_at": "2026-04-13T23:30:00.000Z",
+    "ends_at": "2026-04-14T01:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "The Clarice Smith Center",
@@ -4719,8 +4719,8 @@ export const mockClubEvents = [
       "performance"
     ],
     "location": "The Clarice Smith Center",
-    "created_at": "2026-04-08T23:30:00.000Z",
-    "updated_at": "2026-04-08T23:30:00.000Z"
+    "created_at": "2026-04-09T23:30:00.000Z",
+    "updated_at": "2026-04-09T23:30:00.000Z"
   },
   {
     "id": "52bc4a78-4cab-5d58-8d6f-24b526793f3a",
@@ -4730,8 +4730,8 @@ export const mockClubEvents = [
     "created_by": "a49d4554-325c-5c88-afaa-ef947f0a115a",
     "organizer_name": "Terps for Change",
     "category": "other",
-    "starts_at": "2026-04-10T22:30:00.000Z",
-    "ends_at": "2026-04-11T00:15:00.000Z",
+    "starts_at": "2026-04-11T22:30:00.000Z",
+    "ends_at": "2026-04-12T00:15:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Stamp Student Union",
@@ -4750,8 +4750,8 @@ export const mockClubEvents = [
       "impact"
     ],
     "location": "Stamp Student Union",
-    "created_at": "2026-04-05T22:30:00.000Z",
-    "updated_at": "2026-04-05T22:30:00.000Z"
+    "created_at": "2026-04-06T22:30:00.000Z",
+    "updated_at": "2026-04-06T22:30:00.000Z"
   },
   {
     "id": "e1681bc4-21d1-526b-9a95-d8150e59b670",
@@ -4761,8 +4761,8 @@ export const mockClubEvents = [
     "created_by": "f360a23b-4f3d-566a-959f-ea05849e43ab",
     "organizer_name": "Data Science Club",
     "category": "academic",
-    "starts_at": "2026-04-11T23:00:00.000Z",
-    "ends_at": "2026-04-12T01:00:00.000Z",
+    "starts_at": "2026-04-12T23:00:00.000Z",
+    "ends_at": "2026-04-13T01:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "McKeldin Library",
@@ -4781,8 +4781,8 @@ export const mockClubEvents = [
       "study"
     ],
     "location": "McKeldin Library",
-    "created_at": "2026-04-09T23:00:00.000Z",
-    "updated_at": "2026-04-09T23:00:00.000Z"
+    "created_at": "2026-04-10T23:00:00.000Z",
+    "updated_at": "2026-04-10T23:00:00.000Z"
   },
   {
     "id": "cc06e4c7-27c1-52a2-887a-148e86f78083",
@@ -4792,8 +4792,8 @@ export const mockClubEvents = [
     "created_by": "6667ca7e-5d07-5fd3-ab93-276110c38063",
     "organizer_name": "UMD Hackers",
     "category": "workshop",
-    "starts_at": "2026-04-07T23:00:00.000Z",
-    "ends_at": "2026-04-08T01:30:00.000Z",
+    "starts_at": "2026-04-08T23:00:00.000Z",
+    "ends_at": "2026-04-09T01:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Brendan Iribe Center",
@@ -4812,8 +4812,8 @@ export const mockClubEvents = [
       "workshop"
     ],
     "location": "Brendan Iribe Center",
-    "created_at": "2026-04-04T23:00:00.000Z",
-    "updated_at": "2026-04-04T23:00:00.000Z"
+    "created_at": "2026-04-05T23:00:00.000Z",
+    "updated_at": "2026-04-05T23:00:00.000Z"
   },
   {
     "id": "3cf3b8b8-b073-5e71-a4e2-31c6d2994712",
@@ -4823,8 +4823,8 @@ export const mockClubEvents = [
     "created_by": "0b4c9322-5024-52dd-b93b-68b721c026ee",
     "organizer_name": "UMD Hackers",
     "category": "workshop",
-    "starts_at": "2026-04-14T14:44:17.951Z",
-    "ends_at": "2026-04-14T17:14:17.951Z",
+    "starts_at": "2026-04-15T21:40:38.936Z",
+    "ends_at": "2026-04-16T00:10:38.936Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Brendan Iribe Center",
@@ -4843,8 +4843,8 @@ export const mockClubEvents = [
       "mentor"
     ],
     "location": "Brendan Iribe Center",
-    "created_at": "2026-04-10T14:44:17.951Z",
-    "updated_at": "2026-04-10T14:44:17.951Z"
+    "created_at": "2026-04-11T21:40:38.936Z",
+    "updated_at": "2026-04-11T21:40:38.936Z"
   },
   {
     "id": "86f93fcb-14a7-5244-9131-25ac345dd6c9",
@@ -4854,8 +4854,8 @@ export const mockClubEvents = [
     "created_by": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
     "organizer_name": "Data Science Club",
     "category": "academic",
-    "starts_at": "2026-04-14T14:59:17.951Z",
-    "ends_at": "2026-04-14T16:59:17.951Z",
+    "starts_at": "2026-04-15T21:55:38.936Z",
+    "ends_at": "2026-04-15T23:55:38.936Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "McKeldin Library",
@@ -4874,8 +4874,8 @@ export const mockClubEvents = [
       "study"
     ],
     "location": "McKeldin Library",
-    "created_at": "2026-04-09T14:59:17.951Z",
-    "updated_at": "2026-04-09T14:59:17.951Z"
+    "created_at": "2026-04-10T21:55:38.936Z",
+    "updated_at": "2026-04-10T21:55:38.936Z"
   },
   {
     "id": "f01a4cc6-9d60-5ec9-ad24-90c854473dcb",
@@ -4885,8 +4885,8 @@ export const mockClubEvents = [
     "created_by": "1941e5a9-753c-5055-b24d-ff4990dd714e",
     "organizer_name": "Film Society at Maryland",
     "category": "arts",
-    "starts_at": "2026-04-14T15:14:17.951Z",
-    "ends_at": "2026-04-14T17:14:17.951Z",
+    "starts_at": "2026-04-15T22:10:38.936Z",
+    "ends_at": "2026-04-16T00:10:38.936Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Stamp Student Union",
@@ -4905,8 +4905,8 @@ export const mockClubEvents = [
       "arts"
     ],
     "location": "Stamp Student Union",
-    "created_at": "2026-04-12T15:14:17.951Z",
-    "updated_at": "2026-04-12T15:14:17.951Z"
+    "created_at": "2026-04-13T22:10:38.936Z",
+    "updated_at": "2026-04-13T22:10:38.936Z"
   },
   {
     "id": "7f12062a-473a-56c6-98a1-f58990f4889d",
@@ -4916,8 +4916,8 @@ export const mockClubEvents = [
     "created_by": "6667ca7e-5d07-5fd3-ab93-276110c38063",
     "organizer_name": "UMD Hackers",
     "category": "workshop",
-    "starts_at": "2026-04-14T23:00:00.000Z",
-    "ends_at": "2026-04-15T01:30:00.000Z",
+    "starts_at": "2026-04-15T23:00:00.000Z",
+    "ends_at": "2026-04-16T01:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Brendan Iribe Center",
@@ -4937,8 +4937,8 @@ export const mockClubEvents = [
       "hackathon"
     ],
     "location": "Brendan Iribe Center",
-    "created_at": "2026-04-11T23:00:00.000Z",
-    "updated_at": "2026-04-11T23:00:00.000Z"
+    "created_at": "2026-04-12T23:00:00.000Z",
+    "updated_at": "2026-04-12T23:00:00.000Z"
   },
   {
     "id": "5835cefc-108f-53c3-b300-0cb36d2b2b4f",
@@ -4948,8 +4948,8 @@ export const mockClubEvents = [
     "created_by": "f360a23b-4f3d-566a-959f-ea05849e43ab",
     "organizer_name": "Data Science Club",
     "category": "career",
-    "starts_at": "2026-04-14T22:30:00.000Z",
-    "ends_at": "2026-04-15T00:00:00.000Z",
+    "starts_at": "2026-04-15T22:30:00.000Z",
+    "ends_at": "2026-04-16T00:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "McKeldin Library",
@@ -4968,8 +4968,8 @@ export const mockClubEvents = [
       "data"
     ],
     "location": "McKeldin Library",
-    "created_at": "2026-04-10T22:30:00.000Z",
-    "updated_at": "2026-04-10T22:30:00.000Z"
+    "created_at": "2026-04-11T22:30:00.000Z",
+    "updated_at": "2026-04-11T22:30:00.000Z"
   },
   {
     "id": "099b5515-59e1-5531-b5a2-4e37be566d83",
@@ -4979,8 +4979,8 @@ export const mockClubEvents = [
     "created_by": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
     "organizer_name": "Maryland Running Club",
     "category": "sports",
-    "starts_at": "2026-04-14T22:00:00.000Z",
-    "ends_at": "2026-04-14T23:15:00.000Z",
+    "starts_at": "2026-04-15T22:00:00.000Z",
+    "ends_at": "2026-04-15T23:15:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Eppley Recreation Center",
@@ -4999,8 +4999,8 @@ export const mockClubEvents = [
       "community"
     ],
     "location": "Eppley Recreation Center",
-    "created_at": "2026-04-09T22:00:00.000Z",
-    "updated_at": "2026-04-09T22:00:00.000Z"
+    "created_at": "2026-04-10T22:00:00.000Z",
+    "updated_at": "2026-04-10T22:00:00.000Z"
   },
   {
     "id": "2a437de6-ec13-5dff-bf7e-52d3295dcddf",
@@ -5010,8 +5010,8 @@ export const mockClubEvents = [
     "created_by": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
     "organizer_name": "Bhangra at UMD",
     "category": "social",
-    "starts_at": "2026-04-14T23:30:00.000Z",
-    "ends_at": "2026-04-15T01:30:00.000Z",
+    "starts_at": "2026-04-15T23:30:00.000Z",
+    "ends_at": "2026-04-16T01:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Stamp Student Union",
@@ -5030,8 +5030,8 @@ export const mockClubEvents = [
       "social"
     ],
     "location": "Stamp Student Union",
-    "created_at": "2026-04-12T23:30:00.000Z",
-    "updated_at": "2026-04-12T23:30:00.000Z"
+    "created_at": "2026-04-13T23:30:00.000Z",
+    "updated_at": "2026-04-13T23:30:00.000Z"
   },
   {
     "id": "eb0a2d13-7e58-5e6e-92f9-5521ded64158",
@@ -5041,8 +5041,8 @@ export const mockClubEvents = [
     "created_by": "dceb7801-ef4a-5c0d-8c77-d45c18b15df1",
     "organizer_name": "Maryland Outdoors Club",
     "category": "other",
-    "starts_at": "2026-04-15T00:00:00.000Z",
-    "ends_at": "2026-04-15T01:15:00.000Z",
+    "starts_at": "2026-04-16T00:00:00.000Z",
+    "ends_at": "2026-04-16T01:15:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Hornbake Library",
@@ -5061,8 +5061,8 @@ export const mockClubEvents = [
       "community"
     ],
     "location": "Hornbake Library",
-    "created_at": "2026-04-12T00:00:00.000Z",
-    "updated_at": "2026-04-12T00:00:00.000Z"
+    "created_at": "2026-04-13T00:00:00.000Z",
+    "updated_at": "2026-04-13T00:00:00.000Z"
   },
   {
     "id": "ad2902b4-6582-5ffa-af89-178564b7f539",
@@ -5072,8 +5072,8 @@ export const mockClubEvents = [
     "created_by": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
     "organizer_name": "Terps for Change",
     "category": "other",
-    "starts_at": "2026-04-14T21:30:00.000Z",
-    "ends_at": "2026-04-14T22:30:00.000Z",
+    "starts_at": "2026-04-15T21:30:00.000Z",
+    "ends_at": "2026-04-15T22:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Stamp Student Union",
@@ -5092,8 +5092,8 @@ export const mockClubEvents = [
       "community"
     ],
     "location": "Stamp Student Union",
-    "created_at": "2026-04-10T21:30:00.000Z",
-    "updated_at": "2026-04-10T21:30:00.000Z"
+    "created_at": "2026-04-11T21:30:00.000Z",
+    "updated_at": "2026-04-11T21:30:00.000Z"
   },
   {
     "id": "ee667319-f1cb-5b07-9324-35d19c05336f",
@@ -5103,8 +5103,8 @@ export const mockClubEvents = [
     "created_by": "ca86602c-434a-50de-af39-90312889c45d",
     "organizer_name": "Film Society at Maryland",
     "category": "arts",
-    "starts_at": "2026-04-15T23:00:00.000Z",
-    "ends_at": "2026-04-16T01:00:00.000Z",
+    "starts_at": "2026-04-16T23:00:00.000Z",
+    "ends_at": "2026-04-17T01:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Stamp Student Union",
@@ -5123,8 +5123,8 @@ export const mockClubEvents = [
       "community"
     ],
     "location": "Stamp Student Union",
-    "created_at": "2026-04-10T23:00:00.000Z",
-    "updated_at": "2026-04-10T23:00:00.000Z"
+    "created_at": "2026-04-11T23:00:00.000Z",
+    "updated_at": "2026-04-11T23:00:00.000Z"
   },
   {
     "id": "11ee7049-283f-5473-9178-30363e87ec04",
@@ -5134,8 +5134,8 @@ export const mockClubEvents = [
     "created_by": "7e1d57eb-5dc7-58f1-8fe1-a165779a5ddd",
     "organizer_name": "Korean Student Association",
     "category": "social",
-    "starts_at": "2026-04-15T22:30:00.000Z",
-    "ends_at": "2026-04-16T00:30:00.000Z",
+    "starts_at": "2026-04-16T22:30:00.000Z",
+    "ends_at": "2026-04-17T00:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Stamp Student Union",
@@ -5154,8 +5154,8 @@ export const mockClubEvents = [
       "community"
     ],
     "location": "Stamp Student Union",
-    "created_at": "2026-04-13T22:30:00.000Z",
-    "updated_at": "2026-04-13T22:30:00.000Z"
+    "created_at": "2026-04-14T22:30:00.000Z",
+    "updated_at": "2026-04-14T22:30:00.000Z"
   },
   {
     "id": "86176723-c0f5-56ef-bbe2-f488cc5e160c",
@@ -5165,8 +5165,8 @@ export const mockClubEvents = [
     "created_by": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
     "organizer_name": "Creative Coding Collective",
     "category": "workshop",
-    "starts_at": "2026-04-15T22:00:00.000Z",
-    "ends_at": "2026-04-16T00:00:00.000Z",
+    "starts_at": "2026-04-16T22:00:00.000Z",
+    "ends_at": "2026-04-17T00:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "The Clarice Smith Center",
@@ -5185,8 +5185,8 @@ export const mockClubEvents = [
       "arts"
     ],
     "location": "The Clarice Smith Center",
-    "created_at": "2026-04-12T22:00:00.000Z",
-    "updated_at": "2026-04-12T22:00:00.000Z"
+    "created_at": "2026-04-13T22:00:00.000Z",
+    "updated_at": "2026-04-13T22:00:00.000Z"
   },
   {
     "id": "63325ef7-e61a-5b6e-b676-555541b6e076",
@@ -5196,8 +5196,8 @@ export const mockClubEvents = [
     "created_by": "0b4c9322-5024-52dd-b93b-68b721c026ee",
     "organizer_name": "UMD Hackers",
     "category": "academic",
-    "starts_at": "2026-04-16T22:30:00.000Z",
-    "ends_at": "2026-04-17T01:00:00.000Z",
+    "starts_at": "2026-04-17T22:30:00.000Z",
+    "ends_at": "2026-04-18T01:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Brendan Iribe Center",
@@ -5217,8 +5217,8 @@ export const mockClubEvents = [
       "community"
     ],
     "location": "Brendan Iribe Center",
-    "created_at": "2026-04-12T22:30:00.000Z",
-    "updated_at": "2026-04-12T22:30:00.000Z"
+    "created_at": "2026-04-13T22:30:00.000Z",
+    "updated_at": "2026-04-13T22:30:00.000Z"
   },
   {
     "id": "11b3ef36-661f-59c6-9171-c5c123e4dee6",
@@ -5228,8 +5228,8 @@ export const mockClubEvents = [
     "created_by": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
     "organizer_name": "Data Science Club",
     "category": "academic",
-    "starts_at": "2026-04-16T23:00:00.000Z",
-    "ends_at": "2026-04-17T01:30:00.000Z",
+    "starts_at": "2026-04-17T23:00:00.000Z",
+    "ends_at": "2026-04-18T01:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "McKeldin Library",
@@ -5248,8 +5248,8 @@ export const mockClubEvents = [
       "community"
     ],
     "location": "McKeldin Library",
-    "created_at": "2026-04-11T23:00:00.000Z",
-    "updated_at": "2026-04-11T23:00:00.000Z"
+    "created_at": "2026-04-12T23:00:00.000Z",
+    "updated_at": "2026-04-12T23:00:00.000Z"
   },
   {
     "id": "ca8008b4-cf50-542a-8f86-e3bd5e003531",
@@ -5259,8 +5259,8 @@ export const mockClubEvents = [
     "created_by": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
     "organizer_name": "Terp Entrepreneurs",
     "category": "career",
-    "starts_at": "2026-04-17T22:30:00.000Z",
-    "ends_at": "2026-04-18T00:15:00.000Z",
+    "starts_at": "2026-04-18T22:30:00.000Z",
+    "ends_at": "2026-04-19T00:15:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Van Munching Hall",
@@ -5279,8 +5279,8 @@ export const mockClubEvents = [
       "networking"
     ],
     "location": "Van Munching Hall",
-    "created_at": "2026-04-15T22:30:00.000Z",
-    "updated_at": "2026-04-15T22:30:00.000Z"
+    "created_at": "2026-04-16T22:30:00.000Z",
+    "updated_at": "2026-04-16T22:30:00.000Z"
   },
   {
     "id": "ee15417d-0a16-53fd-a0be-f030d5efb6b5",
@@ -5290,8 +5290,8 @@ export const mockClubEvents = [
     "created_by": "3871303c-e94e-56e3-b1ea-57ba9b0bc0c1",
     "organizer_name": "Society of Women Engineers",
     "category": "career",
-    "starts_at": "2026-04-17T23:00:00.000Z",
-    "ends_at": "2026-04-18T00:30:00.000Z",
+    "starts_at": "2026-04-18T23:00:00.000Z",
+    "ends_at": "2026-04-19T00:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Edward St. John Learning and Teaching Center",
@@ -5310,8 +5310,8 @@ export const mockClubEvents = [
       "mentorship"
     ],
     "location": "Edward St. John Learning and Teaching Center",
-    "created_at": "2026-04-14T23:00:00.000Z",
-    "updated_at": "2026-04-14T23:00:00.000Z"
+    "created_at": "2026-04-15T23:00:00.000Z",
+    "updated_at": "2026-04-15T23:00:00.000Z"
   },
   {
     "id": "22b0144b-74de-52cb-870d-a25b371ffd64",
@@ -5321,8 +5321,8 @@ export const mockClubEvents = [
     "created_by": "bf962ba5-980e-5ed4-b080-3ddad5c2e760",
     "organizer_name": "Bhangra at UMD",
     "category": "arts",
-    "starts_at": "2026-04-18T23:30:00.000Z",
-    "ends_at": "2026-04-19T02:00:00.000Z",
+    "starts_at": "2026-04-19T23:30:00.000Z",
+    "ends_at": "2026-04-20T02:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "The Clarice Smith Center",
@@ -5341,8 +5341,8 @@ export const mockClubEvents = [
       "culture"
     ],
     "location": "The Clarice Smith Center",
-    "created_at": "2026-04-14T23:30:00.000Z",
-    "updated_at": "2026-04-14T23:30:00.000Z"
+    "created_at": "2026-04-15T23:30:00.000Z",
+    "updated_at": "2026-04-15T23:30:00.000Z"
   },
   {
     "id": "7404bc59-2b11-59fd-b1fd-b3c6c73d472a",
@@ -5352,8 +5352,8 @@ export const mockClubEvents = [
     "created_by": "6667ca7e-5d07-5fd3-ab93-276110c38063",
     "organizer_name": "UMD Hackers",
     "category": "workshop",
-    "starts_at": "2026-04-19T22:30:00.000Z",
-    "ends_at": "2026-04-20T01:00:00.000Z",
+    "starts_at": "2026-04-20T22:30:00.000Z",
+    "ends_at": "2026-04-21T01:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Brendan Iribe Center",
@@ -5372,8 +5372,8 @@ export const mockClubEvents = [
       "workshop"
     ],
     "location": "Brendan Iribe Center",
-    "created_at": "2026-04-14T22:30:00.000Z",
-    "updated_at": "2026-04-14T22:30:00.000Z"
+    "created_at": "2026-04-15T22:30:00.000Z",
+    "updated_at": "2026-04-15T22:30:00.000Z"
   },
   {
     "id": "cd64733a-9d01-568b-b1da-bb05bd501940",
@@ -5383,8 +5383,8 @@ export const mockClubEvents = [
     "created_by": "5a90dcaa-9700-59fb-9cc9-66b19e06e6d6",
     "organizer_name": "Maryland Running Club",
     "category": "sports",
-    "starts_at": "2026-04-19T13:00:00.000Z",
-    "ends_at": "2026-04-19T14:45:00.000Z",
+    "starts_at": "2026-04-20T13:00:00.000Z",
+    "ends_at": "2026-04-20T14:45:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Eppley Recreation Center",
@@ -5403,8 +5403,8 @@ export const mockClubEvents = [
       "sports"
     ],
     "location": "Eppley Recreation Center",
-    "created_at": "2026-04-17T13:00:00.000Z",
-    "updated_at": "2026-04-17T13:00:00.000Z"
+    "created_at": "2026-04-18T13:00:00.000Z",
+    "updated_at": "2026-04-18T13:00:00.000Z"
   },
   {
     "id": "d7727c35-da47-5a43-a0a7-d9fddb77468b",
@@ -5414,8 +5414,8 @@ export const mockClubEvents = [
     "created_by": "1941e5a9-753c-5055-b24d-ff4990dd714e",
     "organizer_name": "Film Society at Maryland",
     "category": "arts",
-    "starts_at": "2026-04-19T23:30:00.000Z",
-    "ends_at": "2026-04-20T01:15:00.000Z",
+    "starts_at": "2026-04-20T23:30:00.000Z",
+    "ends_at": "2026-04-21T01:15:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Hornbake Library",
@@ -5434,8 +5434,8 @@ export const mockClubEvents = [
       "critique"
     ],
     "location": "Hornbake Library",
-    "created_at": "2026-04-16T23:30:00.000Z",
-    "updated_at": "2026-04-16T23:30:00.000Z"
+    "created_at": "2026-04-17T23:30:00.000Z",
+    "updated_at": "2026-04-17T23:30:00.000Z"
   },
   {
     "id": "1eefe324-a89e-5aed-8d1d-2d929ff076dc",
@@ -5445,8 +5445,8 @@ export const mockClubEvents = [
     "created_by": "a49d4554-325c-5c88-afaa-ef947f0a115a",
     "organizer_name": "Terps for Change",
     "category": "other",
-    "starts_at": "2026-04-20T22:00:00.000Z",
-    "ends_at": "2026-04-21T00:00:00.000Z",
+    "starts_at": "2026-04-21T22:00:00.000Z",
+    "ends_at": "2026-04-22T00:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Stamp Student Union",
@@ -5465,8 +5465,8 @@ export const mockClubEvents = [
       "impact"
     ],
     "location": "Stamp Student Union",
-    "created_at": "2026-04-16T22:00:00.000Z",
-    "updated_at": "2026-04-16T22:00:00.000Z"
+    "created_at": "2026-04-17T22:00:00.000Z",
+    "updated_at": "2026-04-17T22:00:00.000Z"
   },
   {
     "id": "8438b8d2-832f-5ff5-ab04-c33714715b9d",
@@ -5476,8 +5476,8 @@ export const mockClubEvents = [
     "created_by": "0b4c9322-5024-52dd-b93b-68b721c026ee",
     "organizer_name": "Korean Student Association",
     "category": "social",
-    "starts_at": "2026-04-20T23:00:00.000Z",
-    "ends_at": "2026-04-21T00:30:00.000Z",
+    "starts_at": "2026-04-21T23:00:00.000Z",
+    "ends_at": "2026-04-22T00:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Edward St. John Learning and Teaching Center",
@@ -5496,8 +5496,8 @@ export const mockClubEvents = [
       "language"
     ],
     "location": "Edward St. John Learning and Teaching Center",
-    "created_at": "2026-04-15T23:00:00.000Z",
-    "updated_at": "2026-04-15T23:00:00.000Z"
+    "created_at": "2026-04-16T23:00:00.000Z",
+    "updated_at": "2026-04-16T23:00:00.000Z"
   },
   {
     "id": "46a5d689-08ba-51d6-bd44-765af4046441",
@@ -5507,8 +5507,8 @@ export const mockClubEvents = [
     "created_by": "c0957686-8810-518a-8a56-df06c240f785",
     "organizer_name": "Creative Coding Collective",
     "category": "workshop",
-    "starts_at": "2026-04-21T22:30:00.000Z",
-    "ends_at": "2026-04-22T00:30:00.000Z",
+    "starts_at": "2026-04-22T22:30:00.000Z",
+    "ends_at": "2026-04-23T00:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "The Clarice Smith Center",
@@ -5527,8 +5527,8 @@ export const mockClubEvents = [
       "builders"
     ],
     "location": "The Clarice Smith Center",
-    "created_at": "2026-04-19T22:30:00.000Z",
-    "updated_at": "2026-04-19T22:30:00.000Z"
+    "created_at": "2026-04-20T22:30:00.000Z",
+    "updated_at": "2026-04-20T22:30:00.000Z"
   },
   {
     "id": "267da4ef-7c6b-5cd0-a622-304afe5f57d8",
@@ -5538,8 +5538,8 @@ export const mockClubEvents = [
     "created_by": "3a44d09f-f9ee-5606-8958-3cdb4d945381",
     "organizer_name": "Terp Entrepreneurs",
     "category": "career",
-    "starts_at": "2026-04-22T22:00:00.000Z",
-    "ends_at": "2026-04-23T00:00:00.000Z",
+    "starts_at": "2026-04-23T22:00:00.000Z",
+    "ends_at": "2026-04-24T00:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Van Munching Hall",
@@ -5558,8 +5558,8 @@ export const mockClubEvents = [
       "networking"
     ],
     "location": "Van Munching Hall",
-    "created_at": "2026-04-19T22:00:00.000Z",
-    "updated_at": "2026-04-19T22:00:00.000Z"
+    "created_at": "2026-04-20T22:00:00.000Z",
+    "updated_at": "2026-04-20T22:00:00.000Z"
   },
   {
     "id": "391f0c2e-a0a9-5bb7-b035-bef426ebf2b1",
@@ -5569,8 +5569,8 @@ export const mockClubEvents = [
     "created_by": "79af4eed-7d3d-5729-8963-46e04646d23b",
     "organizer_name": "Society of Women Engineers",
     "category": "career",
-    "starts_at": "2026-04-22T23:00:00.000Z",
-    "ends_at": "2026-04-23T00:45:00.000Z",
+    "starts_at": "2026-04-23T23:00:00.000Z",
+    "ends_at": "2026-04-24T00:45:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Edward St. John Learning and Teaching Center",
@@ -5589,8 +5589,8 @@ export const mockClubEvents = [
       "mentorship"
     ],
     "location": "Edward St. John Learning and Teaching Center",
-    "created_at": "2026-04-18T23:00:00.000Z",
-    "updated_at": "2026-04-18T23:00:00.000Z"
+    "created_at": "2026-04-19T23:00:00.000Z",
+    "updated_at": "2026-04-19T23:00:00.000Z"
   },
   {
     "id": "b5e3acb1-d51b-5b3f-9444-312ed90615ae",
@@ -5600,8 +5600,8 @@ export const mockClubEvents = [
     "created_by": "f360a23b-4f3d-566a-959f-ea05849e43ab",
     "organizer_name": "Data Science Club",
     "category": "workshop",
-    "starts_at": "2026-04-23T22:30:00.000Z",
-    "ends_at": "2026-04-24T00:30:00.000Z",
+    "starts_at": "2026-04-24T22:30:00.000Z",
+    "ends_at": "2026-04-25T00:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Edward St. John Learning and Teaching Center",
@@ -5620,8 +5620,8 @@ export const mockClubEvents = [
       "workshop"
     ],
     "location": "Edward St. John Learning and Teaching Center",
-    "created_at": "2026-04-18T22:30:00.000Z",
-    "updated_at": "2026-04-18T22:30:00.000Z"
+    "created_at": "2026-04-19T22:30:00.000Z",
+    "updated_at": "2026-04-19T22:30:00.000Z"
   },
   {
     "id": "5267a444-203e-5e6d-be2d-e641e5cb4da2",
@@ -5631,8 +5631,8 @@ export const mockClubEvents = [
     "created_by": "9ffda673-63bb-542b-9b0d-0de86e4557ee",
     "organizer_name": "Maryland Running Club",
     "category": "sports",
-    "starts_at": "2026-04-24T14:00:00.000Z",
-    "ends_at": "2026-04-24T16:00:00.000Z",
+    "starts_at": "2026-04-25T14:00:00.000Z",
+    "ends_at": "2026-04-25T16:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Cole Field House",
@@ -5651,8 +5651,8 @@ export const mockClubEvents = [
       "community"
     ],
     "location": "Cole Field House",
-    "created_at": "2026-04-22T14:00:00.000Z",
-    "updated_at": "2026-04-22T14:00:00.000Z"
+    "created_at": "2026-04-23T14:00:00.000Z",
+    "updated_at": "2026-04-23T14:00:00.000Z"
   },
   {
     "id": "5fffd4d5-3b75-5b84-a53e-23a9996c3233",
@@ -5662,8 +5662,8 @@ export const mockClubEvents = [
     "created_by": "77de58eb-8b78-5ad5-b5bb-a310726ca240",
     "organizer_name": "Bhangra at UMD",
     "category": "arts",
-    "starts_at": "2026-04-25T23:00:00.000Z",
-    "ends_at": "2026-04-26T01:30:00.000Z",
+    "starts_at": "2026-04-26T23:00:00.000Z",
+    "ends_at": "2026-04-27T01:30:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "The Clarice Smith Center",
@@ -5682,8 +5682,8 @@ export const mockClubEvents = [
       "culture"
     ],
     "location": "The Clarice Smith Center",
-    "created_at": "2026-04-22T23:00:00.000Z",
-    "updated_at": "2026-04-22T23:00:00.000Z"
+    "created_at": "2026-04-23T23:00:00.000Z",
+    "updated_at": "2026-04-23T23:00:00.000Z"
   },
   {
     "id": "e6d82ed7-934b-56bc-87a2-e796ddab36fd",
@@ -5693,8 +5693,8 @@ export const mockClubEvents = [
     "created_by": "ca86602c-434a-50de-af39-90312889c45d",
     "organizer_name": "Film Society at Maryland",
     "category": "other",
-    "starts_at": "2026-04-25T22:30:00.000Z",
-    "ends_at": "2026-04-26T00:00:00.000Z",
+    "starts_at": "2026-04-26T22:30:00.000Z",
+    "ends_at": "2026-04-27T00:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Stamp Student Union",
@@ -5713,8 +5713,8 @@ export const mockClubEvents = [
       "community"
     ],
     "location": "Stamp Student Union",
-    "created_at": "2026-04-21T22:30:00.000Z",
-    "updated_at": "2026-04-21T22:30:00.000Z"
+    "created_at": "2026-04-22T22:30:00.000Z",
+    "updated_at": "2026-04-22T22:30:00.000Z"
   },
   {
     "id": "a62f5bc6-f49a-5de8-ab3c-bd348f017d84",
@@ -5724,8 +5724,8 @@ export const mockClubEvents = [
     "created_by": "dceb7801-ef4a-5c0d-8c77-d45c18b15df1",
     "organizer_name": "Maryland Outdoors Club",
     "category": "other",
-    "starts_at": "2026-04-26T23:00:00.000Z",
-    "ends_at": "2026-04-27T00:15:00.000Z",
+    "starts_at": "2026-04-27T23:00:00.000Z",
+    "ends_at": "2026-04-28T00:15:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Hornbake Library",
@@ -5744,8 +5744,8 @@ export const mockClubEvents = [
       "community"
     ],
     "location": "Hornbake Library",
-    "created_at": "2026-04-21T23:00:00.000Z",
-    "updated_at": "2026-04-21T23:00:00.000Z"
+    "created_at": "2026-04-22T23:00:00.000Z",
+    "updated_at": "2026-04-22T23:00:00.000Z"
   },
   {
     "id": "b97103cd-1bca-58a3-ae1b-8fbcf6158e82",
@@ -5755,8 +5755,8 @@ export const mockClubEvents = [
     "created_by": "bf962ba5-980e-5ed4-b080-3ddad5c2e760",
     "organizer_name": "Terp Entrepreneurs",
     "category": "social",
-    "starts_at": "2026-04-27T15:00:00.000Z",
-    "ends_at": "2026-04-27T17:00:00.000Z",
+    "starts_at": "2026-04-28T15:00:00.000Z",
+    "ends_at": "2026-04-28T17:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "Stamp Student Union",
@@ -5775,8 +5775,8 @@ export const mockClubEvents = [
       "networking"
     ],
     "location": "Stamp Student Union",
-    "created_at": "2026-04-25T15:00:00.000Z",
-    "updated_at": "2026-04-25T15:00:00.000Z"
+    "created_at": "2026-04-26T15:00:00.000Z",
+    "updated_at": "2026-04-26T15:00:00.000Z"
   },
   {
     "id": "1d11e033-2f83-5006-99c2-8c5271fe5367",
@@ -5786,8 +5786,8 @@ export const mockClubEvents = [
     "created_by": "af45b9b4-fb14-5b6d-bbcd-5ffcc64bf110",
     "organizer_name": "Creative Coding Collective",
     "category": "arts",
-    "starts_at": "2026-04-28T22:30:00.000Z",
-    "ends_at": "2026-04-29T01:00:00.000Z",
+    "starts_at": "2026-04-29T22:30:00.000Z",
+    "ends_at": "2026-04-30T01:00:00.000Z",
     "status": "upcoming",
     "moderation_status": "approved",
     "location_name": "The Clarice Smith Center",
@@ -5806,8 +5806,8 @@ export const mockClubEvents = [
       "creative-tech"
     ],
     "location": "The Clarice Smith Center",
-    "created_at": "2026-04-25T22:30:00.000Z",
-    "updated_at": "2026-04-25T22:30:00.000Z"
+    "created_at": "2026-04-26T22:30:00.000Z",
+    "updated_at": "2026-04-26T22:30:00.000Z"
   }
 ] as Event[];
 
@@ -5827,7 +5827,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Mentor tables filling up during hack night.",
-    "created_at": "2026-04-03T20:00:00.000Z"
+    "created_at": "2026-04-04T20:00:00.000Z"
   },
   {
     "id": "1687e997-9921-55c1-a75e-d7378ec29fb5",
@@ -5835,7 +5835,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Teams sprinting through a product review circle.",
-    "created_at": "2026-04-10T20:00:00.000Z"
+    "created_at": "2026-04-11T20:00:00.000Z"
   },
   {
     "id": "1c6f035f-a4e3-59ba-bf34-a962b7a04241",
@@ -5843,7 +5843,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "SQL workshop whiteboards after a very productive chaos hour.",
-    "created_at": "2026-04-05T20:00:00.000Z"
+    "created_at": "2026-04-06T20:00:00.000Z"
   },
   {
     "id": "f7989b16-1366-5912-8273-dc0dae5a27e2",
@@ -5851,7 +5851,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1516321310764-8d3c1f6773ce?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Resume clinic tables at McKeldin before the analytics fair.",
-    "created_at": "2026-04-11T20:00:00.000Z"
+    "created_at": "2026-04-12T20:00:00.000Z"
   },
   {
     "id": "c38e405e-ea95-56ef-9250-a2124778ce12",
@@ -5859,7 +5859,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Founder roundtable with alumni who stayed late to answer questions.",
-    "created_at": "2026-04-02T20:00:00.000Z"
+    "created_at": "2026-04-03T20:00:00.000Z"
   },
   {
     "id": "342c3bd9-e643-521f-b0af-c7514375fc88",
@@ -5867,7 +5867,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1516321165247-4aa89a48be28?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Pitch practice notes spread across the VMH lobby tables.",
-    "created_at": "2026-04-09T20:00:00.000Z"
+    "created_at": "2026-04-10T20:00:00.000Z"
   },
   {
     "id": "54676929-35a8-5dc0-acc1-a29d4cf88b38",
@@ -5875,7 +5875,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Sunset loop around campus before stretching on the Mall.",
-    "created_at": "2026-04-06T20:00:00.000Z"
+    "created_at": "2026-04-07T20:00:00.000Z"
   },
   {
     "id": "9084f97b-14eb-586f-8427-785e0c3d16ef",
@@ -5883,7 +5883,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Long-run crew meeting at Eppley before heading out.",
-    "created_at": "2026-04-12T20:00:00.000Z"
+    "created_at": "2026-04-13T20:00:00.000Z"
   },
   {
     "id": "14975bb2-7e34-51a4-bd48-f904b9747de3",
@@ -5891,7 +5891,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1508804185872-d7badad00f7d?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Final run-through before spring showcase.",
-    "created_at": "2026-04-04T20:00:00.000Z"
+    "created_at": "2026-04-05T20:00:00.000Z"
   },
   {
     "id": "e2fbbb5f-5462-5964-acba-7d50b238ad2e",
@@ -5899,7 +5899,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Team huddle right before a Clarice performance slot.",
-    "created_at": "2026-04-13T20:00:00.000Z"
+    "created_at": "2026-04-14T20:00:00.000Z"
   },
   {
     "id": "6042c1be-6c3b-5c62-8cfa-7a9987ead6d7",
@@ -5907,7 +5907,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Internship prep circle with alumni advice that was actually useful.",
-    "created_at": "2026-04-07T20:00:00.000Z"
+    "created_at": "2026-04-08T20:00:00.000Z"
   },
   {
     "id": "0a24602f-e15b-5dd8-841d-3546c9b772b2",
@@ -5915,7 +5915,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Engineering meet-and-greet before the panel began.",
-    "created_at": "2026-04-10T20:00:00.000Z"
+    "created_at": "2026-04-11T20:00:00.000Z"
   },
   {
     "id": "587544e2-be84-5339-816a-5594fc176be7",
@@ -5923,7 +5923,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Trail day photo dump from a Shenandoah weekend.",
-    "created_at": "2026-04-01T20:00:00.000Z"
+    "created_at": "2026-04-02T20:00:00.000Z"
   },
   {
     "id": "e9e5485d-377f-5145-8718-c915a976bf4c",
@@ -5931,7 +5931,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Gear check night before the next trip briefing.",
-    "created_at": "2026-04-08T20:00:00.000Z"
+    "created_at": "2026-04-09T20:00:00.000Z"
   },
   {
     "id": "3ae45127-3cb3-5770-bc26-3f7477784063",
@@ -5939,7 +5939,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Language exchange circles taking over a Stamp lounge corner.",
-    "created_at": "2026-04-05T20:00:00.000Z"
+    "created_at": "2026-04-06T20:00:00.000Z"
   },
   {
     "id": "90d47dcb-b80e-5400-95fc-ac274faf452d",
@@ -5947,7 +5947,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1526318472351-c75fcf070305?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Crowd photo from a food social that stayed packed all night.",
-    "created_at": "2026-04-12T20:00:00.000Z"
+    "created_at": "2026-04-13T20:00:00.000Z"
   },
   {
     "id": "1b35a1f0-3c2d-5519-82db-027d0e5e25e3",
@@ -5955,7 +5955,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Projection tests for gallery night.",
-    "created_at": "2026-04-06T20:00:00.000Z"
+    "created_at": "2026-04-07T20:00:00.000Z"
   },
   {
     "id": "e365619f-ba32-52fe-aa28-8f22dd85c93e",
@@ -5963,7 +5963,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Laptops, sketches, and a lot of excited debugging.",
-    "created_at": "2026-04-11T20:00:00.000Z"
+    "created_at": "2026-04-12T20:00:00.000Z"
   },
   {
     "id": "1aa0561d-c1f4-5227-a74f-535070dbd93e",
@@ -5971,7 +5971,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Care-kit packing tables full and moving fast.",
-    "created_at": "2026-04-08T20:00:00.000Z"
+    "created_at": "2026-04-09T20:00:00.000Z"
   },
   {
     "id": "2cd0b48d-2eb8-5b63-9e0b-2c8c18d8bc03",
@@ -5979,7 +5979,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Volunteer check-in before a community supply drive.",
-    "created_at": "2026-04-13T20:00:00.000Z"
+    "created_at": "2026-04-14T20:00:00.000Z"
   },
   {
     "id": "5cde2b0c-9e9d-5c3f-8fe7-450c637aad9d",
@@ -5987,7 +5987,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Packed screening night before discussion started.",
-    "created_at": "2026-04-04T20:00:00.000Z"
+    "created_at": "2026-04-05T20:00:00.000Z"
   },
   {
     "id": "6805b6bc-86fa-599d-845e-cde1b485e5f5",
@@ -5995,7 +5995,7 @@ export const mockClubMedia = [
     "url": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=900&q=80",
     "type": "photo",
     "caption": "Poster wall from a student shorts showcase.",
-    "created_at": "2026-04-10T20:00:00.000Z"
+    "created_at": "2026-04-11T20:00:00.000Z"
   }
 ] as ClubMedia[];
 

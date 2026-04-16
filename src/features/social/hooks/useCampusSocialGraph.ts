@@ -4,6 +4,7 @@ import {
   fetchCurrentRemoteUserId,
   fetchFollowerProfiles,
   fetchFollowingProfiles,
+  fetchMutualCounts,
   fetchRemoteRecommendations,
   toggleRemoteFollow,
   type RemoteRecommendation,
@@ -14,7 +15,12 @@ import {
   type RecommendationReason,
   type SocialProfile,
 } from '../data/mockSocialGraph';
+import { useCampusClubs } from '../../clubs/hooks/useCampusClubs';
 import { useSocialGraph } from './useSocialGraph';
+
+function unique<T>(values: T[]): T[] {
+  return Array.from(new Set(values));
+}
 
 function toSocialProfile(profile: RemoteSocialProfile): SocialProfile {
   return {
@@ -31,11 +37,15 @@ function toSocialProfile(profile: RemoteSocialProfile): SocialProfile {
   };
 }
 
-function toRecommendationReason(entry: RemoteRecommendation): RecommendationReason {
+function toRecommendationReason(
+  entry: RemoteRecommendation,
+  viewerClubIds: string[],
+  viewerInterests: string[],
+): RecommendationReason {
   return {
     mutualCount: 0,
-    sharedClubIds: [],
-    sharedInterests: [],
+    sharedClubIds: entry.profile.clubIds.filter((id) => viewerClubIds.includes(id)),
+    sharedInterests: entry.profile.interests.filter((interest) => viewerInterests.includes(interest)),
     score: entry.score,
     headline: entry.reason,
   };
@@ -43,14 +53,29 @@ function toRecommendationReason(entry: RemoteRecommendation): RecommendationReas
 
 export function useCampusSocialGraph(userId: string = CURRENT_SOCIAL_USER_ID) {
   const demo = useSocialGraph(userId);
+  const { viewerClubIds } = useCampusClubs();
   const [remoteUserId, setRemoteUserId] = useState<string | null>(null);
   const [following, setFollowing] = useState<SocialProfile[]>([]);
   const [followers, setFollowers] = useState<SocialProfile[]>([]);
-  const [recommendations, setRecommendations] = useState<Array<{ profile: SocialProfile; reason: RecommendationReason }>>([]);
+  // Raw entries stored separately so the derived `recommendations` below can
+  // react to viewer club changes without re-fetching from the network.
+  const [rawRecommendations, setRawRecommendations] = useState<RemoteRecommendation[]>([]);
+  const [mutualCountsMap, setMutualCountsMap] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const viewerInterests = demo.currentUser?.interests ?? [];
   const isRemote = isSupabaseConfigured && !!remoteUserId;
+
+  // Re-derived whenever viewer's clubs/interests or raw entries change.
+  const recommendations = useMemo(
+    () =>
+      rawRecommendations.map((entry) => ({
+        profile: toSocialProfile(entry.profile),
+        reason: toRecommendationReason(entry, viewerClubIds, viewerInterests),
+      })),
+    [rawRecommendations, viewerClubIds, viewerInterests],
+  );
 
   const loadRemote = async (effectiveUserId: string) => {
     setLoading(true);
@@ -63,14 +88,19 @@ export function useCampusSocialGraph(userId: string = CURRENT_SOCIAL_USER_ID) {
         fetchRemoteRecommendations(12),
       ]);
 
-      setFollowing(nextFollowing.map(toSocialProfile));
-      setFollowers(nextFollowers.map(toSocialProfile));
-      setRecommendations(
-        nextRecommendations.map((entry) => ({
-          profile: toSocialProfile(entry.profile),
-          reason: toRecommendationReason(entry),
-        })),
-      );
+      const nextFollowingProfiles = nextFollowing.map(toSocialProfile);
+      const nextFollowerProfiles = nextFollowers.map(toSocialProfile);
+      setFollowing(nextFollowingProfiles);
+      setFollowers(nextFollowerProfiles);
+      setRawRecommendations(nextRecommendations);
+
+      // Fetch mutual counts for all connections without blocking the initial render.
+      const allConnectionIds = unique([
+        ...nextFollowingProfiles.map((p) => p.id),
+        ...nextFollowerProfiles.map((p) => p.id),
+      ]);
+      const counts = await fetchMutualCounts(effectiveUserId, allConnectionIds);
+      setMutualCountsMap(counts);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Unable to load your network right now.');
     } finally {
@@ -124,11 +154,11 @@ export function useCampusSocialGraph(userId: string = CURRENT_SOCIAL_USER_ID) {
     following,
     followers,
     mutualConnections,
-    recommendations: recommendations.length > 0 ? recommendations : demo.recommendations,
+    recommendations: rawRecommendations.length > 0 ? recommendations : demo.recommendations,
     loading,
     error,
     isFollowingUser: (targetId: string) => remoteFollowingIds.includes(targetId),
-    getMutualCount: () => 0,
+    getMutualCount: (targetId: string) => mutualCountsMap.get(targetId) ?? 0,
     follow: async (targetId: string) => {
       if (!remoteUserId) {
         return;

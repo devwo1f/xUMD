@@ -12,31 +12,20 @@ import Input from '../../../shared/components/Input';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import ClubTabs from '../components/ClubTabs';
 import JoinRequestCard from '../components/JoinRequestCard';
-import {
-  mockClubs,
-  mockClubEvents,
-  mockClubMedia,
-  mockClubMembers,
-  mockJoinRequests,
-  mockUsers,
-  type ClubMedia,
-  type JoinRequest,
-} from '../../../assets/data/mockClubs';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
-import { MemberRole, MemberStatus } from '../../../shared/types';
+import { MemberRole } from '../../../shared/types';
 import { createClubUrl } from '../../../navigation/deepLinks';
 import type { ClubMemberWithUser, PostMediaItem } from '../../../shared/types';
-import type { CalendarStackParamList, CampusStackParamList, ClubsStackParamList, ExploreStackParamList, ProfileStackParamList } from '../../../navigation/types';
-import { useProfile } from '../../profile/hooks/useProfile';
-import { useAuth } from '../../auth/hooks/useAuth';
-import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
+import type { CalendarStackParamList, CampusStackParamList, ClubsStackParamList, ExploreStackParamList, MapStackParamList, ProfileStackParamList } from '../../../navigation/types';
 import PostMediaGallery from '../../feed/components/PostMediaGallery';
 import { useFeedStore } from '../../feed/hooks/useFeed';
 import { useMapData } from '../../map/hooks/useMapData';
+import { useCampusClubs } from '../hooks/useCampusClubs';
+import type { CampusClubMediaItem } from '../../../services/campusClubs';
 
-type Props = NativeStackScreenProps<ClubsStackParamList & ProfileStackParamList & CampusStackParamList & CalendarStackParamList & ExploreStackParamList, 'ClubDetail'>;
+type Props = NativeStackScreenProps<ClubsStackParamList & ProfileStackParamList & CampusStackParamList & CalendarStackParamList & ExploreStackParamList & MapStackParamList, 'ClubDetail'>;
 type TabKey = 'About' | 'Events' | 'Media' | 'Members';
 
 const tabs: TabKey[] = ['About', 'Events', 'Media', 'Members'];
@@ -62,7 +51,7 @@ function getRoleRank(role: MemberRole) {
   if (role === 'officer') return 2;
   return 1;
 }
-function toClubMediaItem(item: ClubMedia): PostMediaItem {
+function toClubMediaItem(item: CampusClubMediaItem): PostMediaItem {
   return {
     id: item.id,
     uri: item.url,
@@ -80,18 +69,23 @@ function splitAnnouncementContent(value: string) {
   };
 }
 
-function getInitialClubState(clubId: string) {
-  return {
-    members: mockClubMembers.filter((member) => member.club_id === clubId),
-    requests: mockJoinRequests.filter((request) => request.club_id === clubId),
-    media: mockClubMedia.filter((item) => item.club_id === clubId),
-  };
-}
-
 export default function ClubDetailScreen({ navigation, route }: Props) {
-  const { user: profileUser } = useProfile();
-  const { user: authUser, updateProfile: updateAuthProfile } = useAuth();
   const { rawEvents } = useMapData();
+  const {
+    viewerUser,
+    getClubById,
+    getClubMembers,
+    getClubJoinRequests,
+    getClubMedia,
+    joinClub,
+    leaveClub,
+    approveRequest,
+    rejectRequest,
+    setMemberRole,
+    makeOwner,
+    removeMemberFromClub,
+    addMedia: addClubMedia,
+  } = useCampusClubs();
   const feedPosts = useFeedStore((state) => state.posts);
   const createFeedPost = useFeedStore((state) => state.createPost);
   const [activeTab, setActiveTab] = useState<TabKey>('About');
@@ -99,46 +93,22 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
   const [showPostComposer, setShowPostComposer] = useState(false);
   const [showMediaComposer, setShowMediaComposer] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState('');
-  const { joinedClubIds, toggleJoinedClub } = useDemoAppStore();
   const [announcementBody, setAnnouncementBody] = useState('');
   const [postBody, setPostBody] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
   const [mediaCaption, setMediaCaption] = useState('');
 
   const club = useMemo(
-    () => mockClubs.find((item) => item.id === route.params.clubId) ?? null,
-    [route.params.clubId],
+    () => getClubById(route.params.clubId),
+    [getClubById, route.params.clubId],
   );
-
-  const currentUser = useMemo(
-    () =>
-      mockUsers.find((candidate) => candidate.id === profileUser.id || candidate.email === profileUser.email) ?? {
-        id: profileUser.id,
-        email: profileUser.email,
-        username: profileUser.username,
-        display_name: profileUser.displayName,
-        avatar_url: profileUser.avatar,
-        major: profileUser.major,
-        graduation_year: profileUser.classYear,
-        bio: profileUser.bio,
-        created_at: new Date().toISOString(),
-      },
-    [profileUser],
-  );
-
-  const [members, setMembers] = useState<ClubMemberWithUser[]>([]);
-  const [requests, setRequests] = useState<JoinRequest[]>([]);
-  const [media, setMedia] = useState<ClubMedia[]>([]);
+  const currentUser = viewerUser;
 
   useEffect(() => {
     if (!club) {
       return;
     }
 
-    const initialState = getInitialClubState(club.id);
-    setMembers(initialState.members);
-    setRequests(initialState.requests);
-    setMedia(initialState.media);
     setActiveTab('About');
     setShowAnnouncementComposer(false);
     setShowPostComposer(false);
@@ -168,8 +138,9 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     );
   }
 
-  const hasJoinedClubShortcut =
-    joinedClubIds.includes(club.id) || (authUser?.clubs ?? []).includes(club.name);
+  const members = getClubMembers(club.id);
+  const requests = getClubJoinRequests(club.id);
+  const media = getClubMedia(club.id);
 
   const sortedMembers = [...members].sort((left, right) => {
     const roleDifference = getRoleRank(right.role) - getRoleRank(left.role);
@@ -180,14 +151,13 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     return left.user.display_name.localeCompare(right.user.display_name);
   });
   const leader = sortedMembers.find((member) => member.role === 'president') ?? sortedMembers[0];
-  const currentMembership = sortedMembers.find((member) => member.user_id === currentUser.id) ?? (hasJoinedClubShortcut ? ({ role: MemberRole.Member } as ClubMemberWithUser) : null);
+  const currentMembership = sortedMembers.find((member) => member.user_id === currentUser.id) ?? null;
   const isJoined = Boolean(currentMembership);
   const currentRole = currentMembership?.role ?? null;
   const canManageMembers = currentRole === 'admin' || currentRole === 'president';
   const canPublish = currentRole === 'officer' || currentRole === 'admin' || currentRole === 'president';
   const canTransferOwnership = currentRole === 'president';
-  const initialApprovedCount = mockClubMembers.filter((member) => member.club_id === club.id).length;
-  const memberCount = Math.max(club.member_count + (members.length - initialApprovedCount), members.length);
+  const memberCount = members.length;
   const events = rawEvents.filter((event) => event.club_id === club.id);
   const clubFeedPosts = useMemo(
     () =>
@@ -227,23 +197,8 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     navigation.navigate('UserProfile', { userId });
   };
 
-  const syncClubMemberships = async (nextJoined: boolean) => {
-    if (!authUser) {
-      return;
-    }
-
-    const nextClubs = new Set(authUser.clubs ?? []);
-    if (nextJoined) {
-      nextClubs.add(club.name);
-    } else {
-      nextClubs.delete(club.name);
-    }
-
-    try {
-      await updateAuthProfile({ clubs: [...nextClubs] });
-    } catch (error) {
-      console.warn('Unable to sync club membership to profile.', error);
-    }
+  const openEventDetail = (eventId: string) => {
+    (navigation as any).navigate('EventDetail', { eventId });
   };
 
   const handleMembershipAction = async () => {
@@ -252,30 +207,11 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     }
 
     if (isJoined) {
-      setMembers((current) => current.filter((member) => member.user_id !== currentUser.id));
-      if (hasJoinedClubShortcut) {
-        toggleJoinedClub(club.id);
-      }
-      await syncClubMemberships(false);
+      await leaveClub(club.id);
       return;
     }
 
-    setMembers((current) => [
-      ...current,
-      {
-        club_id: club.id,
-        user_id: currentUser.id,
-        role: MemberRole.Member,
-        status: MemberStatus.Approved,
-        joined_at: new Date().toISOString(),
-        user: currentUser,
-      },
-    ]);
-
-    if (!hasJoinedClubShortcut) {
-      toggleJoinedClub(club.id);
-    }
-    await syncClubMemberships(true);
+    await joinClub(club.id);
   };
 
   const publishAnnouncement = () => {
@@ -312,72 +248,15 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
     setShowPostComposer(false);
   };
 
-  const addMedia = () => {
+  const handleAddMedia = async () => {
     if (!mediaUrl.trim() || !mediaCaption.trim()) {
       return;
     }
 
-    setMedia((current) => [
-      {
-        id: `media-${Date.now()}`,
-        club_id: club.id,
-        url: mediaUrl.trim(),
-        type: 'photo',
-        caption: mediaCaption.trim(),
-        created_at: new Date().toISOString(),
-      },
-      ...current,
-    ]);
+    await addClubMedia(club.id, mediaUrl.trim(), mediaCaption.trim());
     setMediaUrl('');
     setMediaCaption('');
     setShowMediaComposer(false);
-  };
-
-  const approveRequest = (request: JoinRequest) => {
-    setRequests((current) => current.filter((item) => item.id !== request.id));
-    setMembers((current) => [
-      ...current,
-      {
-        club_id: club.id,
-        user_id: request.user.id,
-        role: MemberRole.Member,
-        status: MemberStatus.Approved,
-        joined_at: new Date().toISOString(),
-        user: request.user,
-      },
-    ]);
-  };
-
-  const rejectRequest = (requestId: string) => {
-    setRequests((current) => current.filter((item) => item.id !== requestId));
-  };
-
-  const updateMemberRole = (userId: string, nextRole: MemberRole) => {
-    setMembers((current) =>
-      current.map((member) =>
-        member.user_id === userId ? { ...member, role: nextRole } : member,
-      ),
-    );
-  };
-
-  const makeOwner = (userId: string) => {
-    setMembers((current) =>
-      current.map((member) => {
-        if (member.user_id === userId) {
-          return { ...member, role: MemberRole.President };
-        }
-
-        if (member.role === 'president') {
-          return { ...member, role: MemberRole.Admin };
-        }
-
-        return member;
-      }),
-    );
-  };
-
-  const removeMember = (userId: string) => {
-    setMembers((current) => current.filter((member) => member.user_id !== userId));
   };
 
   const renderMemberActions = (member: ClubMemberWithUser) => {
@@ -390,22 +269,22 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
         {currentRole === 'president' ? (
           <>
             {member.role !== 'member' ? (
-              <Pressable style={styles.memberActionChip} onPress={() => updateMemberRole(member.user_id, MemberRole.Member)}>
+              <Pressable style={styles.memberActionChip} onPress={() => void setMemberRole(club.id, member.user_id, MemberRole.Member)}>
                 <Text style={styles.memberActionText}>Make Member</Text>
               </Pressable>
             ) : null}
             {member.role !== 'officer' ? (
-              <Pressable style={styles.memberActionChip} onPress={() => updateMemberRole(member.user_id, MemberRole.Officer)}>
+              <Pressable style={styles.memberActionChip} onPress={() => void setMemberRole(club.id, member.user_id, MemberRole.Officer)}>
                 <Text style={styles.memberActionText}>Make Co-admin</Text>
               </Pressable>
             ) : null}
             {member.role !== 'admin' ? (
-              <Pressable style={styles.memberActionChip} onPress={() => updateMemberRole(member.user_id, MemberRole.Admin)}>
+              <Pressable style={styles.memberActionChip} onPress={() => void setMemberRole(club.id, member.user_id, MemberRole.Admin)}>
                 <Text style={styles.memberActionText}>Make Admin</Text>
               </Pressable>
             ) : null}
             {canTransferOwnership ? (
-              <Pressable style={[styles.memberActionChip, styles.memberActionChipAccent]} onPress={() => makeOwner(member.user_id)}>
+              <Pressable style={[styles.memberActionChip, styles.memberActionChipAccent]} onPress={() => void makeOwner(club.id, member.user_id)}>
                 <Text style={[styles.memberActionText, styles.memberActionTextAccent]}>Make Owner</Text>
               </Pressable>
             ) : null}
@@ -415,19 +294,19 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
         {currentRole === 'admin' ? (
           <>
             {member.role !== 'member' ? (
-              <Pressable style={styles.memberActionChip} onPress={() => updateMemberRole(member.user_id, MemberRole.Member)}>
+              <Pressable style={styles.memberActionChip} onPress={() => void setMemberRole(club.id, member.user_id, MemberRole.Member)}>
                 <Text style={styles.memberActionText}>Make Member</Text>
               </Pressable>
             ) : null}
             {member.role !== 'officer' ? (
-              <Pressable style={styles.memberActionChip} onPress={() => updateMemberRole(member.user_id, MemberRole.Officer)}>
+              <Pressable style={styles.memberActionChip} onPress={() => void setMemberRole(club.id, member.user_id, MemberRole.Officer)}>
                 <Text style={styles.memberActionText}>Make Co-admin</Text>
               </Pressable>
             ) : null}
           </>
         ) : null}
 
-        <Pressable style={[styles.memberActionChip, styles.memberActionChipDanger]} onPress={() => removeMember(member.user_id)}>
+        <Pressable style={[styles.memberActionChip, styles.memberActionChipDanger]} onPress={() => void removeMemberFromClub(club.id, member.user_id)}>
           <Text style={[styles.memberActionText, styles.memberActionTextDanger]}>Remove</Text>
         </Pressable>
       </View>
@@ -560,7 +439,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
               <Input label="Image URL" value={mediaUrl} onChangeText={setMediaUrl} placeholder="https://..." />
               <Input label="Caption" value={mediaCaption} onChangeText={setMediaCaption} placeholder="Hack night prep before Bitcamp" maxLength={80} />
               <View style={styles.inlineButtonRow}>
-                <Button title="Add" size="sm" onPress={addMedia} disabled={!mediaUrl.trim() || !mediaCaption.trim()} />
+                <Button title="Add" size="sm" onPress={() => void handleAddMedia()} disabled={!mediaUrl.trim() || !mediaCaption.trim()} />
                 <Button title="Cancel" size="sm" variant="secondary" onPress={resetComposers} />
               </View>
             </View>
@@ -659,6 +538,7 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
                     time: format(new Date(event.starts_at), 'EEE, MMM d h:mm a'),
                     location: event.location_name,
                   }}
+                  onPress={() => openEventDetail(event.id)}
                 />
               ))}
             </View>
@@ -716,8 +596,8 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
                 user={request.user}
                 requestedAt={request.requested_at}
                 onOpenProfile={() => openUserProfile(request.user.id)}
-                onApprove={() => approveRequest(request)}
-                onReject={() => rejectRequest(request.id)}
+                onApprove={() => void approveRequest(club.id, request.user.id)}
+                onReject={() => void rejectRequest(club.id, request.user.id)}
               />
             ))}
           </View>

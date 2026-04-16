@@ -41,7 +41,6 @@ import { useCalendarEntries } from '../hooks/useCalendarEntries';
 import type { CalendarEntry, CalendarViewMode } from '../types';
 import {
   buildEntryLayout,
-  countEntriesForDate,
   formatCalendarTime,
   getEntryBorderStyle,
   getMonthCells,
@@ -54,6 +53,53 @@ const DAY_START_HOUR = 7;
 const DAY_END_HOUR = 23;
 const HOUR_HEIGHT = 64;
 const HOURS = Array.from({ length: DAY_END_HOUR - DAY_START_HOUR + 1 }, (_, index) => DAY_START_HOUR + index);
+
+function getDateEntries(entries: CalendarEntry[], date: Date) {
+  const dayStart = startOfDay(date);
+  const dayEnd = addDays(dayStart, 1);
+  return entries.filter((entry) => parseISO(entry.startsAt) < dayEnd && parseISO(entry.endsAt) > dayStart);
+}
+
+function getDateIndicatorColors(entries: CalendarEntry[], date: Date) {
+  const dayEntries = getDateEntries(entries, date);
+  if (dayEntries.length === 0) {
+    return [];
+  }
+
+  const dotCount = dayEntries.length >= 5 ? 3 : dayEntries.length >= 3 ? 2 : 1;
+  const uniqueColors = Array.from(new Set(dayEntries.map((entry) => entry.color)));
+
+  return Array.from({ length: dotCount }, (_, index) => uniqueColors[index] ?? uniqueColors[uniqueColors.length - 1] ?? colors.primary.main);
+}
+
+function getVisibleHourRange(entries: CalendarEntry[]) {
+  if (entries.length === 0) {
+    return {
+      startHour: DAY_START_HOUR,
+      endHour: DAY_END_HOUR,
+    };
+  }
+
+  const startsAt = entries.map((entry) => parseISO(entry.startsAt));
+  const endsAt = entries.map((entry) => parseISO(entry.endsAt));
+  const earliestStartHour = Math.min(...startsAt.map((value) => value.getHours()));
+  const latestEndHour = Math.max(
+    ...endsAt.map((value) => value.getHours() + (value.getMinutes() > 0 ? 1 : 0)),
+  );
+
+  return {
+    startHour: Math.max(0, earliestStartHour),
+    endHour: Math.min(23, Math.max(latestEndHour, earliestStartHour + 2)),
+  };
+}
+
+function rangesOverlap(startA: number, endA: number, startB: number, endB: number) {
+  return startA < endB && startB < endA;
+}
+
+function buildVisibleHours(startHour: number, endHour: number) {
+  return Array.from({ length: Math.max(endHour - startHour + 1, 1) }, (_, index) => startHour + index);
+}
 
 function formatViewLabel(viewMode: CalendarViewMode, currentDate: Date) {
   if (viewMode === 'day') {
@@ -93,18 +139,18 @@ function getCalendarBlockPalette(color: string, isDashed?: boolean) {
   };
 }
 
-function getCurrentTimeIndicatorTop(date: Date, currentTime: Date) {
+function getCurrentTimeIndicatorTop(date: Date, currentTime: Date, dayStartHour = DAY_START_HOUR, dayEndHour = DAY_END_HOUR) {
   if (!isSameDay(date, currentTime)) {
     return null;
   }
 
   const totalHours = currentTime.getHours() + currentTime.getMinutes() / 60;
 
-  if (totalHours < DAY_START_HOUR || totalHours > DAY_END_HOUR + 1) {
+  if (totalHours < dayStartHour || totalHours > dayEndHour + 1) {
     return null;
   }
 
-  return ((totalHours - DAY_START_HOUR) / (DAY_END_HOUR - DAY_START_HOUR + 1)) * ((DAY_END_HOUR - DAY_START_HOUR + 1) * HOUR_HEIGHT);
+  return ((totalHours - dayStartHour) / (dayEndHour - dayStartHour + 1)) * ((dayEndHour - dayStartHour + 1) * HOUR_HEIGHT);
 }
 
 interface TimelineBlock {
@@ -161,6 +207,9 @@ function buildTimelineBlockClusters({
   highlightedEntryId,
   minReadableWidth,
   minReadableHeight,
+  dayStartHour = DAY_START_HOUR,
+  dayEndHour = DAY_END_HOUR,
+  mobileMode = false,
 }: {
   entries: CalendarEntry[];
   layout: Map<string, { lane: number; laneCount: number; span: number }>;
@@ -170,14 +219,49 @@ function buildTimelineBlockClusters({
   highlightedEntryId: string | null;
   minReadableWidth: number;
   minReadableHeight: number;
+  dayStartHour?: number;
+  dayEndHour?: number;
+  mobileMode?: boolean;
 }) {
   return buildOverlapClusters(entries)
     .map((cluster) => {
+      const sortedCluster = cluster
+        .slice()
+        .sort((left, right) => {
+          const startDiff = parseISO(left.startsAt).getTime() - parseISO(right.startsAt).getTime();
+          if (startDiff !== 0) {
+            return startDiff;
+          }
+
+          return left.title.localeCompare(right.title);
+        });
       const blocks = cluster
         .map((entry) => {
-          const metrics = getTimelineMetrics(entry, DAY_START_HOUR, HOUR_HEIGHT, DAY_END_HOUR);
+          const metrics = getTimelineMetrics(entry, dayStartHour, HOUR_HEIGHT, dayEndHour);
           if (metrics.isHidden) {
             return null;
+          }
+
+          if (mobileMode) {
+            const clusterIndex = sortedCluster.findIndex((item) => item.id === entry.id);
+            const fullWidth = Math.max(columnWidth - innerInset * 2, 0);
+            const pairedWidth = Math.max((columnWidth - innerInset * 2 - laneGap) / 2, 36);
+            const width = sortedCluster.length === 1 ? fullWidth : sortedCluster.length === 2 ? pairedWidth : fullWidth;
+            const left = sortedCluster.length === 2 ? innerInset + clusterIndex * (pairedWidth + laneGap) : innerInset;
+
+            return {
+              entry,
+              metrics,
+              lane: sortedCluster.length === 2 ? clusterIndex : 0,
+              laneCount: sortedCluster.length === 2 ? 2 : 1,
+              span: 1,
+              width,
+              left,
+              highlighted: highlightedEntryId === entry.id,
+              compactMeta: sortedCluster.length === 2 || width < minReadableWidth + 16 || metrics.height < minReadableHeight,
+              compressed: width < minReadableWidth || metrics.height < minReadableHeight,
+              palette: getCalendarBlockPalette(entry.color, entry.isDashed),
+            } satisfies TimelineBlock;
           }
 
           const lane = layout.get(entry.id)?.lane ?? 0;
@@ -209,6 +293,14 @@ function buildTimelineBlockClusters({
         return null;
       }
 
+      if (mobileMode) {
+        return {
+          cluster: sortedCluster,
+          blocks,
+          shouldGroup: sortedCluster.length >= 3,
+        };
+      }
+
       const laneCount = Math.max(...blocks.map((block) => block.laneCount), 1);
       const isTwoWaySplit = blocks.length === 2 && laneCount === 2;
       const shouldGroup =
@@ -221,6 +313,93 @@ function buildTimelineBlockClusters({
       return { cluster, blocks, shouldGroup };
     })
     .filter((value): value is { cluster: CalendarEntry[]; blocks: TimelineBlock[]; shouldGroup: boolean } => Boolean(value));
+}
+
+type MobileTimelineRenderable =
+  | {
+      kind: 'blocks';
+      key: string;
+      blocks: TimelineBlock[];
+    }
+  | {
+      kind: 'summary';
+      key: string;
+      blocks: TimelineBlock[];
+    };
+
+function buildMobileTimelineRenderables({
+  entries,
+  columnWidth,
+  innerInset,
+  laneGap,
+  highlightedEntryId,
+  minReadableWidth,
+  minReadableHeight,
+  dayStartHour = DAY_START_HOUR,
+  dayEndHour = DAY_END_HOUR,
+}: {
+  entries: CalendarEntry[];
+  columnWidth: number;
+  innerInset: number;
+  laneGap: number;
+  highlightedEntryId: string | null;
+  minReadableWidth: number;
+  minReadableHeight: number;
+  dayStartHour?: number;
+  dayEndHour?: number;
+}): MobileTimelineRenderable[] {
+  return buildOverlapClusters(entries)
+    .map((cluster) => {
+      const sortedCluster = cluster
+        .slice()
+        .sort((left, right) => {
+          const startDiff = parseISO(left.startsAt).getTime() - parseISO(right.startsAt).getTime();
+          if (startDiff !== 0) {
+            return startDiff;
+          }
+
+          return left.title.localeCompare(right.title);
+        });
+
+      const fullWidth = Math.max(columnWidth - innerInset * 2, 0);
+      const pairedWidth = Math.max((columnWidth - innerInset * 2 - laneGap) / 2, 36);
+      const blocks = sortedCluster
+        .map((entry, index) => {
+          const metrics = getTimelineMetrics(entry, dayStartHour, HOUR_HEIGHT, dayEndHour);
+          if (metrics.isHidden) {
+            return null;
+          }
+
+          const width = sortedCluster.length === 2 ? pairedWidth : fullWidth;
+          const left = sortedCluster.length === 2 ? innerInset + index * (pairedWidth + laneGap) : innerInset;
+
+          return {
+            entry,
+            metrics,
+            lane: sortedCluster.length === 2 ? index : 0,
+            laneCount: sortedCluster.length === 2 ? 2 : 1,
+            span: 1,
+            width,
+            left,
+            highlighted: highlightedEntryId === entry.id,
+            compactMeta: sortedCluster.length === 2 || width < minReadableWidth + 16 || metrics.height < minReadableHeight,
+            compressed: width < minReadableWidth || metrics.height < minReadableHeight,
+            palette: getCalendarBlockPalette(entry.color, entry.isDashed),
+          } satisfies TimelineBlock;
+        })
+        .filter((value): value is TimelineBlock => Boolean(value));
+
+      if (blocks.length === 0) {
+        return null;
+      }
+
+      return {
+        kind: blocks.length >= 3 ? 'summary' : 'blocks',
+        key: `mobile-cluster-${sortedCluster.map((entry) => entry.id).join('-')}`,
+        blocks,
+      } satisfies MobileTimelineRenderable;
+    })
+    .filter((value): value is MobileTimelineRenderable => Boolean(value));
 }
 
 function TimelineEntryBlock({
@@ -314,6 +493,8 @@ function OverlapClusterCard({
     parseISO(entry.endsAt).getTime() > parseISO(current.endsAt).getTime() ? entry : current,
   entries[0]);
   const condensed = height < 112;
+  const previewLimit = condensed ? 2 : Math.min(entries.length, 4);
+  const previewBlocks = blocks.slice(0, previewLimit);
 
   return (
     <Pressable
@@ -337,7 +518,7 @@ function OverlapClusterCard({
       </View>
       {!condensed ? (
         <View style={styles.overlapClusterPreviewList}>
-          {blocks.slice(0, 2).map((block) => (
+          {previewBlocks.map((block) => (
             <View key={block.entry.id} style={styles.overlapClusterPreviewRow}>
               <View style={[styles.overlapClusterDot, { backgroundColor: block.palette.accentColor }]} />
               <Text style={styles.overlapClusterPreviewText} numberOfLines={1}>
@@ -345,8 +526,8 @@ function OverlapClusterCard({
               </Text>
             </View>
           ))}
-          {blocks.length > 2 ? (
-            <Text style={styles.overlapClusterMoreLabel}>+{blocks.length - 2} more</Text>
+          {blocks.length > previewLimit ? (
+            <Text style={styles.overlapClusterMoreLabel}>+{blocks.length - previewLimit} more</Text>
           ) : null}
         </View>
       ) : (
@@ -364,6 +545,9 @@ function DayColumn({
   onGroupPress,
   columnWidth,
   currentTime,
+  visibleHours = HOURS,
+  dayStartHour = DAY_START_HOUR,
+  dayEndHour = DAY_END_HOUR,
 }: {
   date: Date;
   entries: CalendarEntry[];
@@ -372,10 +556,16 @@ function DayColumn({
   onGroupPress: (entries: CalendarEntry[]) => void;
   columnWidth: number;
   currentTime: Date;
+  visibleHours?: number[];
+  dayStartHour?: number;
+  dayEndHour?: number;
 }) {
   const layout = useMemo(() => buildEntryLayout(entries), [entries]);
-  const timelineHeight = (DAY_END_HOUR - DAY_START_HOUR + 1) * HOUR_HEIGHT;
-  const currentTimeTop = useMemo(() => getCurrentTimeIndicatorTop(date, currentTime), [currentTime, date]);
+  const timelineHeight = visibleHours.length * HOUR_HEIGHT;
+  const currentTimeTop = useMemo(
+    () => getCurrentTimeIndicatorTop(date, currentTime, dayStartHour, dayEndHour),
+    [currentTime, date, dayEndHour, dayStartHour],
+  );
   const innerInset = 8;
   const laneGap = 6;
   const clusters = useMemo(
@@ -389,8 +579,10 @@ function DayColumn({
         highlightedEntryId,
         minReadableWidth: 132,
         minReadableHeight: 84,
+        dayStartHour,
+        dayEndHour,
       }),
-    [entries, layout, columnWidth, highlightedEntryId],
+    [entries, layout, columnWidth, highlightedEntryId, dayEndHour, dayStartHour],
   );
 
   return (
@@ -400,7 +592,7 @@ function DayColumn({
         <Text style={styles.dayHeaderDate}>{format(date, 'd')}</Text>
       </View>
       <View style={[styles.dayTimeline, { height: timelineHeight }]}>
-        {HOURS.map((hour, index) => (
+        {visibleHours.map((hour, index) => (
           <View
             key={`${format(date, 'yyyy-MM-dd')}-${hour}`}
             pointerEvents="none"
@@ -433,6 +625,12 @@ function FocusedDayTimeline({
   onGroupPress,
   panelWidth,
   currentTime,
+  visibleHours = HOURS,
+  dayStartHour = DAY_START_HOUR,
+  dayEndHour = DAY_END_HOUR,
+  hideHeader = false,
+  mobileMode = false,
+  showCurrentTimeIndicator = false,
 }: {
   date: Date;
   entries: CalendarEntry[];
@@ -441,14 +639,23 @@ function FocusedDayTimeline({
   onGroupPress: (entries: CalendarEntry[]) => void;
   panelWidth: number;
   currentTime: Date;
+  visibleHours?: number[];
+  dayStartHour?: number;
+  dayEndHour?: number;
+  hideHeader?: boolean;
+  mobileMode?: boolean;
+  showCurrentTimeIndicator?: boolean;
 }) {
-  const layout = useMemo(() => buildEntryLayout(entries), [entries]);
   const [columnWidth, setColumnWidth] = useState(panelWidth);
-  const timelineHeight = (DAY_END_HOUR - DAY_START_HOUR + 1) * HOUR_HEIGHT;
-  const currentTimeTop = useMemo(() => getCurrentTimeIndicatorTop(date, currentTime), [currentTime, date]);
+  const timelineHeight = visibleHours.length * HOUR_HEIGHT;
+  const currentTimeTop = useMemo(
+    () => getCurrentTimeIndicatorTop(date, currentTime, dayStartHour, dayEndHour),
+    [currentTime, date, dayEndHour, dayStartHour],
+  );
   const innerInset = 12;
   const laneGap = 8;
-  const clusters = useMemo(
+  const layout = useMemo(() => buildEntryLayout(entries), [entries]);
+  const desktopClusters = useMemo(
     () =>
       buildTimelineBlockClusters({
         entries,
@@ -459,21 +666,62 @@ function FocusedDayTimeline({
         highlightedEntryId,
         minReadableWidth: 144,
         minReadableHeight: 92,
+        dayStartHour,
+        dayEndHour,
+        mobileMode: false,
       }),
-    [entries, layout, columnWidth, highlightedEntryId],
+    [entries, layout, columnWidth, highlightedEntryId, dayEndHour, dayStartHour],
+  );
+  const mobileRenderables = useMemo(
+    () =>
+      buildMobileTimelineRenderables({
+        entries,
+        columnWidth,
+        innerInset,
+        laneGap,
+        highlightedEntryId,
+        minReadableWidth: 144,
+        minReadableHeight: 92,
+        dayStartHour,
+        dayEndHour,
+      }),
+    [columnWidth, dayEndHour, dayStartHour, entries, highlightedEntryId],
+  );
+  const groupedClusters = useMemo(() => desktopClusters.filter((cluster) => cluster.shouldGroup), [desktopClusters]);
+  const groupedWindows = useMemo(
+    () =>
+      groupedClusters.map(({ blocks }) => ({
+        top: Math.min(...blocks.map((block) => block.metrics.top)),
+        bottom: Math.max(...blocks.map((block) => block.metrics.top + block.metrics.height)),
+      })),
+    [groupedClusters],
+  );
+  const standaloneBlocks = useMemo(
+    () =>
+      desktopClusters
+        .filter((cluster) => !cluster.shouldGroup)
+        .flatMap((cluster) => cluster.blocks)
+        .filter((block) =>
+          !groupedWindows.some((window) =>
+            rangesOverlap(block.metrics.top, block.metrics.top + block.metrics.height, window.top, window.bottom),
+          ),
+        ),
+    [desktopClusters, groupedWindows],
   );
 
   return (
     <View style={[styles.focusedTimelineShell, { width: panelWidth }]}>
-      <View style={styles.focusedTimelineHeader}>
-        <View>
-          <Text style={styles.focusedTimelineLabel}>{format(date, 'EEEE')}</Text>
-          <Text style={styles.focusedTimelineTitle}>{format(date, 'MMMM d')}</Text>
+      {!hideHeader ? (
+        <View style={styles.focusedTimelineHeader}>
+          <View>
+            <Text style={styles.focusedTimelineLabel}>{format(date, 'EEEE')}</Text>
+            <Text style={styles.focusedTimelineTitle}>{format(date, 'MMMM d')}</Text>
+          </View>
+          <View style={styles.focusedTimelineBadge}>
+            <Text style={styles.focusedTimelineBadgeText}>{entries.length} planned</Text>
+          </View>
         </View>
-        <View style={styles.focusedTimelineBadge}>
-          <Text style={styles.focusedTimelineBadgeText}>{entries.length} planned</Text>
-        </View>
-      </View>
+      ) : null}
       <View
         style={[styles.dayTimeline, styles.focusedDayTimeline, { height: timelineHeight }]}
         onLayout={(event) => {
@@ -481,26 +729,56 @@ function FocusedDayTimeline({
           setColumnWidth((current) => (Math.abs(current - nextWidth) > 1 ? nextWidth : current));
         }}
       >
-        {HOURS.map((hour, index) => (
+        {visibleHours.map((hour, index) => (
           <View
             key={`focused-${format(date, 'yyyy-MM-dd')}-${hour}`}
             pointerEvents="none"
             style={[styles.timelineGuideLine, { top: index * HOUR_HEIGHT }]}
           />
         ))}
-        {clusters.map(({ cluster, blocks, shouldGroup }) =>
-          shouldGroup ? (
-            <OverlapClusterCard
-              key={`focused-cluster-${cluster[0]?.id ?? date.toISOString()}`}
-              blocks={blocks}
-              columnWidth={columnWidth}
-              innerInset={innerInset}
-              onPress={onGroupPress}
-            />
-          ) : (
-            blocks.map((block) => <TimelineEntryBlock key={block.entry.id} block={block} onPress={onEntryPress} />)
-          ),
-        )}
+        {mobileMode
+          ? mobileRenderables.map((renderable) =>
+              renderable.kind === 'summary' ? (
+                <OverlapClusterCard
+                  key={renderable.key}
+                  blocks={renderable.blocks}
+                  columnWidth={columnWidth}
+                  innerInset={innerInset}
+                  onPress={onGroupPress}
+                />
+              ) : (
+                renderable.blocks.map((block) => (
+                  <TimelineEntryBlock key={`${renderable.key}-${block.entry.id}`} block={block} onPress={onEntryPress} />
+                ))
+              ),
+            )
+          : (
+            <>
+              {standaloneBlocks.map((block) => <TimelineEntryBlock key={block.entry.id} block={block} onPress={onEntryPress} />)}
+              {groupedClusters.map(({ cluster, blocks }) => (
+                <OverlapClusterCard
+                  key={`focused-cluster-${cluster[0]?.id ?? date.toISOString()}`}
+                  blocks={blocks}
+                  columnWidth={columnWidth}
+                  innerInset={innerInset}
+                  onPress={onGroupPress}
+                />
+              ))}
+            </>
+          )}
+        {showCurrentTimeIndicator && currentTimeTop !== null ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.currentTimeIndicator,
+              styles.currentTimeIndicatorFocused,
+              { top: currentTimeTop },
+            ]}
+          >
+            <View style={styles.currentTimeIndicatorDot} />
+            <View style={styles.currentTimeIndicatorLine} />
+          </View>
+        ) : null}
         {entries.length === 0 ? (
           <View style={styles.focusedTimelineEmptyState}>
             <Text style={styles.focusedTimelineEmptyTitle}>Nothing stacked here yet</Text>
@@ -532,7 +810,6 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
     conflicts,
     todayEntries,
     selectedDayEntries,
-    todayConflicts,
     upNextEntry,
     sourceLoading,
     sourceError,
@@ -544,11 +821,24 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
   });
 
   useEffect(() => {
-    const intervalId = setInterval(() => {
+    let minuteIntervalId: ReturnType<typeof setInterval> | null = null;
+    const scheduleMinuteTick = () => {
       setCurrentTime(new Date());
-    }, 30000);
+      minuteIntervalId = setInterval(() => {
+        setCurrentTime(new Date());
+      }, 60000);
+    };
 
-    return () => clearInterval(intervalId);
+    const now = new Date();
+    const millisecondsUntilNextMinute = ((60 - now.getSeconds()) * 1000) - now.getMilliseconds();
+    const initialTimeoutId = setTimeout(scheduleMinuteTick, Math.max(millisecondsUntilNextMinute, 0));
+
+    return () => {
+      clearTimeout(initialTimeoutId);
+      if (minuteIntervalId) {
+        clearInterval(minuteIntervalId);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -570,7 +860,7 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
     clearPendingCalendarFocus();
   }, [clearPendingCalendarFocus, entries, pendingCalendarFocus]);
 
-  const anchorDateKey = currentDate.toISOString().slice(0, 10);
+  const anchorDateKey = format(currentDate, 'yyyy-MM-dd');
   const highlightedEntryId = selectedEntry?.id ?? null;
   const anchorConflicts = getConflictsForAnchorDate();
   const monthCells = useMemo(() => getMonthCells(currentDate), [currentDate]);
@@ -578,6 +868,23 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
   const isMobileWeek = viewMode === 'week' && isMobile;
   const activeEntries = viewMode === 'day' || isMobileWeek ? selectedDayEntries : entries;
   const focusedTimelineWidth = isDesktop ? 468 : isWide ? 420 : 308;
+  const mobileVisibleHourRange = useMemo(() => {
+    const range = getVisibleHourRange(selectedDayEntries);
+
+    if (!isSameDay(currentDate, currentTime)) {
+      return range;
+    }
+
+    const currentHour = currentTime.getHours();
+    return {
+      startHour: Math.max(0, Math.min(range.startHour, currentHour)),
+      endHour: Math.min(23, Math.max(range.endHour, currentHour + 1)),
+    };
+  }, [currentDate, currentTime, selectedDayEntries]);
+  const mobileVisibleHours = useMemo(
+    () => buildVisibleHours(mobileVisibleHourRange.startHour, mobileVisibleHourRange.endHour),
+    [mobileVisibleHourRange.endHour, mobileVisibleHourRange.startHour],
+  );
 
   const navigateRange = (direction: 'prev' | 'next') => {
     setSelectedEntry(null);
@@ -674,17 +981,18 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
     <ScreenLayout
       title="Calendar"
       subtitle={sourceLoading ? 'Syncing your classes, RSVPs, clubs, and personal blocks...' : 'Everything that owns a piece of your day.'}
-      headerTopContent={<UMDBrandLockup />}
-      headerMetaContent={
+      showHeader={!isMobile}
+      headerTopContent={isMobile ? undefined : <UMDBrandLockup />}
+      headerMetaContent={isMobile ? undefined : (
         <HeaderTag
           icon="calendar-outline"
           label="Planner + Conflicts"
           color={colors.primary.main}
           tintColor={colors.primary.lightest}
         />
-      }
-      headerStyle={styles.headerShell}
-      rightAction={
+      )}
+      headerStyle={isMobile ? undefined : styles.headerShell}
+      rightAction={!isMobile ? (
         <View style={styles.headerActions}>
           <Pressable onPress={() => navigation.navigate('AddPersonalBlock')} style={styles.iconButton}>
             <Ionicons name="add" size={20} color={colors.text.primary} />
@@ -693,28 +1001,38 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
             <Ionicons name="settings-outline" size={20} color={colors.text.primary} />
           </Pressable>
         </View>
-      }
+      ) : undefined}
     >
-      <View style={[styles.overviewGrid, isWide && styles.overviewGridWide]}>
-        <Card style={[styles.segmentedCard, isWide && styles.overviewCardWide]}>
-          <View style={styles.segmentedRow}>
-            {VIEW_OPTIONS.map((option) => {
-              const selected = viewMode === option;
-              return (
-                <Pressable
-                  key={option}
-                  onPress={() => setViewMode(option)}
-                  style={[styles.segmentedButton, selected && styles.segmentedButtonActive]}
-                >
-                  <Text style={[styles.segmentedLabel, selected && styles.segmentedLabelActive]}>
-                    {option.charAt(0).toUpperCase() + option.slice(1)}
-                  </Text>
-                </Pressable>
-              );
-            })}
+      {isMobile ? (
+        <View style={styles.mobileCalendarToolbar}>
+          <View style={styles.mobileToolbarTopRow}>
+            <View style={[styles.segmentedRow, styles.mobileSegmentedRow]}>
+              {VIEW_OPTIONS.map((option) => {
+                const selected = viewMode === option;
+                return (
+                  <Pressable
+                    key={option}
+                    onPress={() => setViewMode(option)}
+                    style={[styles.segmentedButton, styles.mobileSegmentedButton, selected && styles.segmentedButtonActive]}
+                  >
+                    <Text style={[styles.segmentedLabel, selected && styles.segmentedLabelActive]}>
+                      {option.charAt(0).toUpperCase() + option.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.mobileHeaderActions}>
+              <Pressable onPress={() => navigation.navigate('AddPersonalBlock')} style={styles.iconButton}>
+                <Ionicons name="add" size={18} color={colors.text.primary} />
+              </Pressable>
+              <Pressable onPress={() => navigation.navigate('CalendarSyncSettings')} style={styles.iconButton}>
+                <Ionicons name="settings-outline" size={18} color={colors.text.primary} />
+              </Pressable>
+            </View>
           </View>
 
-          <View style={[styles.navigatorRow, isDesktop && styles.navigatorRowWide]}>
+          <View style={[styles.navigatorRow, styles.mobileNavigatorRow]}>
             <Pressable onPress={() => navigateRange('prev')} style={styles.dateNavButton}>
               <Ionicons name="chevron-back" size={18} color={colors.text.primary} />
             </Pressable>
@@ -731,29 +1049,68 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
               <Text style={styles.todayButtonText}>Today</Text>
             </Pressable>
           </View>
-        </Card>
+        </View>
+      ) : (
+        <View style={[styles.overviewGrid, isWide && styles.overviewGridWide]}>
+          <Card style={[styles.segmentedCard, isWide && styles.overviewCardWide]}>
+            <View style={styles.segmentedRow}>
+              {VIEW_OPTIONS.map((option) => {
+                const selected = viewMode === option;
+                return (
+                  <Pressable
+                    key={option}
+                    onPress={() => setViewMode(option)}
+                    style={[styles.segmentedButton, selected && styles.segmentedButtonActive]}
+                  >
+                    <Text style={[styles.segmentedLabel, selected && styles.segmentedLabelActive]}>
+                      {option.charAt(0).toUpperCase() + option.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-        <Card style={[styles.upNextCard, isWide && styles.overviewCardWide]}>
-          <View style={styles.upNextHeader}>
-            <Text style={styles.sectionTitle}>Up Next</Text>
-            <Text style={styles.sectionMeta}>{todayEntries.length} today</Text>
-          </View>
-          {upNextEntry ? (
-            <Pressable onPress={() => openEntryDetail(upNextEntry)} style={styles.upNextContent}>
-              <View style={[styles.upNextAccent, { backgroundColor: upNextEntry.color }]} />
-              <View style={styles.upNextCopy}>
-                <Text style={styles.upNextTitle}>{upNextEntry.title}</Text>
-                <Text style={styles.upNextSubtitle}>{formatCalendarTime(upNextEntry)}</Text>
-                <Text style={styles.upNextSubtitle}>{upNextEntry.locationName}</Text>
+            <View style={[styles.navigatorRow, isDesktop && styles.navigatorRowWide]}>
+              <Pressable onPress={() => navigateRange('prev')} style={styles.dateNavButton}>
+                <Ionicons name="chevron-back" size={18} color={colors.text.primary} />
+              </Pressable>
+              <View style={styles.navigatorCopy}>
+                <Text style={styles.navigatorLabel}>{formatViewLabel(viewMode, currentDate)}</Text>
+                <Text style={styles.navigatorSubtle}>
+                  {viewMode === 'week' ? `${entries.length} entries in view` : `${activeEntries.length} entries in view`}
+                </Text>
               </View>
-            </Pressable>
-          ) : (
-            <Text style={styles.helperText}>
-              Nothing is scheduled right now. Add a personal block or RSVP to an event to fill this out.
-            </Text>
-          )}
-        </Card>
-      </View>
+              <Pressable onPress={() => navigateRange('next')} style={styles.dateNavButton}>
+                <Ionicons name="chevron-forward" size={18} color={colors.text.primary} />
+              </Pressable>
+              <Pressable onPress={() => setCurrentDate(new Date())} style={styles.todayButton}>
+                <Text style={styles.todayButtonText}>Today</Text>
+              </Pressable>
+            </View>
+          </Card>
+
+          <Card style={[styles.upNextCard, isWide && styles.overviewCardWide]}>
+            <View style={styles.upNextHeader}>
+              <Text style={styles.sectionTitle}>Up Next</Text>
+              <Text style={styles.sectionMeta}>{todayEntries.length} today</Text>
+            </View>
+            {upNextEntry ? (
+              <Pressable onPress={() => openEntryDetail(upNextEntry)} style={styles.upNextContent}>
+                <View style={[styles.upNextAccent, { backgroundColor: upNextEntry.color }]} />
+                <View style={styles.upNextCopy}>
+                  <Text style={styles.upNextTitle}>{upNextEntry.title}</Text>
+                  <Text style={styles.upNextSubtitle}>{formatCalendarTime(upNextEntry)}</Text>
+                  <Text style={styles.upNextSubtitle}>{upNextEntry.locationName}</Text>
+                </View>
+              </Pressable>
+            ) : (
+              <Text style={styles.helperText}>
+                Nothing is scheduled right now. Add a personal block or RSVP to an event to fill this out.
+              </Text>
+            )}
+          </Card>
+        </View>
+      )}
 
       {sourceError ? (
         <Card>
@@ -768,9 +1125,9 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mobileWeekStrip}>
                 {weekDays.map((date) => {
                   const dateKey = format(date, 'yyyy-MM-dd');
-                  const count = countEntriesForDate(entries, date);
                   const selected = anchorDateKey === dateKey;
                   const hasConflict = conflicts.some((conflict) => conflict.date === dateKey);
+                  const indicatorColors = getDateIndicatorColors(entries, date);
 
                   return (
                     <Pressable
@@ -784,11 +1141,18 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
                       <Text style={[styles.mobileWeekPillDate, selected && styles.mobileWeekPillDateActive]}>
                         {format(date, 'd')}
                       </Text>
-                      {count > 0 ? (
-                        <View style={[styles.mobileWeekCountBadge, selected && styles.mobileWeekCountBadgeActive]}>
-                          <Text style={[styles.mobileWeekCountText, selected && styles.mobileWeekCountTextActive]}>
-                            {count}
-                          </Text>
+                      {indicatorColors.length > 0 ? (
+                        <View style={styles.mobileWeekDotsRow}>
+                          {indicatorColors.map((color, index) => (
+                            <View
+                              key={`${dateKey}-dot-${index}`}
+                              style={[
+                                styles.mobileWeekDot,
+                                { backgroundColor: color },
+                                selected ? styles.mobileWeekDotActive : null,
+                              ]}
+                            />
+                          ))}
                         </View>
                       ) : hasConflict ? (
                         <Ionicons name="warning" size={12} color={selected ? colors.primary.main : colors.status.warning} />
@@ -818,7 +1182,7 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
                 <View style={styles.dayViewLayout}>
                   <View style={styles.timeColumn}>
                     <View style={styles.timeColumnSpacer} />
-                    {HOURS.map((hour) => (
+                    {mobileVisibleHours.map((hour) => (
                       <View key={hour} style={[styles.timeSlot, { height: HOUR_HEIGHT }]}> 
                         <Text style={styles.timeSlotLabel}>{format(new Date().setHours(hour, 0, 0, 0), 'ha')}</Text>
                       </View>
@@ -832,6 +1196,11 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
                     onGroupPress={setSelectedOverlapEntries}
                     panelWidth={focusedTimelineWidth}
                     currentTime={currentTime}
+                    visibleHours={mobileVisibleHours}
+                    dayStartHour={mobileVisibleHourRange.startHour}
+                    dayEndHour={mobileVisibleHourRange.endHour}
+                    mobileMode
+                    showCurrentTimeIndicator
                   />
                 </View>
               </ScrollView>
@@ -849,7 +1218,11 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
                 </View>
                 <View style={styles.weekColumnsRow}>
                   {weekDays.map((date) => {
-                    const dayEntries = entries.filter((entry) => entry.startsAt.slice(0, 10) === format(date, 'yyyy-MM-dd'));
+                    const dayStart = startOfDay(date);
+                    const dayEnd = addDays(dayStart, 1);
+                    const dayEntries = entries.filter(
+                      (entry) => parseISO(entry.startsAt) < dayEnd && parseISO(entry.endsAt) > dayStart,
+                    );
                     return (
                       <DayColumn
                         key={date.toISOString()}
@@ -874,7 +1247,7 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
             <View style={styles.dayViewLayout}>
               <View style={styles.timeColumn}>
                 <View style={styles.timeColumnSpacer} />
-                {HOURS.map((hour) => (
+                {(isMobile ? mobileVisibleHours : HOURS).map((hour) => (
                   <View key={hour} style={[styles.timeSlot, { height: HOUR_HEIGHT }]}> 
                     <Text style={styles.timeSlotLabel}>{format(new Date().setHours(hour, 0, 0, 0), 'ha')}</Text>
                   </View>
@@ -888,6 +1261,11 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
                 onGroupPress={setSelectedOverlapEntries}
                 panelWidth={focusedTimelineWidth}
                 currentTime={currentTime}
+                visibleHours={isMobile ? mobileVisibleHours : HOURS}
+                dayStartHour={isMobile ? mobileVisibleHourRange.startHour : DAY_START_HOUR}
+                dayEndHour={isMobile ? mobileVisibleHourRange.endHour : DAY_END_HOUR}
+                mobileMode={isMobile}
+                showCurrentTimeIndicator={isMobile}
               />
             </View>
           </ScrollView>
@@ -903,7 +1281,7 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
             <View style={styles.monthGrid}>
               {monthCells.map((date) => {
                 const dateKey = format(date, 'yyyy-MM-dd');
-                const count = countEntriesForDate(entries, date);
+                const indicatorColors = getDateIndicatorColors(entries, date);
                 const selected = anchorDateKey === dateKey;
                 const hasConflict = monthConflictDates.has(dateKey);
                 return (
@@ -917,8 +1295,8 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
                   >
                     <Text style={[styles.monthCellLabel, selected && styles.monthCellLabelSelected]}>{format(date, 'd')}</Text>
                     <View style={styles.monthDotsRow}>
-                      {Array.from({ length: Math.min(3, count) }).map((_, index) => (
-                        <View key={`${dateKey}-dot-${index}`} style={[styles.monthDot, { backgroundColor: colors.primary.main }]} />
+                      {indicatorColors.map((color, index) => (
+                        <View key={`${dateKey}-dot-${index}`} style={[styles.monthDot, { backgroundColor: color }]} />
                       ))}
                       {hasConflict ? <Ionicons name="warning" size={12} color={colors.status.warning} /> : null}
                     </View>
@@ -1048,6 +1426,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
+  mobileHeaderActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
   iconButton: {
     width: 40,
     height: 40,
@@ -1058,6 +1440,14 @@ const styles = StyleSheet.create({
   },
   overviewGrid: {
     gap: spacing.md,
+  },
+  mobileCalendarToolbar: {
+    gap: spacing.sm,
+  },
+  mobileToolbarTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   overviewGridWide: {
     flexDirection: 'row',
@@ -1076,12 +1466,18 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
     borderRadius: borderRadius.full,
   },
+  mobileSegmentedRow: {
+    flex: 1,
+  },
   segmentedButton: {
     flex: 1,
     minHeight: 38,
     borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  mobileSegmentedButton: {
+    minHeight: 34,
   },
   segmentedButtonActive: {
     backgroundColor: colors.brand.white,
@@ -1099,6 +1495,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  mobileNavigatorRow: {
+    gap: spacing.xs,
   },
   navigatorRowWide: {
     flexWrap: 'nowrap',
@@ -1211,13 +1610,13 @@ const styles = StyleSheet.create({
     paddingRight: spacing.sm,
   },
   mobileWeekPill: {
-    minWidth: 72,
-    minHeight: 84,
+    minWidth: 64,
+    minHeight: 68,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    gap: 6,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.xl,
     borderWidth: 1,
     borderColor: colors.border.light,
@@ -1244,33 +1643,30 @@ const styles = StyleSheet.create({
   mobileWeekPillDateActive: {
     color: colors.primary.main,
   },
-  mobileWeekCountBadge: {
-    minWidth: 24,
-    height: 24,
-    borderRadius: borderRadius.full,
+  mobileWeekDotsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xs,
-    backgroundColor: colors.background.secondary,
+    gap: 4,
+    minHeight: 10,
   },
-  mobileWeekCountBadgeActive: {
-    backgroundColor: colors.primary.main,
+  mobileWeekDot: {
+    width: 6,
+    height: 6,
+    borderRadius: borderRadius.full,
   },
-  mobileWeekCountText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.secondary,
-  },
-  mobileWeekCountTextActive: {
-    color: colors.brand.white,
+  mobileWeekDotActive: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.72)',
   },
   mobileWeekHintCard: {
-    gap: spacing.sm,
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
   },
   mobileWeekHintHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.md,
   },
   timeColumn: {
     width: 58,
@@ -1335,25 +1731,25 @@ const styles = StyleSheet.create({
     height: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.xs,
-    zIndex: 0,
+    overflow: 'visible',
+    zIndex: 16,
+    elevation: 16,
   },
   currentTimeIndicatorFocused: {
-    paddingHorizontal: spacing.sm,
+    left: 0,
+    right: 0,
   },
   currentTimeIndicatorDot: {
-    width: 6,
-    height: 6,
+    width: 7,
+    height: 7,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary.main,
-    opacity: 0.68,
+    backgroundColor: '#E21833',
   },
   currentTimeIndicatorLine: {
     flex: 1,
-    height: 1.5,
+    height: 1,
     marginLeft: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(226, 24, 51, 0.38)',
+    backgroundColor: '#E21833',
   },
   calendarBlock: {
     position: 'absolute',
@@ -1394,10 +1790,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border.light,
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: colors.brand.white,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     overflow: 'hidden',
+    zIndex: 12,
     ...shadows.sm,
   },
   overlapClusterHeader: {

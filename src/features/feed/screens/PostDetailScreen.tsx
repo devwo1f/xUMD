@@ -44,6 +44,7 @@ export default function PostDetailScreen({ navigation, route }: Props) {
   const [draft, setDraft] = useState('');
   const [comments, setComments] = useState<CommentWithReplies[]>(() => getCommentsForPost(route.params.postId));
   const openUserProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
+  const openLinkedEvent = (eventId: string) => navigation.navigate('EventDetail', { eventId });
 
   const timestamp = useMemo(() => {
     if (!post) {
@@ -133,6 +134,19 @@ export default function PostDetailScreen({ navigation, route }: Props) {
         <Text style={styles.postContent}>{post.content}</Text>
         <PostMediaGallery post={post} mode="detail" />
 
+        {post.event_id ? (
+          <Pressable style={styles.linkedEventCard} onPress={() => openLinkedEvent(post.event_id!)}>
+            <View style={styles.linkedEventIcon}>
+              <Ionicons name="calendar-outline" size={18} color={colors.primary.main} />
+            </View>
+            <View style={styles.linkedEventCopy}>
+              <Text style={styles.linkedEventTitle}>Linked event</Text>
+              <Text style={styles.linkedEventBody}>Open the event this post is referencing.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.text.tertiary} />
+          </Pressable>
+        ) : null}
+
         <View style={styles.postStats}>
           <Text style={styles.statText}>{post.like_count} likes</Text>
           <Text style={styles.statText}>{post.comment_count} comments</Text>
@@ -212,6 +226,39 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: colors.text.primary,
     marginTop: spacing.md,
+  },
+  linkedEventCard: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.primary.light,
+    backgroundColor: colors.primary.lightest,
+    padding: spacing.md,
+  },
+  linkedEventIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.brand.white,
+  },
+  linkedEventCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  linkedEventTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  linkedEventBody: {
+    fontSize: typography.fontSize.xs,
+    lineHeight: 18,
+    color: colors.text.secondary,
   },
   postStats: {
     flexDirection: 'row',

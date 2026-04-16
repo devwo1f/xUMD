@@ -2,7 +2,7 @@
 import { errorResponse, handleOptions, jsonResponse, parseJsonBody } from '../_shared/http.ts';
 import { invalidateMapEventCaches } from '../_shared/map.ts';
 import { fetchCurrentUserRsvp, fetchEventById, fetchEventRsvpStats } from '../_shared/map-records.ts';
-import { requireAuthenticatedUser } from '../_shared/supabase.ts';
+import { ensurePublicUserRow, requireAuthenticatedUser } from '../_shared/supabase.ts';
 import { getRedis } from '../_shared/upstash.ts';
 
 interface RsvpEventRequest {
@@ -18,8 +18,10 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const { userId, adminClient } = await requireAuthenticatedUser(request);
+    const { userId, authUser, adminClient } = await requireAuthenticatedUser(request);
     const body = await parseJsonBody<RsvpEventRequest>(request);
+
+    await ensurePublicUserRow(adminClient, authUser);
 
     if (!body.eventId) {
       throw new HttpError(400, 'bad_request', 'eventId is required.');

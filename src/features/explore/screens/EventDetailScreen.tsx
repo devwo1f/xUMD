@@ -8,7 +8,6 @@ import Badge from '../../../shared/components/Badge';
 import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
-import { mockClubs } from '../../../assets/data/mockClubs';
 import { useCrossTabNavStore } from '../../../shared/stores/useCrossTabNavStore';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import { colors } from '../../../shared/theme/colors';
@@ -19,6 +18,8 @@ import { useMapData } from '../../map/hooks/useMapData';
 import { useMapEventDetail } from '../../map/hooks/useMapEventDetail';
 import { submitEventRsvpRemote } from '../../../services/mapEvents';
 import { isSupabaseConfigured } from '../../../services/supabase';
+import { useCampusClubs } from '../../clubs/hooks/useCampusClubs';
+import { useAuth } from '../../auth/hooks/useAuth';
 
 type Props = NativeStackScreenProps<{ EventDetail: { eventId: string } }, 'EventDetail'>;
 type RsvpStatus = 'going' | 'interested' | null;
@@ -62,12 +63,15 @@ function patchEventRsvpCounts<T extends Partial<Event> & { id: string }>(event: 
 
 export default function EventDetailScreen({ navigation, route }: Props) {
   const queryClient = useQueryClient();
+  const { user: authUser } = useAuth();
   const { rawEvents } = useMapData();
+  const { getClubById } = useCampusClubs();
   const detailQuery = useMapEventDetail(route.params.eventId);
   const event = detailQuery.data?.event ?? rawEvents.find((item) => item.id === route.params.eventId);
-  const { savedEventIds, goingEventIds, setEventRsvpStatus } = useDemoAppStore();
+  const { savedEventIds, goingEventIds, setEventRsvpStatus, confirmEventRsvpStatus } = useDemoAppStore();
   const setPendingMapFocus = useCrossTabNavStore((state) => state.setPendingMapFocus);
   const setPendingCalendarFocus = useCrossTabNavStore((state) => state.setPendingCalendarFocus);
+  const canSyncRsvpRemotely = isSupabaseConfigured && Boolean(authUser?.id);
 
   if (!event) {
     return (
@@ -88,7 +92,7 @@ export default function EventDetailScreen({ navigation, route }: Props) {
   }
 
   const rsvpStatus = getCurrentRsvpStatus(event.id, goingEventIds, savedEventIds);
-  const hostClub = event.club_id ? mockClubs.find((club) => club.id === event.club_id) : null;
+  const hostClub = event.club_id ? getClubById(event.club_id) : null;
   const stats = detailQuery.data?.rsvp_stats ?? {
     going: event.attendee_count ?? event.rsvp_count,
     interested: event.interested_count ?? 0,
@@ -115,12 +119,16 @@ export default function EventDetailScreen({ navigation, route }: Props) {
       return;
     }
 
+    const previousStatus = rsvpStatus;
     setEventRsvpStatus(event.id, nextStatus);
-    patchCaches(rsvpStatus, nextStatus);
+    patchCaches(previousStatus, nextStatus);
 
     try {
-      if (isSupabaseConfigured) {
-        await submitEventRsvpRemote({ eventId: event.id, status: nextStatus ?? undefined, action: nextStatus ? 'upsert' : 'remove' });
+      if (canSyncRsvpRemotely) {
+        const response = await submitEventRsvpRemote({ eventId: event.id, status: nextStatus ?? undefined, action: nextStatus ? 'upsert' : 'remove' });
+        confirmEventRsvpStatus(event.id, response.current_user_rsvp ?? nextStatus);
+      } else {
+        confirmEventRsvpStatus(event.id, nextStatus);
       }
 
       await Promise.all([
@@ -129,8 +137,9 @@ export default function EventDetailScreen({ navigation, route }: Props) {
         queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
       ]);
     } catch {
-      setEventRsvpStatus(event.id, rsvpStatus);
-      patchCaches(nextStatus, rsvpStatus);
+      // Revert optimistic update on failure
+      setEventRsvpStatus(event.id, previousStatus);
+      patchCaches(nextStatus, previousStatus);
     }
   };
 

@@ -44,6 +44,7 @@ interface FeedState {
     authorId: string;
     author: UserProfile;
     clubId: string | null;
+    eventId?: string | null;
     content: string;
     mediaUrls?: string[];
     mediaItems?: PostMediaItem[];
@@ -106,6 +107,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     authorId,
     author,
     clubId,
+    eventId = null,
     content,
     mediaUrls = [],
     mediaItems = [],
@@ -117,6 +119,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       author_id: authorId,
       author,
       club_id: clubId,
+      event_id: eventId,
       club: undefined,
       type,
       content: content.trim(),

@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, Image, Linking, PanResponder, PixelRatio, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Keyboard, Linking, PanResponder, PixelRatio, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { format } from 'date-fns';
 import Avatar from '../../../shared/components/Avatar';
 import Badge from '../../../shared/components/Badge';
 import BottomSheet from '../../../shared/components/BottomSheet';
@@ -12,9 +14,9 @@ import Card from '../../../shared/components/Card';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import UMDBrandLockup from '../../../shared/components/UMDBrandLockup';
 import { buildings, type Building } from '../../../assets/data/buildings';
-import { mockClubs } from '../../../assets/data/mockClubs';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useProfile } from '../../profile/hooks/useProfile';
+import { useCampusClubs } from '../../clubs/hooks/useCampusClubs';
 import { useResponsive } from '../../../shared/hooks/useResponsive';
 import { useCrossTabNavStore } from '../../../shared/stores/useCrossTabNavStore';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
@@ -42,6 +44,7 @@ import { createMapEventRemote, reportMapEventRemote, submitEventRsvpRemote } fro
 type Props = NativeStackScreenProps<MapStackParamList, 'MapHome'>;
 type SheetMode = 'group' | 'event' | 'building' | 'create' | null;
 type RsvpStatus = 'going' | 'interested' | null;
+type CreatePickerTarget = 'startDate' | 'startTime' | 'endDate' | 'endTime';
 
 type DraftEvent = {
   title: string;
@@ -75,10 +78,27 @@ function makeNextDraft(): DraftEvent {
     title: '',
     description: '',
     category: EventCategory.Social,
-    startsAt: start.toISOString().slice(0, 16),
-    endsAt: end.toISOString().slice(0, 16),
+    startsAt: format(start, "yyyy-MM-dd'T'HH:mm"),
+    endsAt: format(end, "yyyy-MM-dd'T'HH:mm"),
     maxCapacity: '',
   };
+}
+
+function parseDraftDateTime(value: string) {
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed : new Date();
+}
+
+function setDraftDatePortion(value: string, nextDate: Date) {
+  const current = parseDraftDateTime(value);
+  current.setFullYear(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate());
+  return format(current, "yyyy-MM-dd'T'HH:mm");
+}
+
+function setDraftTimePortion(value: string, nextTime: Date) {
+  const current = parseDraftDateTime(value);
+  current.setHours(nextTime.getHours(), nextTime.getMinutes(), 0, 0);
+  return format(current, "yyyy-MM-dd'T'HH:mm");
 }
 
 function buildDirectionsUrl(label: string, coordinate: MapCoordinate) {
@@ -295,6 +315,7 @@ export default function MapHomeScreen({ navigation }: Props) {
   const isNativeMobile = Platform.OS !== 'web';
   const { user: authUser } = useAuth();
   const { user: profileUser } = useProfile();
+  const { getClubById } = useCampusClubs();
   const { userLocation, isLocating, locationError, requestUserLocation } = useUserLocation();
   const pendingMapFocus = useCrossTabNavStore((state) => state.pendingMapFocus);
   const clearPendingMapFocus = useCrossTabNavStore((state) => state.clearPendingMapFocus);
@@ -313,7 +334,7 @@ export default function MapHomeScreen({ navigation }: Props) {
     setShowActivityLayer,
   } = useMapFilterStore();
   const { rawEvents, loading, refetch } = useMapData({ onlyFriendsAttending });
-  const { savedEventIds, goingEventIds, setEventRsvpStatus } = useDemoAppStore();
+  const { savedEventIds, goingEventIds, setEventRsvpStatus, confirmEventRsvpStatus } = useDemoAppStore();
   const upsertLocalEvent = useEventCatalogStore((state) => state.upsertEvent);
 
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -326,6 +347,8 @@ export default function MapHomeScreen({ navigation }: Props) {
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [isPeekCollapsed, setIsPeekCollapsed] = useState(false);
   const [peekPageIndex, setPeekPageIndex] = useState(0);
+  const [activeCreatePicker, setActiveCreatePicker] = useState<CreatePickerTarget | null>(null);
+  const [isCreateKeyboardVisible, setIsCreateKeyboardVisible] = useState(false);
 
   const detailQuery = useMapEventDetail(selectedEventId);
   const { results: searchResults, isLoading: searchLoading } = useMapSearchResults({
@@ -336,6 +359,7 @@ export default function MapHomeScreen({ navigation }: Props) {
 
   const currentViewerId = authUser?.id ?? profileUser.id;
   const currentViewerName = authUser?.display_name ?? profileUser.displayName ?? 'xUMD student';
+  const canSyncRsvpRemotely = isSupabaseConfigured && Boolean(authUser?.id);
   const viewerRsvpIds = useMemo(() => new Set([...goingEventIds, ...savedEventIds]), [goingEventIds, savedEventIds]);
   const filteredEvents = useMemo(
     () =>
@@ -361,7 +385,7 @@ export default function MapHomeScreen({ navigation }: Props) {
     [filteredEvents, viewerRsvpIds, viewportHeight, viewportWidth],
   );
   const activityWeights = useMemo(() => buildActivityWeightMap(filteredEvents), [filteredEvents]);
-  const liveCounter = useMemo(() => getLiveEventCounter(filteredEvents), [filteredEvents]);
+  const liveCounter = useMemo(() => getLiveEventCounter(rawEvents), [rawEvents]);
   const selectedGroup = useMemo(
     () => eventGroups.find((group) => group.id === selectedGroupId) ?? null,
     [eventGroups, selectedGroupId],
@@ -417,7 +441,7 @@ export default function MapHomeScreen({ navigation }: Props) {
     ? getCurrentRsvpStatus(selectedEvent.id, goingEventIds, savedEventIds)
     : null;
   const eventHostClub = selectedEvent?.club_id
-    ? mockClubs.find((club) => club.id === selectedEvent.club_id) ?? null
+    ? getClubById(selectedEvent.club_id) ?? null
     : null;
   const hasSearchQuery = searchQuery.trim().length >= 2;
   const isAllChipActive = selectedCategories.length === 0 && timeFilter === 'all';
@@ -491,7 +515,7 @@ export default function MapHomeScreen({ navigation }: Props) {
     }),
   ).current;
   const topOverlayPadding = isNativeMobile ? insets.top + spacing.sm : spacing.md;
-  const liveCounterTop = isNativeMobile ? insets.top + 112 : spacing.md + 104;
+  const liveCounterTop = isNativeMobile ? insets.top + 126 : spacing.md + 104;
   const compassInsetTop = isNativeMobile ? liveCounterTop + 52 : spacing.md + 168;
   const mobileFloatingActionsBottom = isNativeMobile ? MOBILE_PEEK_EXPANDED_FOOTPRINT + spacing.md : 124;
   const loadingCardBottom = isNativeMobile ? MOBILE_PEEK_EXPANDED_FOOTPRINT + spacing.xl : 108;
@@ -505,6 +529,20 @@ export default function MapHomeScreen({ navigation }: Props) {
       Alert.alert('Location unavailable', locationError);
     }
   }, [locationError]);
+
+  useEffect(() => {
+    if (!isNativeMobile) {
+      return;
+    }
+
+    const showSubscription = Keyboard.addListener('keyboardDidShow', () => setIsCreateKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => setIsCreateKeyboardVisible(false));
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [isNativeMobile]);
 
   useEffect(() => {
     if (!pendingMapFocus) {
@@ -543,12 +581,20 @@ export default function MapHomeScreen({ navigation }: Props) {
     setShowEventDetails(false);
   }, [selectedEventId, selectedBuildingId, selectedGroupId]);
 
+  useEffect(() => {
+    if (activeSheet !== 'create') {
+      setActiveCreatePicker(null);
+      setIsCreateKeyboardVisible(false);
+    }
+  }, [activeSheet]);
+
   function clearSelection() {
     setSelectedEventId(null);
     setSelectedGroupId(null);
     setSelectedBuildingId(null);
     setCreateCoordinate(null);
     setShowEventDetails(false);
+    setActiveCreatePicker(null);
   }
 
   function openEvent(event: Event) {
@@ -596,6 +642,7 @@ export default function MapHomeScreen({ navigation }: Props) {
     setSelectedBuildingId(null);
     setCreateCoordinate(coordinate);
     setDraftEvent(makeNextDraft());
+    setActiveCreatePicker(null);
     setFocusRequest(createFocusRequest('create-event', coordinate, 16.45));
   }
 
@@ -665,12 +712,15 @@ export default function MapHomeScreen({ navigation }: Props) {
     patchEventQueryCaches(event.id, previousStatus, nextStatus);
 
     try {
-      if (isSupabaseConfigured) {
-        await submitEventRsvpRemote({
+      if (canSyncRsvpRemotely) {
+        const response = await submitEventRsvpRemote({
           eventId: event.id,
           status: nextStatus ?? undefined,
           action: nextStatus ? 'upsert' : 'remove',
         });
+        confirmEventRsvpStatus(event.id, response.current_user_rsvp ?? nextStatus);
+      } else {
+        confirmEventRsvpStatus(event.id, nextStatus);
       }
 
       await Promise.all([
@@ -696,11 +746,11 @@ export default function MapHomeScreen({ navigation }: Props) {
         );
       }
     } catch (error) {
-      setEventRsvpStatus(event.id, previousStatus);
-      patchEventQueryCaches(event.id, nextStatus, previousStatus);
       Alert.alert(
-        'RSVP unavailable',
-        error instanceof Error ? error.message : 'Unable to update your RSVP right now.',
+        'Saved on this device',
+        error instanceof Error
+          ? `${error.message} Your RSVP still updated locally and will stay reflected across the app.`
+          : 'Your RSVP updated locally and will stay reflected across the app.',
       );
     }
   }
@@ -877,6 +927,7 @@ export default function MapHomeScreen({ navigation }: Props) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['map-events'] }),
         queryClient.invalidateQueries({ queryKey: ['map-search'] }),
+        queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
       ]);
 
       setCreateCoordinate(null);
@@ -891,6 +942,60 @@ export default function MapHomeScreen({ navigation }: Props) {
       setIsCreatingEvent(false);
     }
   }
+
+  const createStartsAtValue = useMemo(() => parseDraftDateTime(draftEvent.startsAt), [draftEvent.startsAt]);
+  const createEndsAtValue = useMemo(() => parseDraftDateTime(draftEvent.endsAt), [draftEvent.endsAt]);
+  const createPickerValue =
+    activeCreatePicker === 'startDate' || activeCreatePicker === 'startTime'
+      ? createStartsAtValue
+      : createEndsAtValue;
+  const createPickerTitle =
+    activeCreatePicker === 'startDate'
+      ? 'Choose Start Date'
+      : activeCreatePicker === 'startTime'
+        ? 'Choose Start Time'
+        : activeCreatePicker === 'endDate'
+          ? 'Choose End Date'
+          : 'Choose End Time';
+
+  const applyCreatePickerValue = (target: CreatePickerTarget, nextValue: Date) => {
+    setDraftEvent((current) => {
+      const startsAt =
+        target === 'startDate'
+          ? setDraftDatePortion(current.startsAt, nextValue)
+          : target === 'startTime'
+            ? setDraftTimePortion(current.startsAt, nextValue)
+            : current.startsAt;
+      const endsAt =
+        target === 'endDate'
+          ? setDraftDatePortion(current.endsAt, nextValue)
+          : target === 'endTime'
+            ? setDraftTimePortion(current.endsAt, nextValue)
+            : current.endsAt;
+
+      return {
+        ...current,
+        startsAt,
+        endsAt,
+      };
+    });
+  };
+
+  const openCreateAndroidPicker = (target: CreatePickerTarget) => {
+    const value =
+      target === 'startDate' || target === 'startTime'
+        ? createStartsAtValue
+        : createEndsAtValue;
+    DateTimePickerAndroid.open({
+      value,
+      mode: target === 'startDate' || target === 'endDate' ? 'date' : 'time',
+      display: target === 'startDate' || target === 'endDate' ? 'calendar' : 'clock',
+      is24Hour: false,
+      onValueChange: (_event, nextValue) => {
+        applyCreatePickerValue(target, nextValue);
+      },
+    });
+  };
 
   return (
     <ScreenLayout
@@ -920,6 +1025,8 @@ export default function MapHomeScreen({ navigation }: Props) {
             activeEventGroupId={selectedGroupId}
             userLocation={userLocation}
             focusRequest={focusRequest}
+            compassInsetTop={compassInsetTop}
+            compassInsetRight={spacing.md}
             onSelectEventGroup={openGroup}
             onSelectBuilding={openBuilding}
             onLongPressCoordinate={openCreateEvent}
@@ -968,37 +1075,44 @@ export default function MapHomeScreen({ navigation }: Props) {
                 </Card>
               ) : null}
 
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.chipRow}
-              >
-                <FilterChip label="All" active={isAllChipActive} onPress={handleSelectAllFilter} accentColor={colors.primary.main} />
-                <FilterChip
-                  label="Activity"
-                  active={showActivityLayer}
-                  onPress={() => setShowActivityLayer(!showActivityLayer)}
-                  accentColor="#FF8A00"
-                />
-                {TIME_CHIPS.map((chip) => (
+              <View style={styles.chipRail}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.chipRow}
+                >
+                  <FilterChip label="All" active={isAllChipActive} onPress={handleSelectAllFilter} accentColor={colors.primary.main} />
                   <FilterChip
-                    key={chip.value}
-                    label={chip.label}
-                    active={timeFilter === chip.value}
-                    onPress={() => setTimeFilter(chip.value)}
-                    pulse={chip.pulse}
+                    label="Activity"
+                    active={showActivityLayer}
+                    onPress={() => setShowActivityLayer(!showActivityLayer)}
+                    accentColor="#FF8A00"
                   />
-                ))}
-                {CATEGORY_CHIPS.map((chip) => (
-                  <FilterChip
-                    key={chip.value}
-                    label={chip.label}
-                    active={selectedCategories.includes(chip.value)}
-                    onPress={() => toggleCategory(chip.value)}
-                    accentColor={chip.color}
-                  />
-                ))}
-              </ScrollView>
+                  {TIME_CHIPS.map((chip) => (
+                    <FilterChip
+                      key={chip.value}
+                      label={chip.label}
+                      active={timeFilter === chip.value}
+                      onPress={() => setTimeFilter(chip.value)}
+                      pulse={chip.pulse}
+                    />
+                  ))}
+                  {CATEGORY_CHIPS.map((chip) => (
+                    <FilterChip
+                      key={chip.value}
+                      label={chip.label}
+                      active={selectedCategories.includes(chip.value)}
+                      onPress={() => toggleCategory(chip.value)}
+                      accentColor={chip.color}
+                    />
+                  ))}
+                </ScrollView>
+                <View pointerEvents="none" style={styles.chipFadeOverlay}>
+                  <View style={[styles.chipFadeSlice, styles.chipFadeSliceSoft]} />
+                  <View style={[styles.chipFadeSlice, styles.chipFadeSliceMedium]} />
+                  <View style={[styles.chipFadeSlice, styles.chipFadeSliceStrong]} />
+                </View>
+              </View>
             </View>
 
             <Pressable
@@ -1018,7 +1132,7 @@ export default function MapHomeScreen({ navigation }: Props) {
             <View
               style={[
                 styles.sideActions,
-                { bottom: isNativeMobile ? floatingDockClearance + 88 : 124 },
+                { bottom: mobileFloatingActionsBottom },
               ]}
             >
               <Pressable onPress={() => void handleLocateMe()} style={({ pressed }) => [styles.sideActionButton, pressed ? styles.pressed : null]}>
@@ -1039,7 +1153,7 @@ export default function MapHomeScreen({ navigation }: Props) {
               {...peekPanResponder.panHandlers}
               style={[
                 styles.peekRail,
-                { marginBottom: isNativeMobile ? floatingDockClearance : spacing.md },
+                isNativeMobile ? styles.peekRailMobile : null,
                 isPeekCollapsed ? styles.peekRailCollapsed : null,
               ]}
             >
@@ -1059,20 +1173,45 @@ export default function MapHomeScreen({ navigation }: Props) {
 
               {!isPeekCollapsed ? (
                 upcomingEvents.length > 0 ? (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.peekCardsRow}
-                  >
-                    {upcomingEvents.map((event) => (
-                      <EventMiniCard
-                        key={event.id}
-                        event={event}
-                        isGoing={goingEventIds.includes(event.id)}
-                        onPress={() => openEvent(event)}
-                      />
-                    ))}
-                  </ScrollView>
+                  <>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      snapToInterval={PEEK_CARD_SNAP_INTERVAL}
+                      snapToAlignment="start"
+                      decelerationRate="fast"
+                      contentContainerStyle={styles.peekCardsRow}
+                      onScroll={(event) => {
+                        const nextIndex = Math.round(
+                          event.nativeEvent.contentOffset.x / PEEK_CARD_SNAP_INTERVAL,
+                        );
+                        setPeekPageIndex(clamp(nextIndex, 0, Math.max(0, upcomingEvents.length - 1)));
+                      }}
+                      scrollEventThrottle={16}
+                    >
+                      {upcomingEvents.map((event) => (
+                        <EventMiniCard
+                          key={event.id}
+                          event={event}
+                          isGoing={goingEventIds.includes(event.id)}
+                          onPress={() => openEvent(event)}
+                        />
+                      ))}
+                    </ScrollView>
+                    {upcomingEvents.length > 1 ? (
+                      <View style={styles.peekPagination}>
+                        {upcomingEvents.map((event, index) => (
+                          <View
+                            key={event.id}
+                            style={[
+                              styles.peekPaginationDot,
+                              index === peekPageIndex ? styles.peekPaginationDotActive : null,
+                            ]}
+                          />
+                        ))}
+                      </View>
+                    ) : null}
+                  </>
                 ) : (
                   <Text style={styles.peekEmptyText}>No upcoming events match your current filters.</Text>
                 )
@@ -1080,7 +1219,7 @@ export default function MapHomeScreen({ navigation }: Props) {
             </View>
 
             {loading && rawEvents.length === 0 ? (
-              <Card style={[styles.loadingCard, { bottom: isNativeMobile ? floatingDockClearance + 112 : 108 }]}>
+              <Card style={[styles.loadingCard, { bottom: loadingCardBottom }]}>
                 <Text style={styles.loadingTitle}>Loading campus activity</Text>
                 <Text style={styles.loadingCopy}>Pulling buildings, events, and the latest campus pulse into the map.</Text>
               </Card>
@@ -1273,7 +1412,11 @@ export default function MapHomeScreen({ navigation }: Props) {
 
                   {eventHostClub ? (
                     <Pressable
-                      onPress={() => navigation.navigate('ClubDetail', { clubId: eventHostClub.id })}
+                      onPress={() => {
+                        const clubId = eventHostClub.id;
+                        clearSelection();
+                        requestAnimationFrame(() => navigation.navigate('ClubDetail', { clubId }));
+                      }}
                       style={({ pressed }) => [styles.hostClubRow, pressed ? styles.pressed : null]}
                     >
                       <Avatar uri={eventHostClub.logo_url} name={eventHostClub.name} size="md" />
@@ -1447,7 +1590,12 @@ export default function MapHomeScreen({ navigation }: Props) {
         snapPoints={createSheetSnapPoints}
         minHeight={isWide ? 560 : 460}
       >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={sheetContentStyle}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={sheetContentStyle}
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetEyebrow}>Create Event Here</Text>
             <Text style={styles.sheetTitle}>Drop a new campus event pin</Text>
@@ -1458,6 +1606,15 @@ export default function MapHomeScreen({ navigation }: Props) {
           </View>
 
           <Card style={styles.formCard}>
+            {isCreateKeyboardVisible ? (
+              <View style={styles.keyboardToolbarRow}>
+                <Pressable onPress={() => Keyboard.dismiss()} style={styles.keyboardDoneChip}>
+                  <Ionicons name="checkmark-circle-outline" size={16} color={colors.primary.main} />
+                  <Text style={styles.keyboardDoneText}>Done typing</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
             <Text style={styles.formLabel}>Title</Text>
             <TextInput
               value={draftEvent.title}
@@ -1490,28 +1647,113 @@ export default function MapHomeScreen({ navigation }: Props) {
               ))}
             </ScrollView>
 
-            <View style={styles.formGrid}>
-              <View style={styles.formGridColumn}>
-                <Text style={styles.formLabel}>Starts</Text>
-                <TextInput
-                  value={draftEvent.startsAt}
-                  onChangeText={(value) => setDraftEvent((current) => ({ ...current, startsAt: value }))}
-                  placeholder="2026-04-10T18:00"
-                  placeholderTextColor={colors.text.tertiary}
-                  style={styles.formInput}
-                />
+            {isNativeMobile ? (
+              <>
+                <View style={styles.formGrid}>
+                  <View style={styles.formGridColumn}>
+                    <Text style={styles.formLabel}>Start date</Text>
+                    {Platform.OS === 'ios' ? (
+                      <Pressable onPress={() => setActiveCreatePicker('startDate')} style={styles.pickerField}>
+                        <Text style={styles.pickerFieldValue}>{format(createStartsAtValue, 'EEE, MMM d')}</Text>
+                        <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
+                      </Pressable>
+                    ) : (
+                      <Pressable onPress={() => openCreateAndroidPicker('startDate')} style={styles.pickerField}>
+                        <Text style={styles.pickerFieldValue}>{format(createStartsAtValue, 'EEE, MMM d')}</Text>
+                        <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
+                      </Pressable>
+                    )}
+                  </View>
+                  <View style={styles.formGridColumn}>
+                    <Text style={styles.formLabel}>Start time</Text>
+                    {Platform.OS === 'ios' ? (
+                      <Pressable onPress={() => setActiveCreatePicker('startTime')} style={styles.pickerField}>
+                        <Text style={styles.pickerFieldValue}>{format(createStartsAtValue, 'h:mm a')}</Text>
+                        <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
+                      </Pressable>
+                    ) : (
+                      <Pressable onPress={() => openCreateAndroidPicker('startTime')} style={styles.pickerField}>
+                        <Text style={styles.pickerFieldValue}>{format(createStartsAtValue, 'h:mm a')}</Text>
+                        <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.formGrid}>
+                  <View style={styles.formGridColumn}>
+                    <Text style={styles.formLabel}>End date</Text>
+                    {Platform.OS === 'ios' ? (
+                      <Pressable onPress={() => setActiveCreatePicker('endDate')} style={styles.pickerField}>
+                        <Text style={styles.pickerFieldValue}>{format(createEndsAtValue, 'EEE, MMM d')}</Text>
+                        <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
+                      </Pressable>
+                    ) : (
+                      <Pressable onPress={() => openCreateAndroidPicker('endDate')} style={styles.pickerField}>
+                        <Text style={styles.pickerFieldValue}>{format(createEndsAtValue, 'EEE, MMM d')}</Text>
+                        <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
+                      </Pressable>
+                    )}
+                  </View>
+                  <View style={styles.formGridColumn}>
+                    <Text style={styles.formLabel}>End time</Text>
+                    {Platform.OS === 'ios' ? (
+                      <Pressable onPress={() => setActiveCreatePicker('endTime')} style={styles.pickerField}>
+                        <Text style={styles.pickerFieldValue}>{format(createEndsAtValue, 'h:mm a')}</Text>
+                        <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
+                      </Pressable>
+                    ) : (
+                      <Pressable onPress={() => openCreateAndroidPicker('endTime')} style={styles.pickerField}>
+                        <Text style={styles.pickerFieldValue}>{format(createEndsAtValue, 'h:mm a')}</Text>
+                        <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+
+                {Platform.OS === 'ios' && activeCreatePicker ? (
+                  <Card style={styles.inlinePickerCard}>
+                    <View style={styles.inlinePickerHeader}>
+                      <Text style={styles.inlinePickerTitle}>{createPickerTitle}</Text>
+                      <Pressable onPress={() => setActiveCreatePicker(null)} hitSlop={8}>
+                        <Text style={styles.inlinePickerDone}>Done</Text>
+                      </Pressable>
+                    </View>
+                    <DateTimePicker
+                      value={createPickerValue}
+                      mode={activeCreatePicker === 'startDate' || activeCreatePicker === 'endDate' ? 'date' : 'time'}
+                      display={activeCreatePicker === 'startDate' || activeCreatePicker === 'endDate' ? 'inline' : 'spinner'}
+                      onValueChange={(_event, nextValue) => {
+                        applyCreatePickerValue(activeCreatePicker, nextValue);
+                      }}
+                    />
+                  </Card>
+                ) : null}
+              </>
+            ) : (
+              <View style={styles.formGrid}>
+                <View style={styles.formGridColumn}>
+                  <Text style={styles.formLabel}>Starts</Text>
+                  <TextInput
+                    value={draftEvent.startsAt}
+                    onChangeText={(value) => setDraftEvent((current) => ({ ...current, startsAt: value }))}
+                    placeholder="2026-04-10T18:00"
+                    placeholderTextColor={colors.text.tertiary}
+                    style={styles.formInput}
+                  />
+                </View>
+                <View style={styles.formGridColumn}>
+                  <Text style={styles.formLabel}>Ends</Text>
+                  <TextInput
+                    value={draftEvent.endsAt}
+                    onChangeText={(value) => setDraftEvent((current) => ({ ...current, endsAt: value }))}
+                    placeholder="2026-04-10T19:30"
+                    placeholderTextColor={colors.text.tertiary}
+                    style={styles.formInput}
+                  />
+                </View>
               </View>
-              <View style={styles.formGridColumn}>
-                <Text style={styles.formLabel}>Ends</Text>
-                <TextInput
-                  value={draftEvent.endsAt}
-                  onChangeText={(value) => setDraftEvent((current) => ({ ...current, endsAt: value }))}
-                  placeholder="2026-04-10T19:30"
-                  placeholderTextColor={colors.text.tertiary}
-                  style={styles.formInput}
-                />
-              </View>
-            </View>
+            )}
 
             <Text style={styles.formLabel}>Capacity</Text>
             <TextInput
@@ -1536,6 +1778,7 @@ export default function MapHomeScreen({ navigation }: Props) {
           </Card>
         </ScrollView>
       </BottomSheet>
+
     </ScreenLayout>
   );
 }
@@ -1570,7 +1813,6 @@ const styles = StyleSheet.create({
   },
   overlayRoot: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'space-between',
   },
   topOverlay: {
     paddingHorizontal: spacing.md,
@@ -1649,7 +1891,42 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     gap: spacing.sm,
-    paddingRight: spacing.md,
+    paddingRight: spacing.xl + spacing.sm,
+  },
+  chipRail: {
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    paddingVertical: spacing.xs,
+    paddingLeft: spacing.xs,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.06)',
+    ...shadows.md,
+  },
+  chipFadeOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 32,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'stretch',
+  },
+  chipFadeSlice: {
+    height: '100%',
+  },
+  chipFadeSliceSoft: {
+    width: 10,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  chipFadeSliceMedium: {
+    width: 10,
+    backgroundColor: 'rgba(255,255,255,0.34)',
+  },
+  chipFadeSliceStrong: {
+    width: 12,
+    backgroundColor: 'rgba(255,255,255,0.72)',
   },
   filterChip: {
     flexDirection: 'row',
@@ -1735,13 +2012,18 @@ const styles = StyleSheet.create({
     ...shadows.md,
   },
   peekRail: {
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
     borderRadius: borderRadius.xl,
     backgroundColor: 'rgba(255,255,255,0.96)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     ...shadows.lg,
+  },
+  peekRailMobile: {
+    bottom: 18,
   },
   peekRailCollapsed: {
     paddingBottom: spacing.sm,
@@ -1767,6 +2049,24 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
+    paddingRight: spacing.xl,
+  },
+  peekPagination: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingBottom: spacing.xs,
+  },
+  peekPaginationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(15, 23, 42, 0.18)',
+  },
+  peekPaginationDotActive: {
+    width: 18,
+    backgroundColor: colors.primary.main,
   },
   peekEmptyText: {
     paddingTop: spacing.sm,
@@ -1774,7 +2074,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   miniEventCard: {
-    width: 230,
+    width: PEEK_CARD_WIDTH,
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
     backgroundColor: colors.brand.white,
@@ -2131,6 +2431,24 @@ const styles = StyleSheet.create({
   formCard: {
     gap: spacing.sm,
   },
+  keyboardToolbarRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  keyboardDoneChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary.lightest,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
+  },
+  keyboardDoneText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary.main,
+  },
   formLabel: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semiBold,
@@ -2147,9 +2465,64 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.text.primary,
   },
+  pickerField: {
+    minHeight: 48,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    backgroundColor: colors.background.secondary,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  pickerFieldValue: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
+  },
+  inlinePickerCard: {
+    gap: spacing.sm,
+  },
+  inlinePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  inlinePickerTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+  },
+  inlinePickerDone: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary.main,
+  },
   formTextArea: {
     minHeight: 110,
     textAlignVertical: 'top',
+  },
+  pickerCard: {
+    gap: spacing.sm,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  pickerTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+  },
+  pickerDone: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary.main,
   },
   formChipRow: {
     gap: spacing.sm,

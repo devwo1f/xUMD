@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -8,7 +8,6 @@ import Card from '../../../shared/components/Card';
 import HeaderTag from '../../../shared/components/HeaderTag';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import UMDBrandLockup from '../../../shared/components/UMDBrandLockup';
-import { mockClubs } from '../../../assets/data/mockClubs';
 import { useProfile } from '../hooks/useProfile';
 import StatItem from '../components/StatItem';
 import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
@@ -23,15 +22,18 @@ import { fetchRemotePostsByUser } from '../../../services/social';
 import FollowButton from '../../social/components/FollowButton';
 import { useCampusSocialGraph } from '../../social/hooks/useCampusSocialGraph';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { useCampusClubs } from '../../clubs/hooks/useCampusClubs';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>;
 
 export default function ProfileHomeScreen({ navigation }: Props) {
   const { user } = useProfile();
   const { signOut, loading: authLoading } = useAuth();
-  const { joinedClubIds, savedEventIds } = useDemoAppStore();
+  const { savedEventIds } = useDemoAppStore();
+  const [clubImageStageById, setClubImageStageById] = useState<Record<string, 'cover' | 'logo' | 'fallback'>>({});
   const posts = useFeedStore((state) => state.posts);
   const { isWide } = useResponsive();
+  const { viewerId, getClubsForUser } = useCampusClubs();
   const {
     viewerUserId,
     followers,
@@ -75,11 +77,8 @@ export default function ProfileHomeScreen({ navigation }: Props) {
   }, [viewerUserId]);
 
   const joinedClubs = useMemo(
-    () =>
-      mockClubs
-        .filter((club) => joinedClubIds.includes(club.id) || user.clubs.includes(club.name))
-        .slice(0, 4),
-    [joinedClubIds, user.clubs],
+    () => getClubsForUser(viewerId).slice(0, 4),
+    [getClubsForUser, viewerId],
   );
 
   const collections = [
@@ -140,14 +139,46 @@ export default function ProfileHomeScreen({ navigation }: Props) {
     }
   };
 
+  const getClubPreviewImageUri = (club: (typeof joinedClubs)[number]) => {
+    const imageStage = clubImageStageById[club.id] ?? 'cover';
+    if (imageStage === 'cover') {
+      return club.cover_url ?? club.logo_url ?? null;
+    }
+    if (imageStage === 'logo') {
+      return club.logo_url ?? null;
+    }
+    return null;
+  };
+
   const clubCards = joinedClubs.map((club) => (
     <Pressable
       key={club.id}
       onPress={() => navigation.navigate('ClubDetail', { clubId: club.id })}
       style={[styles.clubPreview, isWide && styles.clubPreviewWide]}
     >
-      {club.logo_url ? (
-        <Image source={{ uri: club.logo_url }} style={styles.clubPreviewImage} />
+      {getClubPreviewImageUri(club) ? (
+        <Image
+          source={{ uri: getClubPreviewImageUri(club) as string }}
+          style={styles.clubPreviewImage}
+          onError={() =>
+            setClubImageStageById((current) => {
+              const currentStage = current[club.id] ?? 'cover';
+              const nextStage =
+                currentStage === 'cover' && club.logo_url && club.logo_url !== club.cover_url
+                  ? 'logo'
+                  : 'fallback';
+
+              if (currentStage === nextStage) {
+                return current;
+              }
+
+              return {
+                ...current,
+                [club.id]: nextStage,
+              };
+            })
+          }
+        />
       ) : (
         <View style={[styles.clubPreviewImage, styles.clubPreviewFallback]}>
           <Text style={styles.clubPreviewFallbackText}>{club.name.charAt(0).toUpperCase()}</Text>
@@ -228,7 +259,13 @@ export default function ProfileHomeScreen({ navigation }: Props) {
           isWide ? (
             <View style={styles.clubGrid}>{clubCards}</View>
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.clubRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.clubScroller}
+              contentContainerStyle={styles.clubRow}
+              nestedScrollEnabled
+            >
               {clubCards}
             </ScrollView>
           )
@@ -460,9 +497,11 @@ const styles = StyleSheet.create({
     color: colors.primary.main,
   },
   clubRow: {
-    width: '100%',
     gap: spacing.md,
     paddingRight: spacing.sm,
+  },
+  clubScroller: {
+    width: '100%',
   },
   clubGrid: {
     width: '100%',

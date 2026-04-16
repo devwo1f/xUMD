@@ -293,6 +293,7 @@ export interface Post {
   id: string;
   author_id: string;
   club_id: string | null;
+  event_id?: string | null;
   author?: User | null;
   club?: Club | Pick<Club, 'id' | 'name' | 'logo_url'> | null;
   type?: string;
@@ -316,7 +317,7 @@ export interface PostWithAuthor extends Post {
   club?: Pick<Club, 'id' | 'name' | 'logo_url'> | null;
 }
 
-export type PostCreate = Pick<Post, 'club_id' | 'content' | 'media_urls'>;
+export type PostCreate = Pick<Post, 'club_id' | 'event_id' | 'content' | 'media_urls'>;
 
 export interface PostMediaItem {
   id: string;

@@ -31,7 +31,7 @@ export async function getFeedPosts(
 
   let query = supabase
     .from('posts')
-    .select('*, author:profiles!author_id(*)', { count: 'exact' });
+    .select('*, author:users!posts_author_id_fkey(*)', { count: 'exact' });
 
   switch (type) {
     case 'following': {
@@ -125,7 +125,7 @@ export async function getFeedPosts(
 export async function getPostById(id: string): Promise<ServiceResult<PostWithAuthor>> {
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:profiles!author_id(*)')
+    .select('*, author:users!posts_author_id_fkey(*)')
     .eq('id', id)
     .single();
 
@@ -172,7 +172,7 @@ export async function createPost(
   const { data, error } = await supabase
     .from('posts')
     .insert({ ...post, author_id: session.user.id })
-    .select('*, author:profiles!author_id(*)')
+    .select('*, author:users!posts_author_id_fkey(*)')
     .single();
 
   if (error) {
@@ -244,7 +244,7 @@ export async function getComments(
 ): Promise<ServiceResult<CommentWithAuthor[]>> {
   const { data, error } = await supabase
     .from('comments')
-    .select('*, author:profiles!author_id(*)')
+    .select('*, author:users!comments_author_id_fkey(*)')
     .eq('post_id', postId)
     .order('created_at', { ascending: true });
 
@@ -280,7 +280,7 @@ export async function createComment(
       content,
       parent_id: parentId ?? null,
     })
-    .select('*, author:profiles!author_id(*)')
+    .select('*, author:users!comments_author_id_fkey(*)')
     .single();
 
   if (error) {

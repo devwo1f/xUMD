@@ -3,16 +3,12 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
-import Card from '../../../shared/components/Card';
 import ClubCard from '../../../shared/components/ClubCard';
 import HeaderTag from '../../../shared/components/HeaderTag';
 import ScreenLayout from '../../../shared/components/ScreenLayout';
 import UMDBrandLockup from '../../../shared/components/UMDBrandLockup';
 import SearchBar from '../../../shared/components/SearchBar';
 import CategoryChips from '../../../shared/components/CategoryChips';
-import { mockClubs } from '../../../assets/data/mockClubs';
-import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
-import { useProfile } from '../../profile/hooks/useProfile';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
@@ -26,14 +22,23 @@ type Props = NativeStackScreenProps<ClubsStackParamList & CampusStackParamList, 
 const categories = ['All', 'Academic', 'Sports', 'Cultural', 'Professional', 'Social', 'Service', 'Arts'];
 
 export default function ClubsHomeScreen({ navigation }: Props) {
-  const { clubs, search, setSearch, category, setCategory, sort, setSort } = useClubs();
-  const { joinedClubIds } = useDemoAppStore();
-  const { user } = useProfile();
+  const {
+    clubs,
+    search,
+    setSearch,
+    category,
+    setCategory,
+    sort,
+    setSort,
+    viewerId,
+    getClubsForUser,
+    isLoading,
+  } = useClubs();
   const { entries } = useCalendarEntries({ anchorDate: new Date(), viewMode: 'week' });
 
   const joinedClubs = useMemo(
-    () => mockClubs.filter((club) => joinedClubIds.includes(club.id) || user.clubs.includes(club.name)),
-    [joinedClubIds, user.clubs],
+    () => getClubsForUser(viewerId),
+    [getClubsForUser, viewerId],
   );
 
   const nextMeetingByClubId = useMemo(() => {
@@ -137,7 +142,7 @@ export default function ClubsHomeScreen({ navigation }: Props) {
         <Text style={styles.metaTitle}>Discover Clubs</Text>
         <View style={styles.metaFilter}>
           <Ionicons name="filter-outline" size={16} color={colors.text.secondary} />
-          <Text style={styles.metaFilterText}>{clubs.length} results</Text>
+          <Text style={styles.metaFilterText}>{isLoading ? 'Syncing...' : `${clubs.length} results`}</Text>
         </View>
       </View>
 

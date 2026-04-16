@@ -8,6 +8,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import type { ScrollViewProps } from 'react-native';
 import { Edge, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ResponsiveContainer from './ResponsiveContainer';
 import { useResponsive } from '../hooks/useResponsive';
@@ -29,6 +30,7 @@ interface ScreenLayoutProps {
   showHeader?: boolean;
   safeAreaEdges?: Edge[];
   fullBleed?: boolean;
+  keyboardShouldPersistTaps?: ScrollViewProps['keyboardShouldPersistTaps'];
 }
 
 export default function ScreenLayout({
@@ -45,6 +47,7 @@ export default function ScreenLayout({
   showHeader = true,
   safeAreaEdges = ['top', 'left', 'right'],
   fullBleed = false,
+  keyboardShouldPersistTaps,
 }: ScreenLayoutProps) {
   const { isWide, contentMaxWidth, pageHorizontalPadding } = useResponsive();
   const insets = useSafeAreaInsets();
@@ -82,6 +85,7 @@ export default function ScreenLayout({
       ]}
       showsVerticalScrollIndicator={false}
       keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
     >
       {showHeader ? header : null}
       <View

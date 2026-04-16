@@ -35,6 +35,7 @@ export default function FeedHomeScreen({ navigation }: Props) {
   const { recommendations, viewerUserId, isFollowingUser, toggleFollow } = useCampusSocialGraph();
   const topSuggestions = recommendations.slice(0, 4);
   const openUserProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
+  const openEventDetail = (eventId: string) => navigation.navigate('EventDetail', { eventId });
 
   return (
     <ScreenLayout
@@ -169,6 +170,14 @@ export default function FeedHomeScreen({ navigation }: Props) {
             <Text style={styles.postContent}>{post.content}</Text>
 
             <PostMediaGallery post={post} mode="feed" />
+
+            {post.event_id ? (
+              <Pressable style={styles.linkedEventChip} onPress={() => openEventDetail(post.event_id!)}>
+                <Ionicons name="calendar-outline" size={16} color={colors.primary.main} />
+                <Text style={styles.linkedEventLabel}>Open linked event</Text>
+                <Ionicons name="chevron-forward" size={15} color={colors.text.tertiary} />
+              </Pressable>
+            ) : null}
 
             <View style={styles.actionRow}>
               <Pressable style={styles.actionButton} onPress={() => void toggleLike(post.id)}>
@@ -362,6 +371,24 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: colors.text.primary,
     marginTop: spacing.md,
+  },
+  linkedEventChip: {
+    marginTop: spacing.md,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.primary.light,
+    backgroundColor: colors.primary.lightest,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  linkedEventLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary.main,
   },
   actionRow: {
     flexDirection: 'row',

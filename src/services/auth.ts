@@ -1,3 +1,4 @@
+import type { User as SupabaseAuthUser } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured, supabaseConfigError } from './supabase';
 import type { ServiceResult, User, UserUpdate } from '../shared/types';
 
@@ -30,6 +31,65 @@ export interface CourseSearchResult {
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function buildFallbackUsername(authUser: SupabaseAuthUser) {
+  const emailPrefix = normalizeEmail(authUser.email ?? 'terp@umd.edu').split('@')[0] ?? 'terp';
+  const cleanedPrefix = sanitizeUsernameInput(emailPrefix) || 'terp';
+  const suffix = authUser.id.replace(/-/g, '').slice(0, 6).toLowerCase();
+  return sanitizeUsernameInput(`${cleanedPrefix}_${suffix}`) || `terp_${suffix}`;
+}
+
+function buildFallbackDisplayName(authUser: SupabaseAuthUser) {
+  const metadataDisplayName =
+    typeof authUser.user_metadata?.display_name === 'string'
+      ? authUser.user_metadata.display_name.trim()
+      : '';
+
+  if (metadataDisplayName.length > 0) {
+    return metadataDisplayName;
+  }
+
+  const emailPrefix = normalizeEmail(authUser.email ?? 'terp@umd.edu').split('@')[0] ?? 'terp';
+  const derived = emailPrefix
+    .split(/[._-]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+    .trim();
+
+  return derived || 'Terp';
+}
+
+function buildFallbackUserInsert(authUser: SupabaseAuthUser) {
+  const metadata = authUser.user_metadata ?? {};
+  const graduationYearValue =
+    typeof metadata.graduation_year === 'number'
+      ? metadata.graduation_year
+      : typeof metadata.graduation_year === 'string' && metadata.graduation_year.trim().length > 0
+        ? Number(metadata.graduation_year)
+        : null;
+
+  return {
+    id: authUser.id,
+    email: normalizeEmail(authUser.email ?? 'student@umd.edu'),
+    username: buildFallbackUsername(authUser),
+    display_name: buildFallbackDisplayName(authUser),
+    avatar_url: typeof metadata.avatar_url === 'string' ? metadata.avatar_url : null,
+    major: typeof metadata.major === 'string' ? metadata.major : null,
+    graduation_year: Number.isFinite(graduationYearValue) ? graduationYearValue : null,
+    degree_type: typeof metadata.degree_type === 'string' ? metadata.degree_type : null,
+    minor: typeof metadata.minor === 'string' ? metadata.minor : null,
+    bio: typeof metadata.bio === 'string' ? metadata.bio : null,
+    pronouns: typeof metadata.pronouns === 'string' ? metadata.pronouns : null,
+    clubs: [] as string[],
+    courses: [] as string[],
+    interests: [] as string[],
+    follower_count: 0,
+    following_count: 0,
+    profile_completed: false,
+    onboarding_step: 0,
+  };
 }
 
 export function sanitizeUsernameInput(value: string) {
@@ -327,6 +387,48 @@ export async function getCurrentUser(): Promise<ServiceResult<User | null>> {
   }
 
   return { data: (data as User | null) ?? null, error: null };
+}
+
+export async function ensureCurrentUserProfileRow(): Promise<ServiceResult<User>> {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    return {
+      data: null,
+      error: getServiceErrorMessage(sessionError ?? new Error('Not authenticated.')),
+    };
+  }
+
+  const existing = await getCurrentUser();
+  if (existing.error) {
+    return { data: null, error: existing.error };
+  }
+  if (existing.data) {
+    return { data: existing.data, error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .insert(buildFallbackUserInsert(session.user))
+    .select('*')
+    .single();
+
+  if (!error && data) {
+    return { data: data as User, error: null };
+  }
+
+  const retry = await getCurrentUser();
+  if (retry.data) {
+    return { data: retry.data, error: null };
+  }
+
+  return {
+    data: null,
+    error: getServiceErrorMessage(error ?? retry.error ?? new Error('Unable to create your profile row.')),
+  };
 }
 
 export async function updateProfile(updates: UserUpdate): Promise<ServiceResult<User>> {

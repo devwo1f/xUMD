@@ -1,9 +1,10 @@
 import { addDays, endOfDay, format, isAfter, isBefore, isSameDay, startOfDay } from 'date-fns';
 import { buildings } from '../../../assets/data/buildings';
-import { mockClubs, mockUsers } from '../../../assets/data/mockClubs';
+import { mockUsers } from '../../../assets/data/mockClubs';
+import { buildLocalClubDirectorySnapshot } from '../../../services/campusClubs';
 import { authorHandles, mockPosts } from '../../../assets/data/mockFeed';
 import { getEventCatalog } from '../../../shared/stores/useEventCatalogStore';
-import { EventCategory, type Event } from '../../../shared/types';
+import { EventCategory, type Club, type Event } from '../../../shared/types';
 import {
   CURRENT_SOCIAL_USER_ID,
   initialFollowingByUser,
@@ -85,6 +86,10 @@ const categoryKeywordMap: Array<{ category: EventCategory; keywords: string[] }>
 
 function getLocalEvents() {
   return getEventCatalog();
+}
+
+function getLocalClubs() {
+  return buildLocalClubDirectorySnapshot().clubs;
 }
 
 const categoryChipOrder: Array<{ label: string; category: EventCategory | null }> = [
@@ -182,6 +187,20 @@ function formatEventSubtitle(event: Event) {
 }
 
 function buildPeopleDataset() {
+  const clubDirectory = buildLocalClubDirectorySnapshot();
+  const clubNamesById = new Map(clubDirectory.clubs.map((club) => [club.id, club.name]));
+  const clubNamesByUserId = new Map<string, string[]>();
+  clubDirectory.memberships
+    .filter((membership) => membership.status === 'approved')
+    .forEach((membership) => {
+      const current = clubNamesByUserId.get(membership.user_id) ?? [];
+      const clubName = clubNamesById.get(membership.club_id);
+      clubNamesByUserId.set(
+        membership.user_id,
+        clubName ? [...current, clubName] : current,
+      );
+    });
+
   const socialPeople = Object.values(socialProfiles).map((profile) => ({
     id: profile.id,
     username: profile.username,
@@ -190,7 +209,7 @@ function buildPeopleDataset() {
     major: profile.major,
     bio: profile.bio,
     pronouns: profile.pronouns ?? null,
-    clubs: profile.clubIds,
+    clubs: profile.clubIds.map((clubId) => clubNamesById.get(clubId) ?? clubId),
     interests: profile.interests,
   }));
 
@@ -202,7 +221,7 @@ function buildPeopleDataset() {
     major: user.major,
     bio: user.bio ?? '',
     pronouns: null,
-    clubs: [],
+    clubs: clubNamesByUserId.get(user.id) ?? [],
     interests: user.courses ?? [],
   }));
 
@@ -217,7 +236,7 @@ function buildPeopleDataset() {
   return merged;
 }
 
-function buildClubPreview(club: (typeof mockClubs)[number]): ClubPreview {
+function buildClubPreview(club: Club): ClubPreview {
   return {
     id: club.id,
     name: club.name,
@@ -500,7 +519,7 @@ function getEventCorpus(event: Event) {
   ];
 }
 
-function getClubCorpus(club: (typeof mockClubs)[number]) {
+function getClubCorpus(club: Club) {
   return [club.name, club.short_description, club.description, ...(clubTagsById[club.id] ?? []), club.category];
 }
 
@@ -575,7 +594,7 @@ function buildEventResults(query: string, intent: SearchIntent, filters: Extract
 function buildClubResults(query: string, intent: SearchIntent) {
   const results: SearchResult<ClubPreview>[] = [];
 
-  for (const club of mockClubs) {
+  for (const club of getLocalClubs()) {
     const corpus = getClubCorpus(club);
     const keyword = keywordScore(query, corpus);
     const semantic = intent === 'keyword' ? 0 : semanticScore(query, corpus);

@@ -1,6 +1,6 @@
 import { handleOptions, jsonResponse, errorResponse } from '../_shared/http.ts';
 import { createAdminClient } from '../_shared/supabase.ts';
-import { fetchPostsByIds } from '../_shared/records.ts';
+import { fetchApprovedClubIdsByUserIds, fetchPostsByIds } from '../_shared/records.ts';
 import {
   calculateEngagementVelocity,
   calculateFinalFeedScore,
@@ -71,7 +71,12 @@ Deno.serve(async (request) => {
     if (posts30Result.error) throw posts30Result.error;
     if (interactions30Result.error) throw interactions30Result.error;
 
-    const users = (usersResult.data ?? []) as UserRow[];
+    const rawUsers = (usersResult.data ?? []) as UserRow[];
+    const clubIdsByUserId = await fetchApprovedClubIdsByUserIds(adminClient, rawUsers.map((user) => user.id));
+    const users = rawUsers.map((user) => ({
+      ...user,
+      clubs: clubIdsByUserId.get(user.id) ?? [],
+    })) as UserRow[];
     const usersById = new Map(users.map((user) => [user.id, user]));
     const followingByUser = new Map<string, Set<string>>();
     for (const row of followsResult.data ?? []) {

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { mockClubs } from '../../../assets/data/mockClubs';
-import { type Event, type UserProfile } from '../../../shared/types';
+import { type Club, type Event, MemberStatus, type UserProfile } from '../../../shared/types';
 import { getEventCatalog } from '../../../shared/stores/useEventCatalogStore';
+import { loadCampusClubDirectory } from '../../../services/campusClubs';
 import { isSupabaseConfigured, supabase } from '../../../services/supabase';
 import type {
   CalendarClubMeetingTemplate,
@@ -160,10 +160,8 @@ function buildDemoEventRsvps(goingEventIds: string[], interestedEventIds: string
   return [...goingEntries, ...interestedEntries];
 }
 
-function buildClubMeetingTemplates(joinedClubIds: string[], userClubs: string[] = []) {
-  const resolved = mockClubs.filter(
-    (club) => joinedClubIds.includes(club.id) || userClubs.includes(club.name),
-  );
+function buildClubMeetingTemplates(clubs: Club[], joinedClubIds: string[]) {
+  const resolved = clubs.filter((club) => joinedClubIds.includes(club.id));
 
   return resolved.map((club) => ({
     id: club.id,
@@ -468,7 +466,14 @@ export async function loadCalendarSourceData({
   interestedEventIds: string[];
 }): Promise<CalendarSourceData> {
   const personalBlocks = await loadPersonalCalendarBlocks(viewerId);
-  const clubMeetings = buildClubMeetingTemplates(joinedClubIds, user?.clubs ?? []);
+  const clubDirectory = await loadCampusClubDirectory();
+  const canonicalJoinedClubIds = clubDirectory.memberships
+    .filter((membership) => membership.user_id === viewerId && membership.status === MemberStatus.Approved)
+    .map((membership) => membership.club_id);
+  const clubMeetings = buildClubMeetingTemplates(
+    clubDirectory.clubs,
+    canonicalJoinedClubIds.length > 0 ? canonicalJoinedClubIds : joinedClubIds,
+  );
 
   if (!isSupabaseConfigured || !user?.id) {
     return {
@@ -524,13 +529,16 @@ export async function loadCalendarSourceData({
     .map((row) => toCalendarEventRsvp(row as Record<string, unknown>))
     .filter((entry): entry is CalendarEventRsvp => Boolean(entry));
 
+  // Supplement DB RSVPs with any locally-known RSVP'd events not yet committed to
+  // the DB (e.g. optimistic updates in flight). DB entries take precedence.
+  const dbRsvpIds = new Set(eventRsvps.map((r) => r.eventId));
+  const localSupplements = buildDemoEventRsvps(goingEventIds, interestedEventIds)
+    .filter((r) => !dbRsvpIds.has(r.eventId));
+
   return {
     courses,
     clubMeetings,
-    eventRsvps:
-      eventRsvps.length > 0
-        ? eventRsvps
-        : buildDemoEventRsvps(goingEventIds, interestedEventIds),
+    eventRsvps: [...eventRsvps, ...localSupplements],
     personalBlocks,
   };
 }

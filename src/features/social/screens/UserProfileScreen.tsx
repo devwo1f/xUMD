@@ -13,7 +13,7 @@ import { colors } from '../../../shared/theme/colors';
 import { borderRadius, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { Post, User } from '../../../shared/types';
-import { mockUsers, getClubIdsForUser } from '../../../assets/data/mockClubs';
+import { mockClubs, mockUsers } from '../../../assets/data/mockClubs';
 import { isSupabaseConfigured } from '../../../services/supabase';
 import {
   fetchCurrentRemoteUserId,
@@ -25,12 +25,12 @@ import PostMediaGallery from '../../feed/components/PostMediaGallery';
 import { useFeedStore } from '../../feed/hooks/useFeed';
 import { useProfile } from '../../profile/hooks/useProfile';
 import {
-  clubNameById,
   CURRENT_SOCIAL_USER_ID,
   type SocialProfile,
 } from '../data/mockSocialGraph';
 import { useCampusSocialGraph } from '../hooks/useCampusSocialGraph';
 import { useSocialGraphStore } from '../hooks/useSocialGraph';
+import { useCampusClubs } from '../../clubs/hooks/useCampusClubs';
 
 type Props = {
   navigation: {
@@ -86,16 +86,24 @@ function getFollowerCount(followingByUser: Record<string, string[]>, userId: str
   return Object.values(followingByUser).filter((following) => following.includes(userId)).length;
 }
 
-function formatClubLabel(value: string) {
-  return clubNameById[value] ?? value;
-}
-
 function formatTimestamp(value: string) {
   try {
     return formatDistanceToNow(new Date(value), { addSuffix: true });
   } catch {
     return value;
   }
+}
+
+function prettifyClubIdentifier(value: string) {
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+    return 'Campus club';
+  }
+
+  return value
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function getActivityDescriptor(post: Post) {
@@ -139,6 +147,7 @@ function toCampusProfileView(input: {
   profile: SocialProfile | RemoteSocialProfile;
   followerCount: number;
   followingCount: number;
+  resolveClubLabel: (clubId: string) => string;
 }) {
   return {
     id: input.profile.id,
@@ -149,19 +158,22 @@ function toCampusProfileView(input: {
     pronouns: input.profile.pronouns ?? null,
     major: input.profile.major,
     classYear: input.profile.classYear,
-    clubLabels: input.profile.clubIds.map(formatClubLabel),
+    clubLabels: input.profile.clubIds.map(input.resolveClubLabel),
     followerCount: input.followerCount,
     followingCount: input.followingCount,
     isOfficial: 'isOfficial' in input.profile ? input.profile.isOfficial : false,
   } satisfies CampusProfileView;
 }
 
-function toCampusProfileFromClubUser(user: User) {
+function toCampusProfileFromClubUser(
+  user: User,
+  clubIds: string[],
+  resolveClubLabel: (clubId: string) => string,
+) {
   const username =
     user.username ||
     user.email.split('@')[0] ||
     user.display_name.toLowerCase().replace(/\s+/g, '');
-  const clubIds = getClubIdsForUser(user.id);
 
   return {
     id: user.id,
@@ -172,7 +184,7 @@ function toCampusProfileFromClubUser(user: User) {
     pronouns: null,
     major: user.major,
     classYear: user.graduation_year,
-    clubLabels: clubIds.map(formatClubLabel),
+    clubLabels: clubIds.map(resolveClubLabel),
     followerCount: user.follower_count ?? 0,
     followingCount: user.following_count ?? 0,
     isOfficial: false,
@@ -181,8 +193,9 @@ function toCampusProfileFromClubUser(user: User) {
 
 export default function UserProfileScreen({ navigation, route }: Props) {
   const targetUserId = route.params.userId;
-  const { isWide } = useResponsive();
+  const { isMobile, isWide } = useResponsive();
   const { user: profileUser } = useProfile();
+  const { getClubById, getClubIdsForUser } = useCampusClubs();
   const hydratePosts = useFeedStore((state) => state.hydratePosts);
   const localPosts = useFeedStore((state) => state.posts);
   const localProfiles = useSocialGraphStore((state) => state.profiles);
@@ -194,6 +207,10 @@ export default function UserProfileScreen({ navigation, route }: Props) {
   const [remotePosts, setRemotePosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(isSupabaseConfigured && !targetUserId.startsWith('user-'));
   const [error, setError] = useState<string | null>(null);
+  const resolveClubLabel = (clubId: string) =>
+    getClubById(clubId)?.name ??
+    mockClubs.find((club) => club.id === clubId || club.slug === clubId)?.name ??
+    prettifyClubIdentifier(clubId);
 
   useEffect(() => {
     let isActive = true;
@@ -278,6 +295,7 @@ export default function UserProfileScreen({ navigation, route }: Props) {
         profile: remoteTargetProfile,
         followerCount: remoteTargetProfile.followerCount,
         followingCount: remoteTargetProfile.followingCount,
+        resolveClubLabel,
       });
     }
 
@@ -286,15 +304,20 @@ export default function UserProfileScreen({ navigation, route }: Props) {
         profile: demoTargetProfile,
         followerCount: getFollowerCount(localFollowingByUser, targetUserId),
         followingCount: (localFollowingByUser[targetUserId] ?? []).length,
+        resolveClubLabel,
       });
     }
 
     if (clubTargetUser) {
-      return toCampusProfileFromClubUser(clubTargetUser);
+      return toCampusProfileFromClubUser(
+        clubTargetUser,
+        getClubIdsForUser(clubTargetUser.id),
+        resolveClubLabel,
+      );
     }
 
     return null;
-  }, [clubTargetUser, demoTargetProfile, localFollowingByUser, remoteTargetProfile, targetUserId]);
+  }, [clubTargetUser, demoTargetProfile, getClubIdsForUser, localFollowingByUser, remoteTargetProfile, resolveClubLabel, targetUserId]);
 
   const commonClubs = useMemo(() => {
     let clubIds: string[] = [];
@@ -311,9 +334,9 @@ export default function UserProfileScreen({ navigation, route }: Props) {
 
     return clubIds.map((clubId) => ({
       id: clubId,
-      label: formatClubLabel(clubId),
+      label: resolveClubLabel(clubId),
     }));
-  }, [clubTargetUser, clubViewerUser, demoTargetProfile, demoViewerProfile, profileUser.id, remoteTargetProfile, remoteViewerProfile]);
+  }, [clubTargetUser, clubViewerUser, demoTargetProfile, demoViewerProfile, getClubIdsForUser, profileUser.id, remoteTargetProfile, remoteViewerProfile, resolveClubLabel]);
 
   const recentActivity = useMemo(() => buildActivityItems(profilePosts), [profilePosts]);
   const supportsFollow = Boolean(remoteTargetProfile || demoTargetProfile);
@@ -335,13 +358,21 @@ export default function UserProfileScreen({ navigation, route }: Props) {
       <ScreenLayout
         title="Profile"
         subtitle="We could not find that Terp."
-        headerTopContent={<UMDBrandLockup />}
+        showHeader={!isMobile}
+        headerTopContent={isMobile ? undefined : <UMDBrandLockup />}
         leftAction={
           <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color={colors.text.primary} />
           </Pressable>
         }
       >
+        {isMobile ? (
+          <View style={styles.mobileBackRow}>
+            <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={20} color={colors.text.primary} />
+            </Pressable>
+          </View>
+        ) : null}
         <Card>
           <Text style={styles.emptyTitle}>This profile is not available.</Text>
           <Text style={styles.emptyBody}>Try heading back and opening someone else from the feed or your network list.</Text>
@@ -354,23 +385,31 @@ export default function UserProfileScreen({ navigation, route }: Props) {
     <ScreenLayout
       title={profile?.displayName ?? 'Profile'}
       subtitle={profile?.isOfficial ? 'Official campus presence' : 'Public xUMD profile'}
-      headerTopContent={<UMDBrandLockup />}
-      headerMetaContent={
+      showHeader={!isMobile}
+      headerTopContent={isMobile ? undefined : <UMDBrandLockup />}
+      headerMetaContent={isMobile ? undefined : (
         <HeaderTag
           icon={profile?.isOfficial ? 'megaphone-outline' : 'person-outline'}
           label={profile?.isOfficial ? 'Official Account' : 'Campus Profile'}
           color={profile?.isOfficial ? colors.secondary.dark : colors.status.info}
           tintColor={profile?.isOfficial ? colors.secondary.lightest : colors.status.infoLight}
         />
-      }
+      )}
       leftAction={
         <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color={colors.text.primary} />
         </Pressable>
       }
-      headerStyle={styles.headerShell}
-      contentContainerStyle={styles.screenContent}
+      headerStyle={isMobile ? undefined : styles.headerShell}
+      contentContainerStyle={[styles.screenContent, isMobile ? styles.screenContentMobile : null]}
     >
+      {isMobile ? (
+        <View style={styles.mobileBackRow}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={20} color={colors.text.primary} />
+          </Pressable>
+        </View>
+      ) : null}
       <Card style={[styles.heroCard, isWide && styles.heroCardWide]}>
         <View style={[styles.heroTop, isWide && styles.heroTopWide]}>
           <View style={styles.identityRow}>
@@ -534,6 +573,14 @@ const styles = StyleSheet.create({
   },
   screenContent: {
     gap: spacing.lg,
+  },
+  screenContentMobile: {
+    paddingTop: spacing.sm,
+  },
+  mobileBackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
   },
   backButton: {
     width: 40,

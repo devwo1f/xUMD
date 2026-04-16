@@ -20,6 +20,7 @@ interface RawPostRow {
   id: string;
   user_id: string;
   club_id: string | null;
+  event_id: string | null;
   content_text: string;
   media_urls: string[] | null;
   media_type: 'none' | 'image' | 'video';
@@ -32,17 +33,46 @@ interface RawPostRow {
   created_at: string;
 }
 
-export async function fetchUsersByIds(admin: SupabaseClient, userIds: string[]) {
-  if (userIds.length === 0) {
-    return new Map<string, FeedAuthorSummary>();
+export async function fetchApprovedClubIdsByUserIds(admin: SupabaseClient, userIds: string[]) {
+  const uniqueUserIds = Array.from(new Set(userIds));
+  if (uniqueUserIds.length === 0) {
+    return new Map<string, string[]>();
   }
 
   const { data, error } = await admin
-    .from('users')
-    .select(
-      'id, username, display_name, avatar_url, bio, major, graduation_year, clubs, courses, follower_count, following_count',
-    )
-    .in('id', userIds);
+    .from('club_members')
+    .select('user_id, club_id')
+    .eq('status', 'approved')
+    .in('user_id', uniqueUserIds);
+
+  if (error) {
+    throw new HttpError(500, 'internal_error', 'Unable to load club memberships.', error);
+  }
+
+  const mapping = new Map<string, string[]>();
+  for (const row of (data ?? []) as Array<{ user_id: string; club_id: string }>) {
+    const current = mapping.get(row.user_id) ?? [];
+    mapping.set(row.user_id, [...current, row.club_id]);
+  }
+
+  return mapping;
+}
+
+export async function fetchUsersByIds(admin: SupabaseClient, userIds: string[]) {
+  const uniqueUserIds = Array.from(new Set(userIds));
+  if (uniqueUserIds.length === 0) {
+    return new Map<string, FeedAuthorSummary>();
+  }
+
+  const [{ data, error }, clubIdsByUserId] = await Promise.all([
+    admin
+      .from('users')
+      .select(
+        'id, username, display_name, avatar_url, bio, major, graduation_year, clubs, courses, follower_count, following_count',
+      )
+      .in('id', uniqueUserIds),
+    fetchApprovedClubIdsByUserIds(admin, uniqueUserIds),
+  ]);
 
   if (error) {
     throw new HttpError(500, 'internal_error', 'Unable to load user summaries.', error);
@@ -59,7 +89,7 @@ export async function fetchUsersByIds(admin: SupabaseClient, userIds: string[]) 
         bio: row.bio,
         major: row.major,
         graduationYear: row.graduation_year,
-        clubs: row.clubs ?? [],
+        clubs: clubIdsByUserId.get(row.id) ?? [],
         courses: row.courses ?? [],
         followerCount: row.follower_count,
         followingCount: row.following_count,
@@ -110,7 +140,7 @@ export async function fetchPostsByIds(
   const { data, error } = await admin
     .from('posts')
     .select(
-      'id, user_id, club_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at',
+      'id, user_id, club_id, event_id, content_text, media_urls, media_type, hashtags, like_count, comment_count, share_count, is_pinned, moderation_status, created_at',
     )
     .in('id', postIds)
     .eq('moderation_status', 'approved');
@@ -139,6 +169,7 @@ export async function fetchPostsByIds(
         id: row.id,
         userId: row.user_id,
         clubId: row.club_id,
+        eventId: row.event_id,
         contentText: row.content_text,
         mediaUrls,
         mediaType: row.media_type,

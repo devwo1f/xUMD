@@ -1,6 +1,6 @@
 import { handleOptions, jsonResponse, errorResponse } from '../_shared/http.ts';
 import { createAdminClient } from '../_shared/supabase.ts';
-import { fetchUsersByIds } from '../_shared/records.ts';
+import { fetchApprovedClubIdsByUserIds } from '../_shared/records.ts';
 import { getRedis } from '../_shared/upstash.ts';
 import { RECOMMENDATIONS_CACHE_TTL_SECONDS } from '../_shared/feed.ts';
 
@@ -86,7 +86,12 @@ Deno.serve(async (request) => {
     if (overlapInteractionsResult.error) throw overlapInteractionsResult.error;
     if (vectorsResult.error) throw vectorsResult.error;
 
-    const users = (usersResult.data ?? []) as UserRow[];
+    const rawUsers = (usersResult.data ?? []) as UserRow[];
+    const clubIdsByUserId = await fetchApprovedClubIdsByUserIds(adminClient, rawUsers.map((user) => user.id));
+    const users = rawUsers.map((user) => ({
+      ...user,
+      clubs: clubIdsByUserId.get(user.id) ?? [],
+    })) as UserRow[];
     const usersById = new Map(users.map((user) => [user.id, user]));
 
     const followingByUser = new Map<string, Set<string>>();

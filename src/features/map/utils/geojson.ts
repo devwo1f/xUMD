@@ -41,6 +41,7 @@ export interface BuildingFeatureProperties {
   hoursLabel: string;
   address: string;
   isLandmark: boolean;
+  heightMeters: number;
 }
 
 export interface EventMarkerFeatureProperties {
@@ -121,6 +122,22 @@ type PolygonFeatureCollection<T> = GeoJSON.FeatureCollection<GeoJSON.Polygon, T>
 type AreaFeatureCollection<T> = GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, T>;
 type LineFeatureCollection<T> = GeoJSON.FeatureCollection<GeoJSON.LineString, T>;
 
+function estimateBuildingHeight(building: Building, isLandmark: boolean) {
+  const baseHeightByType: Record<Building['building_type'], number> = {
+    library: 22,
+    student_center: 20,
+    academic: 18,
+    engineering: 24,
+    athletics: 28,
+    dining: 14,
+    recreation: 18,
+    performing_arts: 20,
+  };
+
+  const baseHeight = baseHeightByType[building.building_type] ?? 18;
+  return isLandmark ? baseHeight + 8 : baseHeight;
+}
+
 export function createBuildingFeatureCollection(
   buildings: Building[],
 ): PolygonFeatureCollection<BuildingFeatureProperties> {
@@ -133,6 +150,9 @@ export function createBuildingFeatureCollection(
     }
 
     const profile = buildingDirectoryProfiles[building.id];
+    const isLandmark = ['bld-001', 'bld-002', 'bld-003', 'bld-005', 'bld-007', 'bld-008', 'bld-013', 'bld-014'].includes(
+      building.id,
+    );
 
     features.push({
       type: 'Feature',
@@ -151,9 +171,8 @@ export function createBuildingFeatureCollection(
         color: buildingTypeMeta[building.building_type].color,
         hoursLabel: profile?.hoursLabel ?? 'Hours vary',
         address: profile?.address ?? '',
-        isLandmark: ['bld-001', 'bld-002', 'bld-003', 'bld-005', 'bld-007', 'bld-008', 'bld-013', 'bld-014'].includes(
-          building.id,
-        ),
+        isLandmark,
+        heightMeters: estimateBuildingHeight(building, isLandmark),
       },
     });
   });
