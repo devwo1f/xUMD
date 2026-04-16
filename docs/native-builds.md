@@ -1,5 +1,7 @@
 # Native Builds and Physical Device Testing
 
+For the exact borrowed-Mac iPhone workflow, see [ios-borrowed-mac-setup.md](./ios-borrowed-mac-setup.md).
+
 ## Why this app needs a development build
 
 xUMD uses native modules such as `@rnmapbox/maps`, so it cannot run correctly in Expo Go. Use an Expo development build for real-device testing.

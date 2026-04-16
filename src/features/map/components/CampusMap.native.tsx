@@ -11,7 +11,7 @@ import {
   ShapeSource,
   SymbolLayer,
 } from '@rnmapbox/maps';
-import MapView, { Marker, Polygon } from 'react-native-maps';
+import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import type { Building } from '../../../assets/data/buildings';
 import type { Event } from '../../../shared/types';
 import { colors } from '../../../shared/theme/colors';
@@ -19,6 +19,7 @@ import { borderRadius } from '../../../shared/theme/spacing';
 import {
   campusMapBounds,
   campusMapCenter,
+  campusMapPalette,
   campusMapStyleUrl,
   campusMapZoomRange,
   mapLayerIds,
@@ -27,6 +28,7 @@ import {
   hasUsableMapboxToken,
 } from '../config/campusMapStyle';
 import { buildingFootprints, campusMaskHoles } from '../data/campusGeometry';
+import { campusLandscapeAreas, campusLandscapePaths } from '../data/campusLandscape';
 import type {
   EventLocationGroup,
   MapCoordinate,
@@ -40,6 +42,8 @@ import {
   createCampusMaskFeatureCollection,
   createEventHeatFeatureCollection,
   createEventMarkerFeatureCollection,
+  createLandscapeAreaFeatureCollection,
+  createLandscapePathFeatureCollection,
   createUserLocationFeatureCollection,
   createWayfindingFeatureCollection,
   getFeatureItemId,
@@ -82,11 +86,25 @@ const canRenderNativeMapbox = Boolean(
 const clusterFilter = ['has', 'point_count'] as any;
 const unclusteredFilter = ['!', ['has', 'point_count']] as any;
 const rsvpFilter = ['all', unclusteredFilter, ['==', ['get', 'isGoing'], true]] as any;
+const waterFilter = ['==', ['get', 'kind'], 'water'] as any;
+const parkingFilter = ['==', ['get', 'kind'], 'parking'] as any;
+const plazaFilter = ['==', ['get', 'kind'], 'plaza'] as any;
+const lawnFilter = ['==', ['get', 'kind'], 'lawn'] as any;
+const treeFilter = ['==', ['get', 'kind'], 'trees'] as any;
+const sportsFilter = ['==', ['get', 'kind'], 'sports'] as any;
 const pulseFilter = [
   'all',
   unclusteredFilter,
   ['any', ['==', ['get', 'isLive'], true], ['==', ['get', 'isFeatured'], true]],
 ] as any;
+function buildBuildingLabelFieldExpression(activeBuildingId?: string | null) {
+  return [
+    'case',
+    ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'],
+    ['get', 'longLabel'],
+    '',
+  ] as any;
+}
 
 function regionFromCenter(longitude: number, latitude: number) {
   return {
@@ -215,6 +233,8 @@ export default function CampusMap({
   const weightMap = useMemo(() => new Map(Object.entries(densityByEventId)), [densityByEventId]);
   const maskShape = useMemo(() => createCampusMaskFeatureCollection(), []);
   const boundaryShape = useMemo(() => createCampusBoundaryFeatureCollection(), []);
+  const landscapeAreaShape = useMemo(() => createLandscapeAreaFeatureCollection(), []);
+  const landscapePathShape = useMemo(() => createLandscapePathFeatureCollection(), []);
   const buildingShape = useMemo(
     () => createBuildingFeatureCollection(showBuildings ? buildings : []),
     [buildings, showBuildings],
@@ -235,17 +255,29 @@ export default function CampusMap({
 
   const buildingFillStyle = useMemo(
     () => ({
-      fillColor: colors.primary.main,
-      fillOpacity: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 0.16, 0.1],
+      fillColor: [
+        'case',
+        ['==', ['get', 'itemId'], activeBuildingKey],
+        campusMapPalette.buildingActiveFill,
+        ['boolean', ['get', 'isLandmark'], false],
+        campusMapPalette.buildingLandmarkFill,
+        campusMapPalette.buildingFill,
+      ],
+      fillOpacity: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 0.88, 0.01],
     }),
     [activeBuildingKey],
   ) as any;
 
   const buildingLineStyle = useMemo(
     () => ({
-      lineColor: colors.primary.main,
-      lineOpacity: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 0.95, 0.42],
-      lineWidth: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 2.4, 1.1],
+      lineColor: [
+        'case',
+        ['==', ['get', 'itemId'], activeBuildingKey],
+        campusMapPalette.buildingActiveStroke,
+        campusMapPalette.buildingStroke,
+      ],
+      lineOpacity: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 1, 0],
+      lineWidth: ['case', ['==', ['get', 'itemId'], activeBuildingKey], 1.9, 1],
     }),
     [activeBuildingKey],
   ) as any;
@@ -335,11 +367,11 @@ export default function CampusMap({
       ['linear'],
       ['heatmap-density'],
       0, 'rgba(0,0,0,0)',
-      0.14, 'rgba(255, 224, 130, 0.18)',
-      0.34, 'rgba(255, 183, 77, 0.34)',
-      0.58, 'rgba(255, 112, 67, 0.46)',
-      0.8, 'rgba(239, 68, 68, 0.56)',
-      1, 'rgba(185, 28, 28, 0.68)',
+      0.14, 'rgba(255, 229, 141, 0.16)',
+      0.34, 'rgba(255, 183, 77, 0.3)',
+      0.58, 'rgba(255, 138, 80, 0.42)',
+      0.8, 'rgba(239, 91, 78, 0.5)',
+      1, 'rgba(203, 61, 49, 0.58)',
     ],
     heatmapWeight: ['interpolate', ['linear'], ['get', 'weight'], 0.5, 0.2, 6, 1],
   } as any;
@@ -408,6 +440,7 @@ export default function CampusMap({
         ref={mapViewRef}
         style={style}
         initialRegion={regionFromCenter(campusMapCenter[0], campusMapCenter[1])}
+        mapType="standard"
         showsUserLocation
         showsCompass
         onLongPress={(pressEvent) => {
@@ -418,10 +451,42 @@ export default function CampusMap({
         <Polygon
           coordinates={fallbackMaskPolygon()}
           holes={campusHoles}
-          fillColor="rgba(17,24,39,0.55)"
+          fillColor={campusMapPalette.mask}
           strokeColor="transparent"
           strokeWidth={0}
         />
+        {campusLandscapeAreas.map((area) => (
+          <Polygon
+            key={area.id}
+            coordinates={area.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }))}
+            fillColor={
+              area.kind === 'water'
+                ? 'rgba(158,202,225,0.9)'
+                : area.kind === 'parking'
+                  ? 'rgba(224,220,215,0.72)'
+                  : area.kind === 'plaza'
+                    ? 'rgba(233,224,216,0.84)'
+                    : area.kind === 'trees'
+                      ? 'rgba(124,184,122,0.44)'
+                      : area.kind === 'sports'
+                        ? 'rgba(142,201,138,0.62)'
+                        : 'rgba(168,213,162,0.48)'
+            }
+            strokeColor={
+              area.kind === 'sports' ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.04)'
+            }
+            strokeWidth={area.kind === 'sports' ? 1 : 0.5}
+          />
+        ))}
+        {campusLandscapePaths.map((path) => (
+          <Polyline
+            key={path.id}
+            coordinates={path.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }))}
+            strokeColor={campusMapPalette.walkingPath}
+            strokeWidth={1.4}
+            lineDashPattern={[4, 4]}
+          />
+        ))}
         {showBuildings
           ? buildings.map((building) => {
               const footprint = buildingFootprints[building.id];
@@ -433,21 +498,20 @@ export default function CampusMap({
                 <React.Fragment key={building.id}>
                   <Polygon
                     coordinates={footprint.map(([longitude, latitude]) => ({ latitude, longitude }))}
-                    fillColor={activeBuildingId === building.id ? 'rgba(226,24,51,0.16)' : 'rgba(226,24,51,0.1)'}
-                    strokeColor={activeBuildingId === building.id ? 'rgba(226,24,51,0.9)' : 'rgba(226,24,51,0.4)'}
-                    strokeWidth={activeBuildingId === building.id ? 2.4 : 1.1}
+                    fillColor={
+                      activeBuildingId === building.id
+                        ? 'rgba(241,223,219,0.96)'
+                        : 'rgba(232,228,224,0.01)'
+                    }
+                    strokeColor={
+                      activeBuildingId === building.id
+                        ? campusMapPalette.buildingActiveStroke
+                        : 'rgba(0,0,0,0)'
+                    }
+                    strokeWidth={activeBuildingId === building.id ? 1.8 : 0}
                     tappable
                     onPress={() => onSelectBuilding(building)}
                   />
-                  <Marker
-                    coordinate={{ latitude: building.latitude, longitude: building.longitude }}
-                    tracksViewChanges={false}
-                    onPress={() => onSelectBuilding(building)}
-                  >
-                    <View style={styles.fallbackBuildingLabel}>
-                      <Text style={styles.fallbackBuildingLabelText}>{building.code}</Text>
-                    </View>
-                  </Marker>
                 </React.Fragment>
               );
             })
@@ -509,18 +573,75 @@ export default function CampusMap({
       <ShapeSource id={mapSourceIds.campusMask} shape={maskShape}>
         <FillLayer
           id={mapLayerIds.boundaryMask}
-          style={{ fillColor: 'rgba(17,24,39,0.56)', fillOpacity: 1 } as any}
+          style={{ fillColor: campusMapPalette.mask, fillOpacity: 1 } as any}
         />
       </ShapeSource>
 
       <ShapeSource id={mapSourceIds.campusBoundary} shape={boundaryShape}>
-        <FillLayer id={mapLayerIds.boundaryFill} style={{ fillColor: colors.primary.main, fillOpacity: 0 } as any} />
+        <FillLayer
+          id={mapLayerIds.boundaryFill}
+          style={{ fillColor: campusMapPalette.terrainTint, fillOpacity: 0 } as any}
+        />
         <LineLayer
           id={mapLayerIds.boundaryLine}
           style={{
             lineColor: colors.primary.main,
             lineOpacity: 0,
             lineWidth: 0.5,
+          } as any}
+        />
+      </ShapeSource>
+
+      <ShapeSource id={mapSourceIds.landscapeAreas} shape={landscapeAreaShape}>
+        <FillLayer
+          id={mapLayerIds.landscapeWater}
+          filter={waterFilter}
+          style={{ fillColor: campusMapPalette.water, fillOpacity: 0.9 } as any}
+        />
+        <FillLayer
+          id={mapLayerIds.landscapeParking}
+          filter={parkingFilter}
+          style={{ fillColor: campusMapPalette.parking, fillOpacity: 0.72 } as any}
+        />
+        <FillLayer
+          id={mapLayerIds.landscapePlaza}
+          filter={plazaFilter}
+          style={{ fillColor: campusMapPalette.plaza, fillOpacity: 0.84 } as any}
+        />
+        <FillLayer
+          id={mapLayerIds.landscapeLawn}
+          filter={lawnFilter}
+          style={{ fillColor: campusMapPalette.lushGreen, fillOpacity: 0.48 } as any}
+        />
+        <FillLayer
+          id={mapLayerIds.landscapeTrees}
+          filter={treeFilter}
+          style={{ fillColor: campusMapPalette.treeGreen, fillOpacity: 0.44 } as any}
+        />
+        <FillLayer
+          id={mapLayerIds.landscapeSports}
+          filter={sportsFilter}
+          style={{ fillColor: campusMapPalette.sportsField, fillOpacity: 0.62 } as any}
+        />
+        <LineLayer
+          id={mapLayerIds.landscapeSportsLine}
+          filter={sportsFilter}
+          style={{
+            lineColor: campusMapPalette.sportsFieldLine,
+            lineOpacity: 0.58,
+            lineWidth: 1.2,
+          } as any}
+        />
+      </ShapeSource>
+
+      <ShapeSource id={mapSourceIds.landscapePaths} shape={landscapePathShape}>
+        <LineLayer
+          id={mapLayerIds.landscapePath}
+          style={{
+            lineColor: campusMapPalette.walkingPath,
+            lineOpacity: 0.92,
+            lineWidth: ['interpolate', ['linear'], ['zoom'], 14.5, 1, 17.5, 2.2],
+            lineDasharray: [1.4, 1.1],
           } as any}
         />
       </ShapeSource>
@@ -549,13 +670,15 @@ export default function CampusMap({
         <SymbolLayer
           id={mapLayerIds.buildingLabel}
           style={{
-            textField: ['get', 'code'],
-            textColor: colors.text.primary,
-            textSize: 10,
+            textField: buildBuildingLabelFieldExpression(activeBuildingId),
+            textColor: campusMapPalette.buildingLabel,
+            textSize: 12,
             textFont: ['Open Sans Bold'],
             textAllowOverlap: false,
-            textHaloColor: 'rgba(255,255,255,0.85)',
-            textHaloWidth: 1.2,
+            textMaxWidth: 10,
+            textLineHeight: 1.05,
+            textHaloColor: 'rgba(255,255,255,0.92)',
+            textHaloWidth: 1.35,
           } as any}
         />
       </ShapeSource>
@@ -681,7 +804,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderWidth: 1,
-    borderColor: 'rgba(226,24,51,0.14)',
+    borderColor: 'rgba(197,192,186,0.9)',
   },
   fallbackBuildingLabelText: {
     fontSize: 10,

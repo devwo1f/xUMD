@@ -1,11 +1,13 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import {
   BottomTabBarButtonProps,
   createBottomTabNavigator,
 } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ExploreHomeScreen from '../features/explore/screens/ExploreHomeScreen';
 import MapHomeScreen from '../features/map/screens/MapHomeScreen';
 import EventDetailScreen from '../features/explore/screens/EventDetailScreen';
@@ -50,6 +52,27 @@ const SearchStack = createNativeStackNavigator<SearchStackParamList>();
 const CalendarStack = createNativeStackNavigator<CalendarStackParamList>();
 const CampusStack = createNativeStackNavigator<CampusStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
+
+function TabIcon({
+  routeName,
+  color,
+  focused,
+  mobileOnly,
+}: {
+  routeName: keyof RootTabParamList;
+  color: string;
+  focused: boolean;
+  mobileOnly: boolean;
+}) {
+  const iconSize = mobileOnly ? (focused ? 26 : 22) : 22;
+
+  return (
+    <View style={styles.iconWrap}>
+      <Ionicons name={getTabIcon(routeName, focused)} size={iconSize} color={color} />
+      {mobileOnly ? <View style={[styles.activeDot, focused ? styles.activeDotVisible : null]} /> : null}
+    </View>
+  );
+}
 
 function ExploreNavigator() {
   return (
@@ -137,7 +160,12 @@ function ProfileNavigator() {
   );
 }
 
-function SearchTabButton({ onPress, accessibilityState, accessibilityLabel }: BottomTabBarButtonProps) {
+function SearchTabButton({
+  onPress,
+  accessibilityState,
+  accessibilityLabel,
+  floating,
+}: BottomTabBarButtonProps & { floating: boolean }) {
   const focused = accessibilityState?.selected ?? false;
 
   return (
@@ -146,9 +174,15 @@ function SearchTabButton({ onPress, accessibilityState, accessibilityLabel }: Bo
       accessibilityRole="tab"
       accessibilityState={accessibilityState}
       accessibilityLabel={accessibilityLabel}
-      style={styles.searchButtonOuter}
+      style={[styles.searchButtonOuter, floating ? styles.searchButtonOuterFloating : null]}
     >
-      <View style={[styles.searchButtonInner, focused && styles.searchButtonInnerFocused]}>
+      <View
+        style={[
+          styles.searchButtonInner,
+          floating ? styles.searchButtonInnerFloating : null,
+          focused && styles.searchButtonInnerFocused,
+        ]}
+      >
         <Ionicons name="search" size={24} color={colors.brand.white} />
       </View>
     </Pressable>
@@ -178,7 +212,13 @@ function getTabIcon(routeName: keyof RootTabParamList, focused: boolean) {
 
 export default function MainTabs() {
   const { isWide, isDesktop } = useResponsive();
+  const insets = useSafeAreaInsets();
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const isNativeMobile = Platform.OS !== 'web';
   const tabBarMaxWidth = isDesktop ? 940 : isWide ? 860 : undefined;
+  const floatingHorizontalInset = viewportWidth * 0.05;
+  const floatingBottomOffset = insets.bottom + viewportHeight * 0.012;
+  const floatingTabBarMaxWidth = isWide ? 620 : undefined;
 
   return (
     <Tab.Navigator
@@ -188,37 +228,72 @@ export default function MainTabs() {
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: colors.primary.main,
         tabBarInactiveTintColor: colors.text.tertiary,
-        tabBarStyle: {
-          height: 82,
-          paddingTop: spacing.xs,
-          paddingBottom: spacing.sm,
-          paddingHorizontal: isWide ? spacing.md : spacing.xs,
-          backgroundColor: colors.brand.white,
-          borderTopColor: colors.border.light,
-          width: '100%',
-          maxWidth: tabBarMaxWidth,
-          alignSelf: 'center',
-          ...(isWide
-            ? {
-                borderTopLeftRadius: borderRadius.xl,
-                borderTopRightRadius: borderRadius.xl,
-                borderTopWidth: 1,
-              }
-            : null),
-        },
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: typography.fontWeight.semiBold,
-        },
-        tabBarItemStyle: {
-          maxWidth: isWide ? 120 : undefined,
-        },
+        tabBarShowLabel: !isNativeMobile,
+        tabBarStyle: isNativeMobile
+          ? {
+              position: 'absolute',
+              left: floatingHorizontalInset,
+              right: floatingHorizontalInset,
+              bottom: floatingBottomOffset,
+              height: 58,
+              paddingTop: 0,
+              paddingBottom: 0,
+              paddingHorizontal: viewportWidth * 0.018,
+              backgroundColor: 'rgba(255,255,255,0.78)',
+              borderTopWidth: 0,
+              borderWidth: 1,
+              borderColor: 'rgba(0,0,0,0.06)',
+              borderRadius: 29,
+              overflow: 'visible',
+              width: undefined,
+              maxWidth: floatingTabBarMaxWidth,
+              alignSelf: 'center',
+              ...styles.mobileTabShadow,
+            }
+          : {
+              height: 82,
+              paddingTop: spacing.xs,
+              paddingBottom: spacing.sm,
+              paddingHorizontal: isWide ? spacing.md : spacing.xs,
+              backgroundColor: colors.brand.white,
+              borderTopColor: colors.border.light,
+              width: '100%',
+              maxWidth: tabBarMaxWidth,
+              alignSelf: 'center',
+              ...(isWide
+                ? {
+                    borderTopLeftRadius: borderRadius.xl,
+                    borderTopRightRadius: borderRadius.xl,
+                    borderTopWidth: 1,
+                  }
+                : null),
+            },
+        tabBarBackground: isNativeMobile
+          ? () => (
+              <View style={styles.mobileTabBackground}>
+                <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
+                <View style={styles.mobileTabTint} />
+              </View>
+            )
+          : undefined,
+        tabBarLabelStyle: isNativeMobile
+          ? undefined
+          : {
+              fontSize: 10,
+              fontWeight: typography.fontWeight.semiBold,
+            },
+        tabBarItemStyle: isNativeMobile
+          ? styles.mobileTabItem
+          : {
+              maxWidth: isWide ? 120 : undefined,
+            },
         tabBarIcon: ({ color, size, focused }) =>
           route.name === 'Search' ? null : (
-            <Ionicons
-              name={getTabIcon(route.name as keyof RootTabParamList, focused)}
-              size={size ?? 20}
+            <TabIcon
+              routeName={route.name as keyof RootTabParamList}
               color={color}
+              focused={focused}
+              mobileOnly={isNativeMobile}
             />
           ),
       })}
@@ -231,7 +306,9 @@ export default function MainTabs() {
         component={SearchNavigator}
         options={{
           tabBarLabel: '',
-          tabBarButton: (props) => <SearchTabButton {...props} accessibilityLabel="Search" />,
+          tabBarButton: (props) => (
+            <SearchTabButton {...props} accessibilityLabel="Search" floating={isNativeMobile} />
+          ),
         }}
       />
       <Tab.Screen name="Calendar" component={CalendarNavigator} />
@@ -242,10 +319,34 @@ export default function MainTabs() {
 }
 
 const styles = StyleSheet.create({
+  iconWrap: {
+    position: 'relative',
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeDot: {
+    position: 'absolute',
+    bottom: 1,
+    width: 4,
+    height: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'transparent',
+  },
+  activeDotVisible: {
+    backgroundColor: colors.primary.main,
+  },
   searchButtonOuter: {
-    top: -22,
+    flex: 1,
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'visible',
+  },
+  searchButtonOuterFloating: {
+    zIndex: 24,
+    elevation: 24,
   },
   searchButtonInner: {
     width: 66,
@@ -258,8 +359,41 @@ const styles = StyleSheet.create({
     borderColor: colors.brand.white,
     ...shadows.lg,
   },
+  searchButtonInnerFloating: {
+    width: 56,
+    height: 56,
+    borderWidth: 4,
+    transform: [{ translateY: -28 }],
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
+  },
   searchButtonInnerFocused: {
     backgroundColor: colors.primary.dark,
     transform: [{ scale: 1.02 }],
+  },
+  mobileTabBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 29,
+    overflow: 'hidden',
+  },
+  mobileTabTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.68)',
+  },
+  mobileTabShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  mobileTabItem: {
+    flex: 1,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+    overflow: 'visible',
   },
 });

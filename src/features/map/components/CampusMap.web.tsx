@@ -7,6 +7,7 @@ import { borderRadius } from '../../../shared/theme/spacing';
 import {
   campusMapBounds,
   campusMapCenter,
+  campusMapPalette,
   campusMapStyleUrl,
   campusMapZoomRange,
   mapLayerIds,
@@ -27,6 +28,8 @@ import {
   createCampusMaskFeatureCollection,
   createEventHeatFeatureCollection,
   createEventMarkerFeatureCollection,
+  createLandscapeAreaFeatureCollection,
+  createLandscapePathFeatureCollection,
   createUserLocationFeatureCollection,
   createWayfindingFeatureCollection,
   getFeatureItemId,
@@ -108,6 +111,12 @@ const PULSE_FILTER = [
   UNCLUSTERED_FILTER,
   ['any', ['==', ['get', 'isLive'], true], ['==', ['get', 'isFeatured'], true]],
 ];
+const WATER_FILTER = ['==', ['get', 'kind'], 'water'];
+const PARKING_FILTER = ['==', ['get', 'kind'], 'parking'];
+const PLAZA_FILTER = ['==', ['get', 'kind'], 'plaza'];
+const LAWN_FILTER = ['==', ['get', 'kind'], 'lawn'];
+const TREE_FILTER = ['==', ['get', 'kind'], 'trees'];
+const SPORTS_FILTER = ['==', ['get', 'kind'], 'sports'];
 
 const fallbackStyle = {
   version: 8,
@@ -244,6 +253,15 @@ function buildClusterDominantColorExpression() {
   ];
 }
 
+function buildBuildingLabelFieldExpression(activeBuildingId?: string | null) {
+  return [
+    'case',
+    ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'],
+    ['get', 'longLabel'],
+    '',
+  ];
+}
+
 export default function CampusMap({
   style,
   events,
@@ -287,6 +305,8 @@ export default function CampusMap({
 
   const maskShape = useMemo(() => createCampusMaskFeatureCollection(), []);
   const boundaryShape = useMemo(() => createCampusBoundaryFeatureCollection(), []);
+  const landscapeAreaShape = useMemo(() => createLandscapeAreaFeatureCollection(), []);
+  const landscapePathShape = useMemo(() => createLandscapePathFeatureCollection(), []);
   const buildingShape = useMemo(
     () => createBuildingFeatureCollection(showBuildings ? buildings : []),
     [buildings, showBuildings],
@@ -399,6 +419,14 @@ export default function CampusMap({
           type: 'geojson',
           data: boundaryShape,
         });
+        map.addSource(mapSourceIds.landscapeAreas, {
+          type: 'geojson',
+          data: landscapeAreaShape,
+        });
+        map.addSource(mapSourceIds.landscapePaths, {
+          type: 'geojson',
+          data: landscapePathShape,
+        });
         map.addSource(mapSourceIds.wayfinding, { type: 'geojson', data: wayfindingShape });
         map.addSource(mapSourceIds.buildings, { type: 'geojson', data: buildingShape });
         map.addSource(mapSourceIds.eventHeat, { type: 'geojson', data: eventHeatShape });
@@ -427,7 +455,7 @@ export default function CampusMap({
           type: 'fill',
           source: mapSourceIds.campusMask,
           paint: {
-            'fill-color': 'rgba(17, 24, 39, 0.56)',
+            'fill-color': campusMapPalette.mask,
             'fill-opacity': 1,
           },
         });
@@ -435,7 +463,7 @@ export default function CampusMap({
           id: mapLayerIds.boundaryFill,
           type: 'fill',
           source: mapSourceIds.campusBoundary,
-          paint: { 'fill-color': colors.primary.main, 'fill-opacity': 0 },
+          paint: { 'fill-color': campusMapPalette.terrainTint, 'fill-opacity': 0 },
         });
         map.addLayer({
           id: mapLayerIds.boundaryLine,
@@ -445,6 +473,88 @@ export default function CampusMap({
             'line-color': colors.primary.main,
             'line-opacity': 0,
             'line-width': 0.5,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.landscapeWater,
+          type: 'fill',
+          source: mapSourceIds.landscapeAreas,
+          filter: WATER_FILTER,
+          paint: {
+            'fill-color': campusMapPalette.water,
+            'fill-opacity': 0.9,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.landscapeParking,
+          type: 'fill',
+          source: mapSourceIds.landscapeAreas,
+          filter: PARKING_FILTER,
+          paint: {
+            'fill-color': campusMapPalette.parking,
+            'fill-opacity': 0.72,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.landscapePlaza,
+          type: 'fill',
+          source: mapSourceIds.landscapeAreas,
+          filter: PLAZA_FILTER,
+          paint: {
+            'fill-color': campusMapPalette.plaza,
+            'fill-opacity': 0.84,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.landscapeLawn,
+          type: 'fill',
+          source: mapSourceIds.landscapeAreas,
+          filter: LAWN_FILTER,
+          paint: {
+            'fill-color': campusMapPalette.lushGreen,
+            'fill-opacity': 0.48,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.landscapeTrees,
+          type: 'fill',
+          source: mapSourceIds.landscapeAreas,
+          filter: TREE_FILTER,
+          paint: {
+            'fill-color': campusMapPalette.treeGreen,
+            'fill-opacity': 0.44,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.landscapeSports,
+          type: 'fill',
+          source: mapSourceIds.landscapeAreas,
+          filter: SPORTS_FILTER,
+          paint: {
+            'fill-color': campusMapPalette.sportsField,
+            'fill-opacity': 0.62,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.landscapeSportsLine,
+          type: 'line',
+          source: mapSourceIds.landscapeAreas,
+          filter: SPORTS_FILTER,
+          paint: {
+            'line-color': campusMapPalette.sportsFieldLine,
+            'line-opacity': 0.58,
+            'line-width': 1.2,
+          },
+        });
+        map.addLayer({
+          id: mapLayerIds.landscapePath,
+          type: 'line',
+          source: mapSourceIds.landscapePaths,
+          paint: {
+            'line-color': campusMapPalette.walkingPath,
+            'line-opacity': 0.92,
+            'line-width': ['interpolate', ['linear'], ['zoom'], 14.5, 1, 17.5, 2.2],
+            'line-dasharray': [1.4, 1.1],
           },
         });
         map.addLayer({
@@ -462,15 +572,15 @@ export default function CampusMap({
               0,
               'rgba(0,0,0,0)',
               0.14,
-              'rgba(255, 224, 130, 0.18)',
+              'rgba(255, 229, 141, 0.16)',
               0.34,
-              'rgba(255, 183, 77, 0.34)',
+              'rgba(255, 183, 77, 0.3)',
               0.58,
-              'rgba(255, 112, 67, 0.46)',
+              'rgba(255, 138, 80, 0.42)',
               0.8,
-              'rgba(239, 68, 68, 0.56)',
+              'rgba(239, 91, 78, 0.5)',
               1,
-              'rgba(185, 28, 28, 0.68)',
+              'rgba(203, 61, 49, 0.58)',
             ],
             'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0.5, 0.2, 6, 1],
           },
@@ -480,8 +590,15 @@ export default function CampusMap({
           type: 'fill',
           source: mapSourceIds.buildings,
           paint: {
-            'fill-color': colors.primary.main,
-            'fill-opacity': ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 0.16, 0.1],
+            'fill-color': [
+              'case',
+              ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'],
+              campusMapPalette.buildingActiveFill,
+              ['boolean', ['get', 'isLandmark'], false],
+              campusMapPalette.buildingLandmarkFill,
+              campusMapPalette.buildingFill,
+            ],
+            'fill-opacity': ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 0.88, 0.01],
           },
         });
         map.addLayer({
@@ -489,9 +606,14 @@ export default function CampusMap({
           type: 'line',
           source: mapSourceIds.buildings,
           paint: {
-            'line-color': colors.primary.main,
-            'line-opacity': ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 0.95, 0.42],
-            'line-width': ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 2.4, 1.1],
+            'line-color': [
+              'case',
+              ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'],
+              campusMapPalette.buildingActiveStroke,
+              campusMapPalette.buildingStroke,
+            ],
+            'line-opacity': ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 1, 0],
+            'line-width': ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 1.9, 1],
           },
         });
         map.addLayer({
@@ -499,12 +621,18 @@ export default function CampusMap({
           type: 'symbol',
           source: mapSourceIds.buildings,
           layout: {
-            'text-field': ['get', 'code'],
-            'text-size': 10,
+            'text-field': buildBuildingLabelFieldExpression(activeBuildingId),
+            'text-size': 12,
             'text-font': ['Open Sans Bold'],
             'text-allow-overlap': false,
+            'text-max-width': 10,
+            'text-line-height': 1.05,
           },
-          paint: { 'text-color': colors.text.primary, 'text-halo-color': 'rgba(255,255,255,0.85)', 'text-halo-width': 1.2 },
+          paint: {
+            'text-color': campusMapPalette.buildingLabel,
+            'text-halo-color': 'rgba(255,255,255,0.92)',
+            'text-halo-width': 1.35,
+          },
         });
         map.addLayer({
           id: mapLayerIds.eventClusterBubble,
@@ -720,12 +848,24 @@ export default function CampusMap({
 
     setSourceData(map, mapSourceIds.campusMask, maskShape);
     setSourceData(map, mapSourceIds.campusBoundary, boundaryShape);
+    setSourceData(map, mapSourceIds.landscapeAreas, landscapeAreaShape);
+    setSourceData(map, mapSourceIds.landscapePaths, landscapePathShape);
     setSourceData(map, mapSourceIds.buildings, buildingShape);
     setSourceData(map, mapSourceIds.eventHeat, eventHeatShape);
     setSourceData(map, mapSourceIds.eventMarkers, eventMarkerShape);
     setSourceData(map, mapSourceIds.userLocation, userLocationShape);
     setSourceData(map, mapSourceIds.wayfinding, wayfindingShape);
-  }, [boundaryShape, buildingShape, eventHeatShape, eventMarkerShape, maskShape, userLocationShape, wayfindingShape]);
+  }, [
+    boundaryShape,
+    buildingShape,
+    eventHeatShape,
+    eventMarkerShape,
+    landscapeAreaShape,
+    landscapePathShape,
+    maskShape,
+    userLocationShape,
+    wayfindingShape,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -774,18 +914,45 @@ export default function CampusMap({
 
     map.setPaintProperty(
       mapLayerIds.buildingFill,
+      'fill-color',
+      [
+        'case',
+        ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'],
+        campusMapPalette.buildingActiveFill,
+        ['boolean', ['get', 'isLandmark'], false],
+        campusMapPalette.buildingLandmarkFill,
+        campusMapPalette.buildingFill,
+      ],
+    );
+    map.setPaintProperty(
+      mapLayerIds.buildingFill,
       'fill-opacity',
-      ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 0.16, 0.1],
+      ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 0.88, 0.01],
+    );
+    map.setPaintProperty(
+      mapLayerIds.buildingLine,
+      'line-color',
+      [
+        'case',
+        ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'],
+        campusMapPalette.buildingActiveStroke,
+        campusMapPalette.buildingStroke,
+      ],
     );
     map.setPaintProperty(
       mapLayerIds.buildingLine,
       'line-opacity',
-      ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 0.95, 0.42],
+      ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 1, 0],
     );
     map.setPaintProperty(
       mapLayerIds.buildingLine,
       'line-width',
-      ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 2.4, 1.1],
+      ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], 1.9, 1],
+    );
+    map.setLayoutProperty(
+      mapLayerIds.buildingLabel,
+      'text-field',
+      buildBuildingLabelFieldExpression(activeBuildingId),
     );
     map.setPaintProperty(
       mapLayerIds.eventMarkerHalo,

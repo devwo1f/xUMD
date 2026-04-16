@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Platform,
   ScrollView,
   StyleProp,
   StyleSheet,
@@ -7,7 +8,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Edge, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ResponsiveContainer from './ResponsiveContainer';
 import { useResponsive } from '../hooks/useResponsive';
 import { colors } from '../theme/colors';
@@ -25,6 +26,9 @@ interface ScreenLayoutProps {
   scroll?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
   headerStyle?: StyleProp<ViewStyle>;
+  showHeader?: boolean;
+  safeAreaEdges?: Edge[];
+  fullBleed?: boolean;
 }
 
 export default function ScreenLayout({
@@ -38,8 +42,14 @@ export default function ScreenLayout({
   scroll = true,
   contentContainerStyle,
   headerStyle,
+  showHeader = true,
+  safeAreaEdges = ['top', 'left', 'right'],
+  fullBleed = false,
 }: ScreenLayoutProps) {
   const { isWide, contentMaxWidth, pageHorizontalPadding } = useResponsive();
+  const insets = useSafeAreaInsets();
+  const mobileDockPadding = Platform.OS === 'web' ? 0 : 88 + Math.max(insets.bottom - 6, 0);
+  const resolvedHorizontalPadding = fullBleed ? 0 : pageHorizontalPadding;
 
   const header = (
     <View
@@ -65,16 +75,21 @@ export default function ScreenLayout({
 
   const body = scroll ? (
     <ScrollView
-      contentContainerStyle={[styles.scrollContent, isWide && styles.scrollContentWide]}
+      contentContainerStyle={[
+        styles.scrollContent,
+        isWide && styles.scrollContentWide,
+        { paddingBottom: (isWide ? spacing.xxl * 1.5 : spacing.xxl + spacing.lg) + mobileDockPadding },
+      ]}
       showsVerticalScrollIndicator={false}
       keyboardDismissMode="on-drag"
     >
-      {header}
+      {showHeader ? header : null}
       <View
         style={[
           styles.scrollBody,
           isWide && styles.scrollBodyWide,
-          { paddingHorizontal: pageHorizontalPadding },
+          fullBleed ? styles.scrollBodyFullBleed : null,
+          { paddingHorizontal: resolvedHorizontalPadding },
           contentContainerStyle,
         ]}
       >
@@ -83,12 +98,16 @@ export default function ScreenLayout({
     </ScrollView>
   ) : (
     <>
-      {header}
+      {showHeader ? header : null}
       <View
         style={[
           styles.body,
           isWide && styles.bodyWide,
-          { paddingHorizontal: pageHorizontalPadding },
+          fullBleed ? styles.bodyFullBleed : null,
+          {
+            paddingHorizontal: resolvedHorizontalPadding,
+            paddingBottom: fullBleed ? 0 : spacing.md + mobileDockPadding,
+          },
           contentContainerStyle,
         ]}
       >
@@ -98,7 +117,7 @@ export default function ScreenLayout({
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safeArea, fullBleed ? styles.safeAreaFullBleed : null]} edges={safeAreaEdges}>
       <ResponsiveContainer maxWidth={Math.max(1280, contentMaxWidth)}>
         {body}
       </ResponsiveContainer>
@@ -110,6 +129,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background.secondary,
+  },
+  safeAreaFullBleed: {
+    backgroundColor: 'transparent',
   },
   header: {
     paddingTop: spacing.md,
@@ -173,11 +195,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     gap: spacing.lg,
   },
+  scrollBodyFullBleed: {
+    paddingVertical: 0,
+    gap: 0,
+  },
   body: {
     flex: 1,
     paddingVertical: spacing.md,
   },
   bodyWide: {
     paddingVertical: spacing.lg,
+  },
+  bodyFullBleed: {
+    paddingVertical: 0,
   },
 });
