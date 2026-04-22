@@ -1,6 +1,7 @@
 ﻿import { buildings } from '../assets/data/buildings';
 import type {
   CampusLocation,
+  EventAttachment,
   Event,
   EventDetailPayload,
   EventReportReason,
@@ -47,19 +48,109 @@ export interface CreateMapEventInput {
   title: string;
   description: string;
   category: Event['category'];
+  clubId?: string | null;
+  coHostClubIds?: string[];
+  organizerIds?: string[];
   locationName?: string;
   locationId?: string | null;
+  locationDetails?: string | null;
   latitude: number;
   longitude: number;
   startsAt: string;
   endsAt: string;
+  recurrence?: {
+    frequency: 'weekly' | 'biweekly' | 'monthly';
+    until: string;
+  } | null;
   maxCapacity?: number | null;
+  waitlistEnabled?: boolean;
+  requireApproval?: boolean;
+  isFree?: boolean;
+  ticketPrice?: number | null;
+  visibility?: 'public' | 'club_members_only';
+  contactInfo?: string | null;
   tags?: string[];
   coverImage?: {
     base64Data: string;
     fileName: string;
     mimeType: string;
   } | null;
+  attachments?: Array<{
+    base64Data: string;
+    fileName: string;
+    mimeType: string;
+    kind: EventAttachment['kind'];
+    sizeBytes?: number | null;
+  }>;
+}
+
+async function submitEventRsvpDirect(input: EventRsvpMutationInput) {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    throw new Error(sessionError?.message ?? 'Not authenticated.');
+  }
+
+  if (input.action === 'remove') {
+    const { error } = await supabase
+      .from('event_rsvps')
+      .delete()
+      .eq('event_id', input.eventId)
+      .eq('user_id', session.user.id);
+
+    if (error) {
+      throw error;
+    }
+  } else {
+    const { error } = await supabase.from('event_rsvps').upsert(
+      {
+        event_id: input.eventId,
+        user_id: session.user.id,
+        status: input.status ?? 'interested',
+      },
+      { onConflict: 'event_id,user_id' },
+    );
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  const [{ data: currentRsvp, error: rsvpError }, { data: statsRows, error: statsError }] = await Promise.all([
+    supabase
+      .from('event_rsvps')
+      .select('status')
+      .eq('event_id', input.eventId)
+      .eq('user_id', session.user.id)
+      .maybeSingle(),
+    supabase.from('event_rsvps').select('status').eq('event_id', input.eventId),
+  ]);
+
+  if (rsvpError) {
+    throw rsvpError;
+  }
+
+  if (statsError) {
+    throw statsError;
+  }
+
+  const rsvpStats = { going: 0, interested: 0 };
+  for (const row of (statsRows ?? []) as Array<{ status: 'going' | 'interested' }>) {
+    if (row.status === 'going') {
+      rsvpStats.going += 1;
+    } else if (row.status === 'interested') {
+      rsvpStats.interested += 1;
+    }
+  }
+
+  return {
+    success: true,
+    current_user_rsvp: (currentRsvp?.status ?? null) as 'going' | 'interested' | null,
+    rsvp_stats: rsvpStats,
+  };
 }
 
 function requireConfigured() {
@@ -132,20 +223,43 @@ function mapEventRecord(record: Partial<Event> & Record<string, unknown>): Event
     club_id: (record.club_id as string | null | undefined) ?? null,
     created_by: String(record.created_by ?? ''),
     organizer_name: String(record.organizer_name ?? 'xUMD'),
+    organizer_ids: Array.isArray(record.organizer_ids)
+      ? (record.organizer_ids as string[])
+      : [],
+    co_host_club_ids: Array.isArray(record.co_host_club_ids)
+      ? (record.co_host_club_ids as string[])
+      : [],
     category: record.category as Event['category'],
     starts_at: String(record.starts_at),
     ends_at: String(record.ends_at),
+    recurrence_frequency:
+      (record.recurrence_frequency as Event['recurrence_frequency']) ?? null,
+    recurs_until: (record.recurs_until as string | null | undefined) ?? null,
+    series_root_id: (record.series_root_id as string | null | undefined) ?? null,
     status: (record.status as Event['status']) ?? 'upcoming',
     moderation_status: (record.moderation_status as Event['moderation_status']) ?? 'approved',
     location_name: locationName,
     location_id: (record.location_id as string | null | undefined) ?? null,
+    location_details: (record.location_details as string | null | undefined) ?? null,
     latitude: Number(record.latitude ?? 0),
     longitude: Number(record.longitude ?? 0),
     image_url: (record.image_url as string | null | undefined) ?? null,
+    attachments: Array.isArray(record.attachments)
+      ? (record.attachments as EventAttachment[])
+      : [],
     rsvp_count: attendeeCount,
     attendee_count: attendeeCount,
     interested_count: Number(record.interested_count ?? 0),
     max_capacity: (record.max_capacity as number | null | undefined) ?? null,
+    waitlist_enabled: Boolean(record.waitlist_enabled ?? false),
+    require_approval: Boolean(record.require_approval ?? false),
+    is_free: Boolean(record.is_free ?? true),
+    ticket_price:
+      record.ticket_price === null || record.ticket_price === undefined
+        ? null
+        : Number(record.ticket_price),
+    visibility: (record.visibility as Event['visibility']) ?? 'public',
+    contact_info: (record.contact_info as string | null | undefined) ?? null,
     is_featured: Boolean(record.is_featured ?? false),
     tags: (record.tags as string[] | undefined) ?? [],
     location: locationName,
@@ -281,7 +395,14 @@ export async function submitEventRsvpRemote(input: EventRsvpMutationInput) {
   });
 
   if (error) {
-    throw new Error(await getFunctionErrorMessage(error));
+    console.warn('Edge RSVP mutation failed, falling back to direct table write.', error);
+    try {
+      return await submitEventRsvpDirect(input);
+    } catch (fallbackError) {
+      const functionMessage = await getFunctionErrorMessage(error);
+      const fallbackMessage = await getFunctionErrorMessage(fallbackError);
+      throw new Error(`${functionMessage}${fallbackMessage ? ` Direct fallback also failed: ${fallbackMessage}` : ''}`);
+    }
   }
 
   return data as {
@@ -322,6 +443,7 @@ export async function createMapEventRemote(input: CreateMapEventInput) {
 
   const payload = data as {
     event: Partial<Event> & Record<string, unknown>;
+    events?: Array<Partial<Event> & Record<string, unknown>>;
     snappedLocation: CampusLocation | null;
     moderationStatus: 'approved' | 'pending' | 'rejected';
   };
@@ -329,6 +451,7 @@ export async function createMapEventRemote(input: CreateMapEventInput) {
   return {
     ...payload,
     event: mapEventRecord(payload.event),
+    events: (payload.events ?? [payload.event]).map(mapEventRecord),
   };
 }
 

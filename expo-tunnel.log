@@ -1,0 +1,6 @@
+env: load .env.local
+env: export EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY EXPO_PUBLIC_SUPABASE_URL
+Starting project at d:\Projects\xUMD
+Starting Metro Bundler
+
+warning: Bundler cache is empty, rebuilding (this may take a minute)

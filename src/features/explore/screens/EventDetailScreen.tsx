@@ -20,6 +20,7 @@ import { submitEventRsvpRemote } from '../../../services/mapEvents';
 import { isSupabaseConfigured } from '../../../services/supabase';
 import { useCampusClubs } from '../../clubs/hooks/useCampusClubs';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { isUmdSportsEventId } from '../../../services/umdSports';
 
 type Props = NativeStackScreenProps<{ EventDetail: { eventId: string } }, 'EventDetail'>;
 type RsvpStatus = 'going' | 'interested' | null;
@@ -64,14 +65,18 @@ function patchEventRsvpCounts<T extends Partial<Event> & { id: string }>(event: 
 export default function EventDetailScreen({ navigation, route }: Props) {
   const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
-  const { rawEvents } = useMapData();
+  const { rawEvents, source: mapDataSource } = useMapData();
   const { getClubById } = useCampusClubs();
   const detailQuery = useMapEventDetail(route.params.eventId);
   const event = detailQuery.data?.event ?? rawEvents.find((item) => item.id === route.params.eventId);
   const { savedEventIds, goingEventIds, setEventRsvpStatus, confirmEventRsvpStatus } = useDemoAppStore();
   const setPendingMapFocus = useCrossTabNavStore((state) => state.setPendingMapFocus);
   const setPendingCalendarFocus = useCrossTabNavStore((state) => state.setPendingCalendarFocus);
-  const canSyncRsvpRemotely = isSupabaseConfigured && Boolean(authUser?.id);
+  const canSyncRsvpRemotely =
+    isSupabaseConfigured &&
+    Boolean(authUser?.id) &&
+    !mapDataSource.startsWith('mock') &&
+    !isUmdSportsEventId(route.params.eventId);
 
   if (!event) {
     return (
@@ -136,10 +141,12 @@ export default function EventDetailScreen({ navigation, route }: Props) {
         queryClient.invalidateQueries({ queryKey: ['map-event-detail', event.id] }),
         queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
       ]);
-    } catch {
-      // Revert optimistic update on failure
-      setEventRsvpStatus(event.id, previousStatus);
-      patchCaches(nextStatus, previousStatus);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? `${error.message} Your RSVP still updated locally and will stay reflected across the app.`
+          : 'Your RSVP updated locally and will stay reflected across the app.';
+      console.warn('Unable to sync event RSVP remotely.', message);
     }
   };
 

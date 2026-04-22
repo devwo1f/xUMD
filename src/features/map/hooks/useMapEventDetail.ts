@@ -1,6 +1,7 @@
-﻿import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { buildFallbackEventDetail, fetchMapEventDetailRemote } from '../../../services/mapEvents';
 import { isSupabaseConfigured } from '../../../services/supabase';
+import { isUmdSportsEventId } from '../../../services/umdSports';
 
 export function useMapEventDetail(eventId: string | null) {
   return useQuery({
@@ -12,7 +13,7 @@ export function useMapEventDetail(eventId: string | null) {
         return null;
       }
 
-      if (!isSupabaseConfigured) {
+      if (!isSupabaseConfigured || isUmdSportsEventId(eventId)) {
         return buildFallbackEventDetail(eventId);
       }
 
@@ -20,3 +21,4 @@ export function useMapEventDetail(eventId: string | null) {
     },
   });
 }
+

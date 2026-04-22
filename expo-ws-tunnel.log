@@ -1,0 +1,8 @@
+env: load .env.local
+env: export EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY EXPO_PUBLIC_SUPABASE_URL
+Starting project at D:\Projects\xUMD
+Starting Metro Bundler
+
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+Waiting on exp+xumd://14kfp8mh5lzs4i8.boltexpo.dev
+Logs for your project will appear below.

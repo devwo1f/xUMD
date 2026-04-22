@@ -48,6 +48,8 @@ const SEARCH_CATEGORIES = new Set<SearchCategory>([
   'career',
   'arts',
   'food',
+  'tech',
+  'talks',
   'workshop',
   'party',
   'other',

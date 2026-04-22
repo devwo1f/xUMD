@@ -4,6 +4,7 @@ import { EventCategory, type Event } from '../../../shared/types';
 import { useEventCatalogStore } from '../../../shared/stores/useEventCatalogStore';
 import { supabase, isSupabaseConfigured } from '../../../services/supabase';
 import { fetchMapEventsRemote, getFallbackMapEvents } from '../../../services/mapEvents';
+import { isUmdSportsEventId } from '../../../services/umdSports';
 import { filterAndSortEvents } from '../utils/eventDiscovery';
 
 export type TimeFilter = 'all' | 'happening_now' | 'next_2_hours' | 'today' | 'this_week';
@@ -24,10 +25,17 @@ interface UseMapDataReturn {
   source: string;
 }
 
+function uniqueEvents(events: Event[]) {
+  return [...new Map(events.map((event) => [event.id, event])).values()].sort(
+    (left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime(),
+  );
+}
+
 export function useMapData(options: UseMapDataOptions = {}): UseMapDataReturn {
   const { timeFilter = 'all', categoryFilter, searchQuery, onlyFriendsAttending = false } = options;
   const queryClient = useQueryClient();
   const hydrateEvents = useEventCatalogStore((state) => state.hydrateEvents);
+  const catalogEvents = useEventCatalogStore((state) => state.events);
 
   const query = useQuery({
     queryKey: ['map-events', 'upcoming-baseline', onlyFriendsAttending],
@@ -61,8 +69,7 @@ export function useMapData(options: UseMapDataOptions = {}): UseMapDataReturn {
         }
 
         return buildFallbackResponse('mock-fallback-empty');
-      } catch (error) {
-        console.warn('Falling back to local map events.', error);
+      } catch {
         return buildFallbackResponse('mock-fallback-error');
       }
     },
@@ -95,7 +102,20 @@ export function useMapData(options: UseMapDataOptions = {}): UseMapDataReturn {
     };
   }, [queryClient]);
 
-  const rawEvents = query.data?.items ?? [];
+  const supplementalSportsEvents = useMemo(
+    () =>
+      catalogEvents.filter(
+        (event) =>
+          isUmdSportsEventId(event.id) &&
+          typeof event.latitude === 'number' &&
+          typeof event.longitude === 'number',
+      ),
+    [catalogEvents],
+  );
+  const rawEvents = useMemo(
+    () => uniqueEvents([...(query.data?.items ?? []), ...supplementalSportsEvents]),
+    [query.data?.items, supplementalSportsEvents],
+  );
   const events = useMemo(
     () =>
       filterAndSortEvents(rawEvents, {

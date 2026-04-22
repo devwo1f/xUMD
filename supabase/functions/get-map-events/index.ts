@@ -34,7 +34,7 @@ Deno.serve(async (request) => {
     const { userId, adminClient } = await requireAuthenticatedUser(request);
     const filters = await parseJsonBody<MapEventFilters>(request);
     const redis = getRedis();
-    const cacheKey = await buildMapEventsCacheKey(filters, redis);
+    const cacheKey = await buildMapEventsCacheKey(filters, redis, userId);
 
     if (redis) {
       const cached = await redis.getJson<GetMapEventsResponse>(cacheKey);
@@ -43,7 +43,7 @@ Deno.serve(async (request) => {
       }
     }
 
-    const rawEvents = await fetchMapEventRows(adminClient, filters);
+    const rawEvents = await fetchMapEventRows(adminClient, filters, userId);
     let filteredEvents = filterEventsInMemory(rawEvents, filters);
 
     if (filters.onlyFriendsAttending) {

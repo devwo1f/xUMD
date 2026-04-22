@@ -1,10 +1,12 @@
 {
   "name": "xumd",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "index.js",
   "scripts": {
     "start": "expo start --dev-client",
     "start:dev-client": "expo start --dev-client",
+    "start:tunnel": "node scripts/start-campus-tunnel.cjs",
+    "fix:expo:tunnel": "node scripts/fix-expo-tunnel.cjs",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
@@ -33,6 +35,7 @@
     "expo": "55.0.10-canary-20260328-2049187",
     "expo-blur": "^55.0.11-canary-20260328-2049187",
     "expo-dev-client": "55.0.20-canary-20260328-2049187",
+    "expo-document-picker": "^55.0.10-canary-20260328-2049187",
     "expo-haptics": "^55.0.10-canary-20260328-2049187",
     "expo-image-manipulator": "55.0.12-canary-20260328-2049187",
     "expo-image-picker": "^55.0.15-canary-20260328-2049187",

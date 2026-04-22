@@ -41,9 +41,11 @@ export function useCalendarEntries({
   const viewerId = authUser?.id ?? profileUser.id;
   const viewer = authUser ?? null;
   const joinedClubKey = viewerClubIds.slice().sort().join('|');
+  const goingKey = goingEventIds.slice().sort().join('|');
+  const savedKey = savedEventIds.slice().sort().join('|');
 
   const sourceQuery = useQuery({
-    queryKey: ['calendar-data', viewerId, joinedClubKey],
+    queryKey: ['calendar-data', viewerId, joinedClubKey, goingKey, savedKey],
     staleTime: 60_000,
     queryFn: () =>
       loadCalendarSourceData({

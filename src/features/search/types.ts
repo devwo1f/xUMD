@@ -9,6 +9,8 @@ export type SearchCategory =
   | 'career'
   | 'arts'
   | 'food'
+  | 'tech'
+  | 'talks'
   | 'workshop'
   | 'party'
   | 'other';

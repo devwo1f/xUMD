@@ -1,0 +1,904 @@
+﻿diff --git a/.claude/settings.json b/.claude/settings.json
+index 76531dc..6242ed3 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -6,7 +6,8 @@
+       "Bash(do echo:*)",
+       "Read(//d/Projects/xUMD/**)",
+       "Bash(done)",
+-      "Bash(xargs grep:*)"
++      "Bash(xargs grep:*)",
++      "Bash(npx tsc *)"
+     ]
+   }
+ }
+diff --git a/src/features/auth/hooks/useAuth.ts b/src/features/auth/hooks/useAuth.ts
+index cf0e7a4..b37ec00 100644
+--- a/src/features/auth/hooks/useAuth.ts
++++ b/src/features/auth/hooks/useAuth.ts
+@@ -14,6 +14,7 @@ import type { DegreeType, UserProfile, UserProfileUpdate } from '../../../shared
+ export const ALLOWED_EMAIL_DOMAINS = ['umd.edu', 'terpmail.umd.edu'] as const;
+ export const OTP_COOLDOWN_SECONDS = 60;
+ export const SESSION_MAX_AGE_DAYS = 7;
++const AUTH_BOOT_TIMEOUT_MS = 5000;
+ 
+ const SESSION_LEASE_STORAGE_KEY = 'xumd.auth.session.lease';
+ const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+@@ -169,6 +170,37 @@ async function syncUserFromSession(session: Session | null) {
+   return profile ?? buildFallbackProfile(session.user);
+ }
+ 
++async function hydrateAuthStateFromSession(session: Session | null) {
++  try {
++    if (session && (await hasSessionExceededMaxAge(session))) {
++      await expireCurrentSession();
++      return;
++    }
++
++    if (!session) {
++      await clearSessionLease();
++    }
++
++    const user = await syncUserFromSession(session);
++    useAuthSessionStore.setState({
++      session,
++      user,
++      loading: false,
++      initialized: true,
++      error: null,
++    });
++  } catch (error) {
++    const fallbackUser = session?.user ? buildFallbackProfile(session.user) : null;
++    useAuthSessionStore.setState({
++      session,
++      user: fallbackUser,
++      loading: false,
++      initialized: true,
++      error: fallbackUser ? null : getAuthErrorMessage(error),
++    });
++  }
++}
++
+ async function updateUserRow(userId: string, updates: Record<string, unknown>) {
+   const { data, error } = await supabase
+     .from('users')
+@@ -467,42 +499,71 @@ export function useInitializeAuth() {
+     }
+ 
+     authListenerInitialized = true;
++    let isActive = true;
++
++    const bootTimeout = setTimeout(() => {
++      if (!isActive || useAuthSessionStore.getState().initialized) {
++        return;
++      }
++
++      const current = useAuthSessionStore.getState();
++      useAuthSessionStore.setState({
++        session: current.session,
++        user: current.user ?? (current.session?.user ? buildFallbackProfile(current.session.user) : null),
++        loading: false,
++        initialized: true,
++        error: current.error,
++      });
++    }, AUTH_BOOT_TIMEOUT_MS);
+ 
+     if (!isSupabaseConfigured) {
+       useAuthSessionStore.setState({ loading: false, initialized: true, error: null, session: null, user: null });
+-      return;
++      return () => {
++        isActive = false;
++        clearTimeout(bootTimeout);
++        authListenerInitialized = false;
++      };
+     }
+ 
+-    void supabase.auth.getSession().then(async ({ data, error }) => {
+-      if (error) {
+-        useAuthSessionStore.setState({ loading: false, initialized: true, error: getAuthErrorMessage(error), session: null, user: null });
+-        return;
+-      }
+-
+-      const session = data.session ?? null;
+-      if (session && (await hasSessionExceededMaxAge(session))) {
+-        await expireCurrentSession();
+-        return;
+-      }
+-      if (!session) {
+-        await clearSessionLease();
++    void supabase.auth.startAutoRefresh();
++    void (async () => {
++      try {
++        const { data, error } = await supabase.auth.getSession();
++        if (!isActive) {
++          return;
++        }
++
++        if (error) {
++          useAuthSessionStore.setState({
++            loading: false,
++            initialized: true,
++            error: getAuthErrorMessage(error),
++            session: null,
++            user: null,
++          });
++          return;
++        }
++
++        await hydrateAuthStateFromSession(data.session ?? null);
++      } catch (error) {
++        if (!isActive) {
++          return;
++        }
++
++        useAuthSessionStore.setState({
++          loading: false,
++          initialized: true,
++          error: getAuthErrorMessage(error),
++          session: null,
++          user: null,
++        });
+       }
+-      const user = await syncUserFromSession(session);
+-      useAuthSessionStore.setState({ session, user, loading: false, initialized: true, error: null });
+-    });
++    })();
+ 
+     const {
+       data: { subscription },
+-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+-      if (session && (await hasSessionExceededMaxAge(session))) {
+-        await expireCurrentSession();
+-        return;
+-      }
+-      if (!session) {
+-        await clearSessionLease();
+-      }
+-      const user = await syncUserFromSession(session ?? null);
+-      useAuthSessionStore.setState({ session: session ?? null, user, loading: false, initialized: true, error: null });
++    } = supabase.auth.onAuthStateChange((_event, session) => {
++      void hydrateAuthStateFromSession(session ?? null);
+     });
+ 
+     const appStateSubscription = AppState.addEventListener('change', (state) => {
+@@ -519,6 +580,8 @@ export function useInitializeAuth() {
+     });
+ 
+     return () => {
++      isActive = false;
++      clearTimeout(bootTimeout);
+       authListenerInitialized = false;
+       subscription.unsubscribe();
+       appStateSubscription.remove();
+diff --git a/src/features/calendar/hooks/useCalendarEntries.ts b/src/features/calendar/hooks/useCalendarEntries.ts
+index 8ef16dd..78835af 100644
+--- a/src/features/calendar/hooks/useCalendarEntries.ts
++++ b/src/features/calendar/hooks/useCalendarEntries.ts
+@@ -41,9 +41,11 @@ export function useCalendarEntries({
+   const viewerId = authUser?.id ?? profileUser.id;
+   const viewer = authUser ?? null;
+   const joinedClubKey = viewerClubIds.slice().sort().join('|');
++  const goingKey = goingEventIds.slice().sort().join('|');
++  const savedKey = savedEventIds.slice().sort().join('|');
+ 
+   const sourceQuery = useQuery({
+-    queryKey: ['calendar-data', viewerId, joinedClubKey],
++    queryKey: ['calendar-data', viewerId, joinedClubKey, goingKey, savedKey],
+     staleTime: 60_000,
+     queryFn: () =>
+       loadCalendarSourceData({
+diff --git a/src/features/campus/data/libraries.ts b/src/features/campus/data/libraries.ts
+index d344442..db5ffa5 100644
+--- a/src/features/campus/data/libraries.ts
++++ b/src/features/campus/data/libraries.ts
+@@ -144,7 +144,7 @@ export const libraryProfiles: LibraryProfile[] = [
+       'Hornbake is home to Special Collections, University Archives, exhibitions, and a quieter study environment for students who want space away from the main mall flow.',
+     features: [
+       { label: 'Special collections', icon: 'archive-outline' },
+-      { label: 'University archives', icon: 'file-cabinet-outline' },
++      { label: 'University archives', icon: 'archive-outline' },
+       { label: 'Exhibition gallery', icon: 'image-outline' },
+       { label: 'Quiet study space', icon: 'book-outline' },
+     ],
+diff --git a/src/features/explore/screens/EventDetailScreen.tsx b/src/features/explore/screens/EventDetailScreen.tsx
+index f8b1dbd..524af78 100644
+--- a/src/features/explore/screens/EventDetailScreen.tsx
++++ b/src/features/explore/screens/EventDetailScreen.tsx
+@@ -64,14 +64,17 @@ function patchEventRsvpCounts<T extends Partial<Event> & { id: string }>(event:
+ export default function EventDetailScreen({ navigation, route }: Props) {
+   const queryClient = useQueryClient();
+   const { user: authUser } = useAuth();
+-  const { rawEvents } = useMapData();
++  const { rawEvents, source: mapDataSource } = useMapData();
+   const { getClubById } = useCampusClubs();
+   const detailQuery = useMapEventDetail(route.params.eventId);
+   const event = detailQuery.data?.event ?? rawEvents.find((item) => item.id === route.params.eventId);
+   const { savedEventIds, goingEventIds, setEventRsvpStatus, confirmEventRsvpStatus } = useDemoAppStore();
+   const setPendingMapFocus = useCrossTabNavStore((state) => state.setPendingMapFocus);
+   const setPendingCalendarFocus = useCrossTabNavStore((state) => state.setPendingCalendarFocus);
+-  const canSyncRsvpRemotely = isSupabaseConfigured && Boolean(authUser?.id);
++  const canSyncRsvpRemotely =
++    isSupabaseConfigured &&
++    Boolean(authUser?.id) &&
++    !mapDataSource.startsWith('mock');
+ 
+   if (!event) {
+     return (
+@@ -130,16 +133,18 @@ export default function EventDetailScreen({ navigation, route }: Props) {
+       } else {
+         confirmEventRsvpStatus(event.id, nextStatus);
+       }
+-
++    } catch (error) {
++      const message =
++        error instanceof Error
++          ? `${error.message} Your RSVP still updated locally and will stay reflected across the app.`
++          : 'Your RSVP updated locally and will stay reflected across the app.';
++      console.warn('Unable to sync event RSVP remotely.', message);
++    } finally {
+       await Promise.all([
+         queryClient.invalidateQueries({ queryKey: ['map-events'] }),
+         queryClient.invalidateQueries({ queryKey: ['map-event-detail', event.id] }),
+         queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
+       ]);
+-    } catch {
+-      // Revert optimistic update on failure
+-      setEventRsvpStatus(event.id, previousStatus);
+-      patchCaches(nextStatus, previousStatus);
+     }
+   };
+ 
+diff --git a/src/features/map/components/CampusMap.native.tsx b/src/features/map/components/CampusMap.native.tsx
+index 30790b4..61118f6 100644
+--- a/src/features/map/components/CampusMap.native.tsx
++++ b/src/features/map/components/CampusMap.native.tsx
+@@ -1,5 +1,5 @@
+ import React, { useEffect, useMemo, useRef, useState } from 'react';
+-import { Image, NativeModules, Platform, StyleProp, StyleSheet, Text, UIManager, View, ViewStyle } from 'react-native';
++import { Image, NativeModules, Platform, Pressable, StyleProp, StyleSheet, Text, UIManager, View, ViewStyle } from 'react-native';
+ import {
+   Camera,
+   CircleLayer,
+@@ -8,6 +8,7 @@ import {
+   HeatmapLayer,
+   LineLayer,
+   MapView as MapboxMapView,
++  MarkerView,
+   setAccessToken,
+   ShapeSource,
+   SymbolLayer,
+@@ -90,27 +91,19 @@ const canRenderNativeMapbox = Boolean(
+       (NativeModules as Record<string, unknown>).RNMBXModule),
+ );
+ 
+-const clusterFilter = ['has', 'point_count'] as any;
+-const unclusteredFilter = ['!', ['has', 'point_count']] as any;
+ const waterFilter = ['==', ['get', 'kind'], 'water'] as any;
+ const parkingFilter = ['==', ['get', 'kind'], 'parking'] as any;
+ const plazaFilter = ['==', ['get', 'kind'], 'plaza'] as any;
+ const lawnFilter = ['==', ['get', 'kind'], 'lawn'] as any;
+ const treeFilter = ['==', ['get', 'kind'], 'trees'] as any;
+ const sportsFilter = ['==', ['get', 'kind'], 'sports'] as any;
+-const multiPinFilter = ['all', unclusteredFilter, ['==', ['get', 'isMultiEvent'], true]] as any;
+-const pulseFilter = [
+-  'all',
+-  unclusteredFilter,
+-  ['==', ['get', 'isLive'], true],
+-] as any;
+-const singlePinFilter = ['all', unclusteredFilter, ['==', ['get', 'isMultiEvent'], false]] as any;
+ function buildBuildingLabelFieldExpression(activeBuildingId?: string | null) {
+   return [
+-    'case',
+-    ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'],
+-    ['get', 'longLabel'],
+-    '',
++    'step',
++    ['zoom'],
++    ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], ['get', 'longLabel'], ''],
++    16.5,
++    ['case', ['==', ['get', 'itemId'], activeBuildingId ?? '__none__'], ['get', 'longLabel'], ['get', 'shortLabel']],
+   ] as any;
+ }
+ 
+@@ -165,6 +158,37 @@ function FallbackMarker({
+   );
+ }
+ 
++function MapEventPinMarker({
++  group,
++  onPress,
++}: {
++  group: EventLocationGroup;
++  onPress: () => void;
++}) {
++  const pinWidth = Math.max(34, Math.round(72 * group.pinScale));
++  const pinHeight = Math.max(46, Math.round(96 * group.pinScale));
++
++  return (
++    <MarkerView
++      coordinate={group.coordinate}
++      anchor={{ x: 0.5, y: 1 }}
++      allowOverlap
++    >
++      <Pressable onPress={onPress} hitSlop={8} style={styles.pinMarkerWrap}>
++        <Image
++          source={{ uri: MAP_PIN_IMAGE_ENTRIES[group.pinImageId] }}
++          style={{ width: pinWidth, height: pinHeight, opacity: group.markerOpacity, resizeMode: 'contain' }}
++        />
++        {group.isMultiEvent ? (
++          <Text style={[styles.pinMarkerCount, { fontSize: Math.max(12, group.countTextSize) }]}>
++            {group.eventCount}
++          </Text>
++        ) : null}
++      </Pressable>
++    </MarkerView>
++  );
++}
++
+ export default function CampusMap({
+   style,
+   events,
+@@ -188,7 +212,6 @@ export default function CampusMap({
+ }: CampusMapProps) {
+   const mapViewRef = useRef<MapView | null>(null);
+   const cameraRef = useRef<React.ElementRef<typeof Camera> | null>(null);
+-  const clusteredEventSourceRef = useRef<React.ElementRef<typeof ShapeSource> | null>(null);
+   const [pulsePhase, setPulsePhase] = useState(0);
+ 
+   useEffect(() => {
+@@ -228,24 +251,6 @@ export default function CampusMap({
+     () => createEventMarkerFeatureCollection(showEvents ? eventGroups : [], 'category'),
+     [eventGroups, showEvents],
+   );
+-  const nativeEventDebugStats = useMemo(() => {
+-    const features = eventMarkerShape.features as Array<GeoJSON.Feature<GeoJSON.Point, EventMarkerFeatureProperties>>;
+-    const invalidCoordinates = features.filter((feature) => {
+-      const [longitude, latitude] = feature.geometry.coordinates;
+-      return !Number.isFinite(longitude) || !Number.isFinite(latitude);
+-    });
+-
+-    return {
+-      featureCount: features.length,
+-      invalidCoordinateCount: invalidCoordinates.length,
+-      sampleCoordinates: features.slice(0, 3).map((feature) => ({
+-        id: feature.id,
+-        coordinates: feature.geometry.coordinates,
+-        eventCount: feature.properties.eventCount,
+-        color: feature.properties.color,
+-      })),
+-    };
+-  }, [eventMarkerShape]);
+   const eventHeatShape = useMemo(
+     () => createEventHeatFeatureCollection(showEvents ? events : [], weightMap),
+     [events, showEvents, weightMap],
+@@ -287,44 +292,15 @@ export default function CampusMap({
+ 
+   const buildingExtrusionStyle = useMemo(
+     () => ({
+-      fillExtrusionColor: [
+-        'case',
+-        ['==', ['get', 'itemId'], activeBuildingKey],
+-        campusMapPalette.buildingActiveFill,
+-        ['boolean', ['get', 'isLandmark'], false],
+-        campusMapPalette.buildingLandmarkFill,
+-        campusMapPalette.buildingFill,
+-      ],
++      fillExtrusionColor: campusMapPalette.buildingActiveFill,
+       fillExtrusionHeight: ['get', 'heightMeters'],
+       fillExtrusionBase: 0,
+-      fillExtrusionOpacity: 0.88,
++      fillExtrusionOpacity: 0.92,
+       fillExtrusionVerticalGradient: true,
+     }),
+-    [activeBuildingKey],
+-  ) as any;
+-
+-  const clusterCountExpression = ['get', 'point_count'];
+-
+-  const eventClusterBubbleStyle = useMemo(
+-    () => ({
+-      circleColor: colors.primary.main,
+-      circleRadius: ['step', clusterCountExpression, 22, 8, 26, 16, 31, 24, 35],
+-      circleStrokeColor: colors.brand.white,
+-      circleStrokeWidth: 3,
+-      circleOpacity: 0.96,
+-    }),
+     [],
+   ) as any;
+ 
+-  const eventClusterLabelStyle = {
+-    textField: ['to-string', clusterCountExpression],
+-    textColor: colors.brand.white,
+-    textSize: 12,
+-    textFont: ['Open Sans Bold'],
+-    textAllowOverlap: true,
+-    textIgnorePlacement: true,
+-  } as any;
+-
+   const eventLivePulseStyle = useMemo(
+     () => ({
+       circleColor: ['get', 'color'],
+@@ -334,54 +310,6 @@ export default function CampusMap({
+     [pulsePhase],
+   ) as any;
+ 
+-  const nativeMultiEventCircleStyle = {
+-    circleColor: ['get', 'color'],
+-    circleRadius: ['step', ['get', 'eventCount'], 14, 3, 15.5, 6, 17, 10, 19],
+-    circleStrokeColor: colors.brand.white,
+-    circleStrokeWidth: 3,
+-    circleOpacity: ['get', 'markerOpacity'],
+-  } as any;
+-
+-  const nativeSingleEventCircleStyle = {
+-    circleColor: ['get', 'color'],
+-    circleRadius: [
+-      'case',
+-      ['==', ['get', 'isFeatured'], true], 12,
+-      ['==', ['get', 'isLive'], true], 10.5,
+-      9.5,
+-    ],
+-    circleStrokeColor: [
+-      'case',
+-      ['==', ['get', 'isGoing'], true], colors.status.success,
+-      colors.brand.white,
+-    ],
+-    circleStrokeWidth: [
+-      'case',
+-      ['==', ['get', 'isGoing'], true], 4,
+-      3,
+-    ],
+-    circleOpacity: ['get', 'markerOpacity'],
+-  } as any;
+-
+-  const nativeSingleEventGlyphStyle = {
+-    textField: ['get', 'glyph'],
+-    textColor: colors.brand.white,
+-    textSize: 10.5,
+-    textFont: ['Open Sans Bold'],
+-    textAllowOverlap: true,
+-    textIgnorePlacement: true,
+-  } as any;
+-
+-  const multiPinCountStyle = {
+-    textField: ['to-string', ['get', 'eventCount']],
+-    textColor: colors.brand.white,
+-    textSize: ['get', 'countTextSize'],
+-    textFont: ['Open Sans Bold'],
+-    textAllowOverlap: true,
+-    textIgnorePlacement: true,
+-    textOffset: [0, -2.55],
+-  } as any;
+-
+   const eventHeatStyle = {
+     heatmapRadius: ['interpolate', ['linear'], ['zoom'], 14, 28, 16.5, 48, 19, 22],
+     heatmapOpacity: ['interpolate', ['linear'], ['zoom'], 14, 0.46, 17.6, 0.28, 19, 0.14],
+@@ -400,14 +328,6 @@ export default function CampusMap({
+     heatmapWeight: ['interpolate', ['linear'], ['get', 'weight'], 0.5, 0.2, 6, 1],
+   } as any;
+ 
+-  useEffect(() => {
+-    if (!__DEV__ || !canRenderNativeMapbox) {
+-      return;
+-    }
+-
+-    console.log('[CampusMap] native event source', nativeEventDebugStats);
+-  }, [nativeEventDebugStats]);
+-
+   useEffect(() => {
+     if (canRenderNativeMapbox || !focusRequest) {
+       return;
+@@ -596,7 +516,7 @@ export default function CampusMap({
+         defaultSettings={{
+           centerCoordinate: campusMapCenter,
+           zoomLevel: campusMapZoomRange.default,
+-          pitch: 0,
++          pitch: 45,
+         }}
+         minZoomLevel={campusMapZoomRange.min}
+         maxZoomLevel={campusMapZoomRange.max}
+@@ -679,6 +599,35 @@ export default function CampusMap({
+         />
+       </ShapeSource>
+ 
++      <FillExtrusionLayer
++        id="mapbox-3d-buildings"
++        sourceID="composite"
++        sourceLayerID="building"
++        minZoomLevel={15}
++        maxZoomLevel={22}
++        style={{
++          fillExtrusionColor: [
++            'interpolate', ['linear'], ['zoom'],
++            15, campusMapPalette.buildingFill,
++            18, '#D4D0CC',
++          ],
++          fillExtrusionHeight: [
++            'interpolate', ['linear'], ['zoom'],
++            15, 0,
++            15.5, ['get', 'height'],
++          ],
++          fillExtrusionBase: ['get', 'min_height'],
++          fillExtrusionOpacity: [
++            'interpolate', ['linear'], ['zoom'],
++            15, 0,
++            15.5, 0.6,
++            17, 0.75,
++          ],
++          fillExtrusionVerticalGradient: true,
++        } as any}
++        filter={['==', ['get', 'extrude'], 'true']}
++      />
++
+       {showActivityHeatmap ? (
+         <ShapeSource id={mapSourceIds.eventHeat} shape={eventHeatShape}>
+           <HeatmapLayer id={mapLayerIds.eventHeat} style={eventHeatStyle} />
+@@ -702,6 +651,7 @@ export default function CampusMap({
+           id={mapLayerIds.buildingExtrusion}
+           minZoomLevel={15}
+           maxZoomLevel={22}
++          filter={activeBuildingKey ? ['==', ['get', 'itemId'], activeBuildingKey] as any : ['boolean', false] as any}
+           style={buildingExtrusionStyle}
+         />
+         <FillLayer id={mapLayerIds.buildingFill} style={buildingFillStyle} />
+@@ -723,58 +673,26 @@ export default function CampusMap({
+       </ShapeSource>
+ 
+       {showEvents ? (
+-        <ShapeSource
+-          ref={clusteredEventSourceRef}
+-          id={mapSourceIds.eventMarkers}
+-          shape={eventMarkerShape}
+-          cluster={clusterEvents}
+-          clusterRadius={58}
+-          clusterMaxZoomLevel={16}
+-          hitbox={{ width: 48, height: 48 }}
+-          onPress={async (pressEvent) => {
+-            const feature = pressEvent.features[0];
+-            const properties = feature?.properties as Record<string, unknown> | undefined;
+-
+-            if (properties?.cluster) {
+-              const zoomLevel = await clusteredEventSourceRef.current?.getClusterExpansionZoom(feature);
+-              if (feature.geometry.type !== 'Point') {
+-                return;
+-              }
+-
+-              const [longitude, latitude] = feature.geometry.coordinates as [number, number];
+-
+-              if (typeof zoomLevel === 'number') {
+-                cameraRef.current?.setCamera({
+-                  centerCoordinate: [longitude, latitude],
+-                  zoomLevel: zoomLevel + 0.4,
+-                  animationDuration: 550,
+-                });
+-              }
+-              return;
+-            }
+-
+-            const groupId = getFeatureItemId(feature);
+-            const group = eventGroups.find((item) => item.id === groupId);
+-
+-            if (group) {
+-              onSelectEventGroup(group);
+-            }
+-          }}
+-        >
+-          <>
+-            {clusterEvents ? (
+-              <CircleLayer id={mapLayerIds.eventClusterBubble} filter={clusterFilter} style={eventClusterBubbleStyle} />
+-            ) : null}
+-            {clusterEvents ? (
+-              <SymbolLayer id={mapLayerIds.eventClusterLabel} filter={clusterFilter} style={eventClusterLabelStyle} />
+-            ) : null}
+-          </>
+-          <CircleLayer id={mapLayerIds.eventLivePulse} filter={clusterEvents ? pulseFilter : ['==', ['get', 'isLive'], true]} style={eventLivePulseStyle} />
+-          <CircleLayer id={mapLayerIds.eventPinMultiCircle} filter={multiPinFilter} style={nativeMultiEventCircleStyle} />
+-          <CircleLayer id={mapLayerIds.eventPinSingleCircle} filter={singlePinFilter} style={nativeSingleEventCircleStyle} />
+-          <SymbolLayer id={mapLayerIds.eventPinSingleGlyph} filter={singlePinFilter} style={nativeSingleEventGlyphStyle} />
+-          <SymbolLayer id={mapLayerIds.eventPinCountLabel} filter={multiPinFilter} style={multiPinCountStyle} />
+-        </ShapeSource>
++        <>
++          <ShapeSource
++            id={mapSourceIds.eventMarkers}
++            shape={eventMarkerShape}
++            cluster={false}
++          >
++            <CircleLayer
++              id={mapLayerIds.eventLivePulse}
++              filter={['==', ['get', 'isLive'], true]}
++              style={eventLivePulseStyle}
++            />
++          </ShapeSource>
++          {eventGroups.map((group) => (
++            <MapEventPinMarker
++              key={group.id}
++              group={group}
++              onPress={() => onSelectEventGroup(group)}
++            />
++          ))}
++        </>
+       ) : null}
+ 
+       <ShapeSource id={mapSourceIds.userLocation} shape={userLocationShape}>
+@@ -791,6 +709,17 @@ export default function CampusMap({
+ }
+ 
+ const styles = StyleSheet.create({
++  pinMarkerWrap: {
++    alignItems: 'center',
++    justifyContent: 'center',
++  },
++  pinMarkerCount: {
++    position: 'absolute',
++    top: '22%',
++    color: colors.brand.white,
++    fontWeight: '700',
++    textAlign: 'center',
++  },
+   fallbackMarkerWrap: {
+     alignItems: 'center',
+     justifyContent: 'center',
+diff --git a/src/features/map/hooks/useMapData.ts b/src/features/map/hooks/useMapData.ts
+index a812c1e..2bfe5fb 100644
+--- a/src/features/map/hooks/useMapData.ts
++++ b/src/features/map/hooks/useMapData.ts
+@@ -61,8 +61,7 @@ export function useMapData(options: UseMapDataOptions = {}): UseMapDataReturn {
+         }
+ 
+         return buildFallbackResponse('mock-fallback-empty');
+-      } catch (error) {
+-        console.warn('Falling back to local map events.', error);
++      } catch {
+         return buildFallbackResponse('mock-fallback-error');
+       }
+     },
+diff --git a/src/features/map/screens/MapHomeScreen.tsx b/src/features/map/screens/MapHomeScreen.tsx
+index 630a7f1..cbcea21 100644
+--- a/src/features/map/screens/MapHomeScreen.tsx
++++ b/src/features/map/screens/MapHomeScreen.tsx
+@@ -333,7 +333,7 @@ export default function MapHomeScreen({ navigation }: Props) {
+     toggleCategory,
+     setShowActivityLayer,
+   } = useMapFilterStore();
+-  const { rawEvents, loading, refetch } = useMapData({ onlyFriendsAttending });
++  const { rawEvents, loading, refetch, source: mapDataSource } = useMapData({ onlyFriendsAttending });
+   const { savedEventIds, goingEventIds, setEventRsvpStatus, confirmEventRsvpStatus } = useDemoAppStore();
+   const upsertLocalEvent = useEventCatalogStore((state) => state.upsertEvent);
+ 
+@@ -359,7 +359,10 @@ export default function MapHomeScreen({ navigation }: Props) {
+ 
+   const currentViewerId = authUser?.id ?? profileUser.id;
+   const currentViewerName = authUser?.display_name ?? profileUser.displayName ?? 'xUMD student';
+-  const canSyncRsvpRemotely = isSupabaseConfigured && Boolean(authUser?.id);
++  const canSyncRsvpRemotely =
++    isSupabaseConfigured &&
++    Boolean(authUser?.id) &&
++    !mapDataSource.startsWith('mock');
+   const viewerRsvpIds = useMemo(() => new Set([...goingEventIds, ...savedEventIds]), [goingEventIds, savedEventIds]);
+   const filteredEvents = useMemo(
+     () =>
+@@ -723,12 +726,6 @@ export default function MapHomeScreen({ navigation }: Props) {
+         confirmEventRsvpStatus(event.id, nextStatus);
+       }
+ 
+-      await Promise.all([
+-        queryClient.invalidateQueries({ queryKey: ['map-events'] }),
+-        queryClient.invalidateQueries({ queryKey: ['map-event-detail', event.id] }),
+-        queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
+-      ]);
+-
+       if (nextStatus === 'going') {
+         Alert.alert(
+           'Added to your schedule',
+@@ -752,6 +749,12 @@ export default function MapHomeScreen({ navigation }: Props) {
+           ? `${error.message} Your RSVP still updated locally and will stay reflected across the app.`
+           : 'Your RSVP updated locally and will stay reflected across the app.',
+       );
++    } finally {
++      await Promise.all([
++        queryClient.invalidateQueries({ queryKey: ['map-events'] }),
++        queryClient.invalidateQueries({ queryKey: ['map-event-detail', event.id] }),
++        queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
++      ]);
+     }
+   }
+ 
+diff --git a/src/features/profile/screens/MyPostsScreen.tsx b/src/features/profile/screens/MyPostsScreen.tsx
+index 68a4a62..3af155b 100644
+--- a/src/features/profile/screens/MyPostsScreen.tsx
++++ b/src/features/profile/screens/MyPostsScreen.tsx
+@@ -37,6 +37,16 @@ function formatTimestamp(value: string) {
+   }
+ }
+ 
++function isIgnorableRemotePostSyncError(error: unknown) {
++  if (!error || typeof error !== 'object') {
++    return false;
++  }
++
++  const candidate = error as { code?: string; message?: string; details?: string };
++  const text = `${candidate.message ?? ''} ${candidate.details ?? ''}`.toLowerCase();
++  return candidate.code === 'PGRST116' || text.includes('cannot coerce the result to a single json object');
++}
++
+ export default function MyPostsScreen({ navigation }: Props) {
+   const { user } = useProfile();
+   const posts = useFeedStore((state) => state.posts);
+@@ -72,7 +82,9 @@ export default function MyPostsScreen({ navigation }: Props) {
+           hydratePosts(remotePosts);
+         }
+       } catch (error) {
+-        console.warn('Unable to sync remote posts for My Posts.', error);
++        if (__DEV__ && !isIgnorableRemotePostSyncError(error)) {
++          console.warn('Unable to sync remote posts for My Posts.', error);
++        }
+       } finally {
+         if (isActive) {
+           setLoadingRemotePosts(false);
+diff --git a/src/features/profile/screens/ProfileHomeScreen.tsx b/src/features/profile/screens/ProfileHomeScreen.tsx
+index 7212bd3..cacb654 100644
+--- a/src/features/profile/screens/ProfileHomeScreen.tsx
++++ b/src/features/profile/screens/ProfileHomeScreen.tsx
+@@ -26,6 +26,16 @@ import { useCampusClubs } from '../../clubs/hooks/useCampusClubs';
+ 
+ type Props = NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>;
+ 
++function isIgnorableRemotePostSyncError(error: unknown) {
++  if (!error || typeof error !== 'object') {
++    return false;
++  }
++
++  const candidate = error as { code?: string; message?: string; details?: string };
++  const text = `${candidate.message ?? ''} ${candidate.details ?? ''}`.toLowerCase();
++  return candidate.code === 'PGRST116' || text.includes('cannot coerce the result to a single json object');
++}
++
+ export default function ProfileHomeScreen({ navigation }: Props) {
+   const { user } = useProfile();
+   const { signOut, loading: authLoading } = useAuth();
+@@ -65,7 +75,9 @@ export default function ProfileHomeScreen({ navigation }: Props) {
+           useFeedStore.getState().hydratePosts(remotePosts);
+         }
+       } catch (error) {
+-        console.warn('Unable to sync profile posts.', error);
++        if (__DEV__ && !isIgnorableRemotePostSyncError(error)) {
++          console.warn('Unable to sync profile posts.', error);
++        }
+       }
+     };
+ 
+diff --git a/src/services/mapEvents.ts b/src/services/mapEvents.ts
+index 75b3c9e..1aa8499 100644
+--- a/src/services/mapEvents.ts
++++ b/src/services/mapEvents.ts
+@@ -62,6 +62,75 @@ export interface CreateMapEventInput {
+   } | null;
+ }
+ 
++async function submitEventRsvpDirect(input: EventRsvpMutationInput) {
++  const {
++    data: { session },
++    error: sessionError,
++  } = await supabase.auth.getSession();
++
++  if (sessionError || !session?.user) {
++    throw new Error(sessionError?.message ?? 'Not authenticated.');
++  }
++
++  if (input.action === 'remove') {
++    const { error } = await supabase
++      .from('event_rsvps')
++      .delete()
++      .eq('event_id', input.eventId)
++      .eq('user_id', session.user.id);
++
++    if (error) {
++      throw error;
++    }
++  } else {
++    const { error } = await supabase.from('event_rsvps').upsert(
++      {
++        event_id: input.eventId,
++        user_id: session.user.id,
++        status: input.status ?? 'interested',
++      },
++      { onConflict: 'event_id,user_id' },
++    );
++
++    if (error) {
++      throw error;
++    }
++  }
++
++  const [{ data: currentRsvp, error: rsvpError }, { data: statsRows, error: statsError }] = await Promise.all([
++    supabase
++      .from('event_rsvps')
++      .select('status')
++      .eq('event_id', input.eventId)
++      .eq('user_id', session.user.id)
++      .maybeSingle(),
++    supabase.from('event_rsvps').select('status').eq('event_id', input.eventId),
++  ]);
++
++  if (rsvpError) {
++    throw rsvpError;
++  }
++
++  if (statsError) {
++    throw statsError;
++  }
++
++  const rsvpStats = { going: 0, interested: 0 };
++  for (const row of (statsRows ?? []) as Array<{ status: 'going' | 'interested' }>) {
++    if (row.status === 'going') {
++      rsvpStats.going += 1;
++    } else if (row.status === 'interested') {
++      rsvpStats.interested += 1;
++    }
++  }
++
++  return {
++    success: true,
++    current_user_rsvp: (currentRsvp?.status ?? null) as 'going' | 'interested' | null,
++    rsvp_stats: rsvpStats,
++  };
++}
++
+ function requireConfigured() {
+   if (!isSupabaseConfigured) {
+     throw new Error(supabaseConfigError);
+@@ -281,7 +350,14 @@ export async function submitEventRsvpRemote(input: EventRsvpMutationInput) {
+   });
+ 
+   if (error) {
+-    throw new Error(await getFunctionErrorMessage(error));
++    console.warn('Edge RSVP mutation failed, falling back to direct table write.', error);
++    try {
++      return await submitEventRsvpDirect(input);
++    } catch (fallbackError) {
++      const functionMessage = await getFunctionErrorMessage(error);
++      const fallbackMessage = await getFunctionErrorMessage(fallbackError);
++      throw new Error(`${functionMessage}${fallbackMessage ? ` Direct fallback also failed: ${fallbackMessage}` : ''}`);
++    }
+   }
+ 
+   return data as {
+diff --git a/src/services/social.ts b/src/services/social.ts
+index 748bc6b..37805af 100644
+--- a/src/services/social.ts
++++ b/src/services/social.ts
+@@ -686,12 +686,16 @@ export async function fetchRemotePostsByUser(userId: string, limit = 40) {
+     .from('users')
+     .select('id, username, display_name, avatar_url, bio, major, graduation_year, clubs, courses, follower_count, following_count')
+     .eq('id', userId)
+-    .single();
++    .maybeSingle();
+ 
+   if (userError) {
+     throw userError;
+   }
+ 
++  if (!userRow) {
++    return [];
++  }
++
+   const clubIdsByUserId = await fetchApprovedClubIdsByUserIds([userId]);
+ 
+   let query = supabase
+diff --git a/supabase/functions/rsvp-event/index.ts b/supabase/functions/rsvp-event/index.ts
+index 4001864..68c0187 100644
+--- a/supabase/functions/rsvp-event/index.ts
++++ b/supabase/functions/rsvp-event/index.ts
+@@ -56,7 +56,11 @@ Deno.serve(async (request) => {
+     }
+ 
+     const redis = getRedis();
+-    await invalidateMapEventCaches(redis);
++    try {
++      await invalidateMapEventCaches(redis);
++    } catch (cacheError) {
++      console.warn('Unable to invalidate map event caches after RSVP update.', cacheError);
++    }
+ 
+     const [currentUserRsvp, rsvpStats] = await Promise.all([
+       fetchCurrentUserRsvp(adminClient, userId, body.eventId),

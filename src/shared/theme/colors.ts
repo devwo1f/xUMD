@@ -119,6 +119,8 @@ export const eventCategory = {
   club: '#9C27B0',
   arts: '#FF9800',
   food: '#795548',
+  tech: '#0F766E',
+  talks: '#7C3AED',
   workshop: '#00BCD4',
   party: '#F44336',
   other: '#607D8B',

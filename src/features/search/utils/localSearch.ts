@@ -80,6 +80,8 @@ const categoryKeywordMap: Array<{ category: EventCategory; keywords: string[] }>
   { category: EventCategory.Career, keywords: ['career', 'internship', 'resume', 'networking', 'mentor'] },
   { category: EventCategory.Arts, keywords: ['arts', 'music', 'creative', 'concert', 'photo', 'dance'] },
   { category: EventCategory.Food, keywords: ['food', 'free food', 'snack', 'breakfast', 'dining', 'lunch'] },
+  { category: EventCategory.Tech, keywords: ['tech', 'coding', 'developer', 'hackathon', 'build', 'ai', 'robotics'] },
+  { category: EventCategory.Talks, keywords: ['talk', 'lecture', 'panel', 'speaker', 'seminar', 'fireside'] },
   { category: EventCategory.Workshop, keywords: ['workshop', 'learn', 'build', 'training'] },
   { category: EventCategory.Party, keywords: ['party', 'nightlife', 'dj', 'after dark'] },
 ];
@@ -100,6 +102,8 @@ const categoryChipOrder: Array<{ label: string; category: EventCategory | null }
   { label: 'Career', category: EventCategory.Career },
   { label: 'Arts', category: EventCategory.Arts },
   { label: 'Food', category: EventCategory.Food },
+  { label: 'Tech', category: EventCategory.Tech },
+  { label: 'Talks', category: EventCategory.Talks },
   { label: 'Workshop', category: EventCategory.Workshop },
   { label: 'Party', category: EventCategory.Party },
 ];

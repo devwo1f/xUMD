@@ -14,11 +14,22 @@ import type { DegreeType, UserProfile, UserProfileUpdate } from '../../../shared
 export const ALLOWED_EMAIL_DOMAINS = ['umd.edu', 'terpmail.umd.edu'] as const;
 export const OTP_COOLDOWN_SECONDS = 60;
 export const SESSION_MAX_AGE_DAYS = 7;
+const AUTH_BOOT_TIMEOUT_MS = 5000;
 
 const SESSION_LEASE_STORAGE_KEY = 'xumd.auth.session.lease';
 const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 
 let authListenerInitialized = false;
+
+function isInvalidStoredRefreshTokenError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error ?? '').toLowerCase();
+
+  return (
+    message.includes('invalid refresh token') ||
+    message.includes('refresh token not found') ||
+    message.includes('refresh_token_not_found')
+  );
+}
 
 interface SessionLeaseRecord {
   userId: string;
@@ -169,6 +180,37 @@ async function syncUserFromSession(session: Session | null) {
   return profile ?? buildFallbackProfile(session.user);
 }
 
+async function hydrateAuthStateFromSession(session: Session | null) {
+  try {
+    if (session && (await hasSessionExceededMaxAge(session))) {
+      await expireCurrentSession();
+      return;
+    }
+
+    if (!session) {
+      await clearSessionLease();
+    }
+
+    const user = await syncUserFromSession(session);
+    useAuthSessionStore.setState({
+      session,
+      user,
+      loading: false,
+      initialized: true,
+      error: null,
+    });
+  } catch (error) {
+    const fallbackUser = session?.user ? buildFallbackProfile(session.user) : null;
+    useAuthSessionStore.setState({
+      session,
+      user: fallbackUser,
+      loading: false,
+      initialized: true,
+      error: fallbackUser ? null : getAuthErrorMessage(error),
+    });
+  }
+}
+
 async function updateUserRow(userId: string, updates: Record<string, unknown>) {
   const { data, error } = await supabase
     .from('users')
@@ -246,6 +288,24 @@ async function expireCurrentSession(message = 'Your session expired after 7 days
     error: message,
     otpCooldownEnd: null,
   });
+  useAuthSessionStore.setState({
+    user: null,
+    session: null,
+    loading: false,
+    initialized: true,
+    error: null,
+  });
+}
+
+async function recoverFromInvalidStoredSession() {
+  await clearSessionLease();
+  await supabase.auth.signOut({ scope: 'local' }).catch(async () => {
+    await supabase.auth.signOut().catch(() => undefined);
+  });
+  useAuthFlowStore.getState().reset();
+  useDemoAppStore.getState().reset();
+  useMapFilterStore.getState().reset();
+  queryClient.clear();
   useAuthSessionStore.setState({
     user: null,
     session: null,
@@ -467,58 +527,117 @@ export function useInitializeAuth() {
     }
 
     authListenerInitialized = true;
+    let isActive = true;
+
+    const bootTimeout = setTimeout(() => {
+      if (!isActive || useAuthSessionStore.getState().initialized) {
+        return;
+      }
+
+      const current = useAuthSessionStore.getState();
+      useAuthSessionStore.setState({
+        session: current.session,
+        user: current.user ?? (current.session?.user ? buildFallbackProfile(current.session.user) : null),
+        loading: false,
+        initialized: true,
+        error: current.error,
+      });
+    }, AUTH_BOOT_TIMEOUT_MS);
 
     if (!isSupabaseConfigured) {
       useAuthSessionStore.setState({ loading: false, initialized: true, error: null, session: null, user: null });
-      return;
+      return () => {
+        isActive = false;
+        clearTimeout(bootTimeout);
+        authListenerInitialized = false;
+      };
     }
 
-    void supabase.auth.getSession().then(async ({ data, error }) => {
-      if (error) {
-        useAuthSessionStore.setState({ loading: false, initialized: true, error: getAuthErrorMessage(error), session: null, user: null });
-        return;
-      }
+    void (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (!isActive) {
+          return;
+        }
 
-      const session = data.session ?? null;
-      if (session && (await hasSessionExceededMaxAge(session))) {
-        await expireCurrentSession();
-        return;
+        if (error) {
+          if (isInvalidStoredRefreshTokenError(error)) {
+            await recoverFromInvalidStoredSession();
+            return;
+          }
+
+          useAuthSessionStore.setState({
+            loading: false,
+            initialized: true,
+            error: getAuthErrorMessage(error),
+            session: null,
+            user: null,
+          });
+          return;
+        }
+
+        if (data.session) {
+          void supabase.auth.startAutoRefresh();
+        }
+        await hydrateAuthStateFromSession(data.session ?? null);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        if (isInvalidStoredRefreshTokenError(error)) {
+          await recoverFromInvalidStoredSession();
+          return;
+        }
+
+        useAuthSessionStore.setState({
+          loading: false,
+          initialized: true,
+          error: getAuthErrorMessage(error),
+          session: null,
+          user: null,
+        });
       }
-      if (!session) {
-        await clearSessionLease();
-      }
-      const user = await syncUserFromSession(session);
-      useAuthSessionStore.setState({ session, user, loading: false, initialized: true, error: null });
-    });
+    })();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session && (await hasSessionExceededMaxAge(session))) {
-        await expireCurrentSession();
-        return;
-      }
-      if (!session) {
-        await clearSessionLease();
-      }
-      const user = await syncUserFromSession(session ?? null);
-      useAuthSessionStore.setState({ session: session ?? null, user, loading: false, initialized: true, error: null });
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      void hydrateAuthStateFromSession(session ?? null);
     });
 
     const appStateSubscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        void supabase.auth.startAutoRefresh();
-        void supabase.auth.getSession().then(async ({ data }) => {
-          if (data.session && (await hasSessionExceededMaxAge(data.session))) {
-            await expireCurrentSession();
-          }
-        });
+        void supabase.auth
+          .getSession()
+          .then(async ({ data, error }) => {
+            if (error) {
+              if (isInvalidStoredRefreshTokenError(error)) {
+                await recoverFromInvalidStoredSession();
+              }
+              return;
+            }
+
+            if (data.session) {
+              void supabase.auth.startAutoRefresh();
+              if (await hasSessionExceededMaxAge(data.session)) {
+                await expireCurrentSession();
+              }
+            }
+          })
+          .catch(async (error) => {
+            if (isInvalidStoredRefreshTokenError(error)) {
+              await recoverFromInvalidStoredSession();
+            }
+          });
       } else {
         void supabase.auth.stopAutoRefresh();
       }
     });
 
     return () => {
+      isActive = false;
+      clearTimeout(bootTimeout);
       authListenerInitialized = false;
       subscription.unsubscribe();
       appStateSubscription.remove();

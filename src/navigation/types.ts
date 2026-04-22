@@ -22,12 +22,23 @@ export type ExploreStackParamList = {
   ExploreHome: undefined;
   EventDetail: { eventId: string };
   ClubDetail: { clubId: string };
+  ArticleDetail: { articleId: string };
+  NewsArchive: undefined;
 };
 
 export type MapStackParamList = {
   MapHome: undefined;
   EventDetail: { eventId: string };
   ClubDetail: { clubId: string };
+  CreateEvent:
+    | {
+        initialCoordinate?: [number, number] | null;
+      }
+    | undefined;
+  SelectEventLocation: {
+    initialCoordinate?: [number, number] | null;
+    initialLocationName?: string | null;
+  };
 };
 
 export type FeedStackParamList = {
@@ -49,6 +60,7 @@ export type CalendarStackParamList = {
   AddPersonalBlock: undefined;
   CalendarSyncSettings: undefined;
   EventDetail: { eventId: string };
+  SportsEventDetail: { eventId: string };
   ClubDetail: { clubId: string };
 };
 
@@ -74,6 +86,7 @@ export type CampusStackParamList = {
   ClubsHome: undefined;
   ClubDetail: { clubId: string };
   EventDetail: { eventId: string };
+  SportsEventDetail: { eventId: string };
   PostDetail: { postId: string };
   UserProfile: { userId: string };
   CampusFeature: { featureKey: CampusFeatureKey };
@@ -91,6 +104,7 @@ export type ProfileStackParamList = {
   Connections: { mode: 'followers' | 'following' | 'mutuals' | 'discover' };
   ClubDetail: { clubId: string };
   EventDetail: { eventId: string };
+  SportsEventDetail: { eventId: string };
   PostDetail: { postId: string };
   UserProfile: { userId: string };
 };

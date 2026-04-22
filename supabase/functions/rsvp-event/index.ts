@@ -1,4 +1,4 @@
-﻿import { HttpError } from '../_shared/errors.ts';
+import { HttpError } from '../_shared/errors.ts';
 import { errorResponse, handleOptions, jsonResponse, parseJsonBody } from '../_shared/http.ts';
 import { invalidateMapEventCaches } from '../_shared/map.ts';
 import { fetchCurrentUserRsvp, fetchEventById, fetchEventRsvpStats } from '../_shared/map-records.ts';
@@ -55,8 +55,12 @@ Deno.serve(async (request) => {
       }
     }
 
-    const redis = getRedis();
-    await invalidateMapEventCaches(redis);
+    try {
+      const redis = getRedis();
+      await invalidateMapEventCaches(redis);
+    } catch (cacheError) {
+      console.warn('Unable to invalidate map event caches after RSVP update.', cacheError);
+    }
 
     const [currentUserRsvp, rsvpStats] = await Promise.all([
       fetchCurrentUserRsvp(adminClient, userId, body.eventId),

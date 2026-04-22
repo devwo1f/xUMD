@@ -18,6 +18,8 @@ const CATEGORY_COLORS: Record<EventCategory, string> = {
   club: colors.eventCategory.club,
   arts: colors.eventCategory.arts,
   food: colors.eventCategory.food,
+  tech: colors.eventCategory.tech,
+  talks: colors.eventCategory.talks,
   workshop: colors.eventCategory.workshop,
   party: colors.eventCategory.party,
   other: colors.eventCategory.other,

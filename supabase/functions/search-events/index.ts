@@ -1,5 +1,5 @@
 ﻿import { errorResponse, handleOptions, jsonResponse, parseJsonBody } from '../_shared/http.ts';
-import { searchCampusFallback } from '../_shared/map-records.ts';
+import { canUserAccessEvent, fetchApprovedClubIdsForUser, searchCampusFallback } from '../_shared/map-records.ts';
 import { searchMeilisearch } from '../_shared/meilisearch.ts';
 import { requireAuthenticatedUser } from '../_shared/supabase.ts';
 
@@ -33,7 +33,7 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const { adminClient } = await requireAuthenticatedUser(request);
+    const { userId, adminClient } = await requireAuthenticatedUser(request);
     const body = await parseJsonBody<SearchEventsRequest>(request);
     const query = body.query?.trim() ?? '';
     const limit = Math.max(1, Math.min(body.limit ?? 8, 12));
@@ -48,8 +48,32 @@ Deno.serve(async (request) => {
     ]);
 
     if (eventHits.length > 0 || locationHits.length > 0) {
+      const approvedClubIds = await fetchApprovedClubIdsForUser(adminClient, userId);
+      const { data: eventRows, error: eventRowsError } = await adminClient
+        .from('events')
+        .select('id, club_id, organizer_id, organizer_ids, visibility')
+        .in('id', eventHits.map((event) => event.id));
+
+      if (eventRowsError) {
+        throw eventRowsError;
+      }
+
+      const visibleEventIds = new Set(
+        ((eventRows ?? []) as Array<{
+          id: string;
+          club_id: string | null;
+          organizer_id: string;
+          organizer_ids: string[] | null;
+          visibility: 'public' | 'club_members_only';
+        }>)
+          .filter((event) => canUserAccessEvent(event, userId, approvedClubIds))
+          .map((event) => event.id),
+      );
+
       const items = [
-        ...eventHits.map((event) => ({
+        ...eventHits
+          .filter((event) => visibleEventIds.has(event.id))
+          .map((event) => ({
           id: `event-${event.id}`,
           type: 'event' as const,
           title: event.title,
@@ -57,7 +81,7 @@ Deno.serve(async (request) => {
           latitude: event.latitude,
           longitude: event.longitude,
           event_ids: [event.id],
-        })),
+          })),
         ...locationHits.map((location) => ({
           id: `location-${location.id}`,
           type: 'location' as const,
@@ -72,7 +96,7 @@ Deno.serve(async (request) => {
       return jsonResponse({ items, source: 'meilisearch' });
     }
 
-    const fallbackItems = await searchCampusFallback(adminClient, query);
+    const fallbackItems = await searchCampusFallback(adminClient, query, userId);
     return jsonResponse({ items: fallbackItems.slice(0, limit * 2), source: 'fallback' });
   } catch (error) {
     return errorResponse(error);

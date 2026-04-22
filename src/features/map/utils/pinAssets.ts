@@ -266,6 +266,14 @@ export function getMapPinBaseCategoryKey(
     return 'food';
   }
 
+  if (event.category === EventCategory.Tech) {
+    return 'tech';
+  }
+
+  if (event.category === EventCategory.Talks) {
+    return 'talks';
+  }
+
   if (event.category === EventCategory.Workshop) {
     return containsAnyKeyword(searchableText, TECH_KEYWORDS) ? 'tech' : 'workshop';
   }

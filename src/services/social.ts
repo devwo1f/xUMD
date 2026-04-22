@@ -1,5 +1,7 @@
 ﻿import type { Post, PostMediaItem, UserProfile } from '../shared/types';
 import { supabase, isSupabaseConfigured, supabaseConfigError } from './supabase';
+import { mockUsers } from '../assets/data/mockClubs';
+import { socialProfiles } from '../features/social/data/mockSocialGraph';
 
 export type RemoteFeedMode = 'for_you' | 'following' | 'trending';
 
@@ -194,6 +196,99 @@ function mapRemotePost(raw: RawRemotePost): Post & { suggested_reason?: string |
 
 function unique(values: string[]) {
   return Array.from(new Set(values));
+}
+
+function scoreMentionProfile(profile: RemoteSocialProfile, query: string) {
+  const normalizedQuery = query.trim().replace(/^@+/, '').toLowerCase();
+  if (!normalizedQuery) {
+    return profile.followerCount + profile.followingCount * 0.25;
+  }
+
+  const username = profile.username.toLowerCase();
+  const displayName = profile.displayName.toLowerCase();
+  const major = (profile.major ?? '').toLowerCase();
+
+  let score = 0;
+
+  if (username === normalizedQuery) {
+    score += 100;
+  } else if (username.startsWith(normalizedQuery)) {
+    score += 60;
+  } else if (username.includes(normalizedQuery)) {
+    score += 35;
+  }
+
+  if (displayName === normalizedQuery) {
+    score += 90;
+  } else if (displayName.startsWith(normalizedQuery)) {
+    score += 55;
+  } else if (displayName.includes(normalizedQuery)) {
+    score += 28;
+  }
+
+  if (major.includes(normalizedQuery)) {
+    score += 12;
+  }
+
+  return score + profile.followerCount * 0.08 + profile.followingCount * 0.02;
+}
+
+function mapMockUserToSocialProfile(user: (typeof mockUsers)[number]): RemoteSocialProfile {
+  return {
+    id: user.id,
+    username: user.username ?? user.email.split('@')[0],
+    displayName: user.display_name,
+    avatarUrl: user.avatar_url,
+    bio: user.bio ?? '',
+    pronouns: user.pronouns ?? null,
+    major: user.major ?? null,
+    classYear: user.graduation_year ?? null,
+    clubIds: user.clubs ?? [],
+    interests: user.courses ?? [],
+    followerCount: user.follower_count ?? 0,
+    followingCount: user.following_count ?? 0,
+  };
+}
+
+function buildMentionableProfilesFallback(query = '', limit = 12) {
+  const merged = new Map<string, RemoteSocialProfile>();
+
+  Object.values(socialProfiles).forEach((profile) => {
+    merged.set(profile.id, {
+      id: profile.id,
+      username: profile.username,
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
+      bio: profile.bio,
+      pronouns: profile.pronouns ?? null,
+      major: profile.major,
+      classYear: profile.classYear,
+      clubIds: profile.clubIds,
+      interests: profile.interests,
+      followerCount: 0,
+      followingCount: 0,
+    });
+  });
+
+  mockUsers.forEach((user) => {
+    if (!merged.has(user.id)) {
+      merged.set(user.id, mapMockUserToSocialProfile(user));
+    }
+  });
+
+  return Array.from(merged.values())
+    .filter((profile) => {
+      const normalizedQuery = query.trim().replace(/^@+/, '').toLowerCase();
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return [profile.username, profile.displayName, profile.major ?? ''].some((value) =>
+        value.toLowerCase().includes(normalizedQuery),
+      );
+    })
+    .sort((left, right) => scoreMentionProfile(right, query) - scoreMentionProfile(left, query))
+    .slice(0, limit);
 }
 
 async function fetchApprovedClubIdsByUserIds(userIds: string[]) {
@@ -485,10 +580,76 @@ async function invokeFunction<TRequest, TResponse>(name: string, body?: TRequest
   });
 
   if (error) {
-    throw error;
+    const maybeError = error as {
+      message?: string;
+      context?: {
+        error?: { message?: string };
+        json?: () => Promise<unknown>;
+        text?: () => Promise<string>;
+      } | null;
+    };
+
+    if (maybeError.context?.error?.message) {
+      throw new Error(maybeError.context.error.message);
+    }
+
+    let parsedMessage: string | null = null;
+
+    if (typeof maybeError.context?.json === 'function') {
+      try {
+        const payload = await maybeError.context.json();
+        if (
+          payload &&
+          typeof payload === 'object' &&
+          'error' in payload &&
+          payload.error &&
+          typeof payload.error === 'object' &&
+          'message' in payload.error &&
+          typeof payload.error.message === 'string'
+        ) {
+          parsedMessage = payload.error.message;
+        }
+      } catch {
+        // Fall through to the remaining error shapes.
+      }
+    }
+
+    if (parsedMessage) {
+      throw new Error(parsedMessage);
+    }
+
+    if (typeof maybeError.context?.text === 'function') {
+      try {
+        const text = await maybeError.context.text();
+        if (text.trim().length > 0) {
+          parsedMessage = text;
+        }
+      } catch {
+        // Fall through to the generic message.
+      }
+    }
+
+    if (parsedMessage) {
+      throw new Error(parsedMessage);
+    }
+
+    throw new Error(maybeError.message ?? 'Something went wrong.');
   }
 
   return data as TResponse;
+}
+
+async function resolveRemoteLinkedEventId(eventId?: string | null) {
+  if (!eventId) {
+    return null;
+  }
+
+  const { data, error } = await supabase.from('events').select('id').eq('id', eventId).maybeSingle();
+  if (error) {
+    throw error;
+  }
+
+  return data?.id ?? null;
 }
 
 export async function fetchCurrentRemoteUserId() {
@@ -598,6 +759,49 @@ export async function fetchRemoteProfileById(userId: string) {
   });
 }
 
+export async function fetchMentionableProfiles(query = '', limit = 12) {
+  if (!isSupabaseConfigured) {
+    return buildMentionableProfilesFallback(query, limit);
+  }
+
+  try {
+    const normalizedQuery = query.trim().replace(/^@+/, '');
+    let request = supabase
+      .from('users')
+      .select('id, username, display_name, avatar_url, bio, major, graduation_year, clubs, courses, follower_count, following_count')
+      .order('display_name', { ascending: true })
+      .limit(Math.max(limit * 5, 40));
+
+    if (normalizedQuery) {
+      request = request.or(
+        `username.ilike.%${normalizedQuery}%,display_name.ilike.%${normalizedQuery}%,major.ilike.%${normalizedQuery}%`,
+      );
+    }
+
+    const { data, error } = await request;
+
+    if (error) {
+      throw error;
+    }
+
+    const userIds = (data ?? []).map((row) => (row as DbUserRow).id);
+    const clubIdsByUserId = await fetchApprovedClubIdsByUserIds(userIds);
+
+    return (data ?? [])
+      .map((row) => {
+        const mapped = mapDbUserRow(row as DbUserRow);
+        return mapRemoteUserToSocialProfile({
+          ...mapped,
+          clubs: clubIdsByUserId.get(mapped.id) ?? mapped.clubs,
+        });
+      })
+      .sort((left, right) => scoreMentionProfile(right, query) - scoreMentionProfile(left, query))
+      .slice(0, limit);
+  } catch {
+    return buildMentionableProfilesFallback(query, limit);
+  }
+}
+
 export async function fetchFollowingProfiles(userId: string) {
   requireConfigured();
   const { data, error } = await supabase
@@ -686,10 +890,14 @@ export async function fetchRemotePostsByUser(userId: string, limit = 40) {
     .from('users')
     .select('id, username, display_name, avatar_url, bio, major, graduation_year, clubs, courses, follower_count, following_count')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   if (userError) {
     throw userError;
+  }
+
+  if (!userRow) {
+    return [];
   }
 
   const clubIdsByUserId = await fetchApprovedClubIdsByUserIds([userId]);
@@ -748,6 +956,7 @@ export async function submitRemotePost(input: {
   eventId?: string | null;
   isPinned?: boolean;
 }) {
+  const resolvedEventId = await resolveRemoteLinkedEventId(input.eventId);
   const response = await invokeFunction<
     {
       contentText: string;
@@ -765,7 +974,7 @@ export async function submitRemotePost(input: {
     contentText: input.contentText,
     media: input.mediaItems,
     clubId: input.clubId ?? null,
-    eventId: input.eventId ?? null,
+    eventId: resolvedEventId,
     isPinned: Boolean(input.isPinned),
   });
 

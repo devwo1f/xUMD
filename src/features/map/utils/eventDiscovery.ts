@@ -48,6 +48,8 @@ export const MAP_CATEGORY_OPTIONS: Array<{
   { value: EventCategory.Career, label: 'Career', color: colors.eventCategory.career },
   { value: EventCategory.Arts, label: 'Arts', color: colors.eventCategory.arts },
   { value: EventCategory.Food, label: 'Food', color: colors.eventCategory.food },
+  { value: EventCategory.Tech, label: 'Tech', color: colors.eventCategory.tech },
+  { value: EventCategory.Talks, label: 'Talks', color: colors.eventCategory.talks },
   { value: EventCategory.Workshop, label: 'Workshop', color: colors.eventCategory.workshop },
   { value: EventCategory.Party, label: 'Party', color: colors.eventCategory.party },
 ];
@@ -60,6 +62,8 @@ export const CATEGORY_GLYPHS: Record<EventCategory, string> = {
   [EventCategory.Career]: 'J',
   [EventCategory.Arts]: 'R',
   [EventCategory.Food]: 'F',
+  [EventCategory.Tech]: 'T',
+  [EventCategory.Talks]: 'L',
   [EventCategory.Workshop]: 'W',
   [EventCategory.Party]: 'P',
   [EventCategory.Other]: '?',

@@ -59,6 +59,8 @@ const EVENT_ICON_MAP: Record<EventCategory, string> = {
   [EventCategory.Career]: 'briefcase-outline',
   [EventCategory.Arts]: 'color-palette-outline',
   [EventCategory.Food]: 'restaurant-outline',
+  [EventCategory.Tech]: 'hardware-chip-outline',
+  [EventCategory.Talks]: 'mic-outline',
   [EventCategory.Workshop]: 'build-outline',
   [EventCategory.Party]: 'sparkles-outline',
   [EventCategory.Other]: 'calendar-outline',

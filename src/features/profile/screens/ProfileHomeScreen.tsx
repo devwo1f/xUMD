@@ -26,6 +26,16 @@ import { useCampusClubs } from '../../clubs/hooks/useCampusClubs';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>;
 
+function isIgnorableRemotePostSyncError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const candidate = error as { code?: string; message?: string; details?: string };
+  const text = `${candidate.message ?? ''} ${candidate.details ?? ''}`.toLowerCase();
+  return candidate.code === 'PGRST116' || text.includes('cannot coerce the result to a single json object');
+}
+
 export default function ProfileHomeScreen({ navigation }: Props) {
   const { user } = useProfile();
   const { signOut, loading: authLoading } = useAuth();
@@ -65,7 +75,9 @@ export default function ProfileHomeScreen({ navigation }: Props) {
           useFeedStore.getState().hydratePosts(remotePosts);
         }
       } catch (error) {
-        console.warn('Unable to sync profile posts.', error);
+        if (__DEV__ && !isIgnorableRemotePostSyncError(error)) {
+          console.warn('Unable to sync profile posts.', error);
+        }
       }
     };
 

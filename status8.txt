@@ -1,0 +1,27 @@
+﻿On branch main
+Your branch is ahead of 'origin/main' by 5 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   .claude/settings.json
+	modified:   src/features/auth/hooks/useAuth.ts
+	modified:   src/features/calendar/hooks/useCalendarEntries.ts
+	modified:   src/features/campus/data/libraries.ts
+	modified:   src/features/explore/screens/EventDetailScreen.tsx
+	modified:   src/features/map/components/CampusMap.native.tsx
+	modified:   src/features/map/hooks/useMapData.ts
+	modified:   src/features/map/screens/MapHomeScreen.tsx
+	modified:   src/features/profile/screens/MyPostsScreen.tsx
+	modified:   src/features/profile/screens/ProfileHomeScreen.tsx
+	modified:   src/services/mapEvents.ts
+	modified:   src/services/social.ts
+	modified:   supabase/functions/rsvp-event/index.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	docs/club-creation-admin-proposal.md
+	status.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")

@@ -14,6 +14,8 @@ export const SEARCH_CATEGORIES = [
   'career',
   'arts',
   'food',
+  'tech',
+  'talks',
   'workshop',
   'party',
   'other',
@@ -138,6 +140,8 @@ const CATEGORY_KEYWORDS: Array<{ category: SearchCategory; keywords: string[] }>
   { category: 'career', keywords: ['career', 'internship', 'resume', 'networking', 'mentor'] },
   { category: 'arts', keywords: ['arts', 'dance', 'concert', 'creative', 'music', 'photo'] },
   { category: 'food', keywords: ['food', 'free food', 'snack', 'breakfast', 'dining', 'lunch'] },
+  { category: 'tech', keywords: ['tech', 'coding', 'developer', 'hackathon', 'build', 'ai', 'robotics'] },
+  { category: 'talks', keywords: ['talk', 'lecture', 'panel', 'speaker', 'seminar', 'fireside'] },
   { category: 'workshop', keywords: ['workshop', 'learn', 'training', 'build'] },
   { category: 'party', keywords: ['party', 'nightlife', 'dj', 'after dark'] },
 ];
@@ -850,6 +854,5 @@ export async function runAutocomplete(adminClient: SupabaseClient, query: string
 
   return { suggestions } satisfies AutocompleteResponse;
 }
-
 
 

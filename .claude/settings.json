@@ -6,7 +6,9 @@
       "Bash(do echo:*)",
       "Read(//d/Projects/xUMD/**)",
       "Bash(done)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(npx tsc *)",
+      "Bash(ls node_modules/@react-native-community/datetimepicker/src/datetimepicker*)"
     ]
   }
 }

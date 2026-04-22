@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+ï»¿import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
 import Avatar from '../../../shared/components/Avatar';
@@ -81,7 +81,7 @@ function formatCourseSubtitle(course: CourseSearchResult) {
   const timeLabel = course.start_time && course.end_time ? `${course.start_time.slice(0, 5)}-${course.end_time.slice(0, 5)}` : null;
   const placeLabel = [course.building_name, course.room_number].filter(Boolean).join(' ');
 
-  return [dayLabel || null, timeLabel, placeLabel || null].filter(Boolean).join(' · ');
+  return [dayLabel || null, timeLabel, placeLabel || null].filter(Boolean).join(' Â· ');
 }
 
 export default function ProfileCompletionScreen(_props: Props) {
@@ -401,7 +401,7 @@ export default function ProfileCompletionScreen(_props: Props) {
                   <View style={styles.suggestionList}>
                     {courseSuggestions.map((course) => (
                       <Pressable key={course.id} onPress={() => addCourse(course)} style={styles.suggestionRow}>
-                        <Text style={styles.suggestionLabel}>{course.course_code} · {course.section} · {course.title}</Text>
+                        <Text style={styles.suggestionLabel}>{course.course_code} Â· {course.section} Â· {course.title}</Text>
                         <Text style={styles.suggestionMeta}>{formatCourseSubtitle(course)}</Text>
                       </Pressable>
                     ))}
@@ -712,3 +712,4 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
 });
+

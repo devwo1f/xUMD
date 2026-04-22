@@ -54,19 +54,39 @@ export interface EventRow {
   club_id: string | null;
   organizer_id: string;
   organizer_name: string;
+  organizer_ids: string[] | null;
+  co_host_club_ids: string[] | null;
   category: string;
   location_name: string;
   location_id: string | null;
+  location_details: string | null;
   latitude: number;
   longitude: number;
   starts_at: string;
   ends_at: string;
+  recurrence_frequency: 'weekly' | 'biweekly' | 'monthly' | null;
+  recurs_until: string | null;
+  series_root_id: string | null;
   status: 'upcoming' | 'live' | 'completed' | 'cancelled';
   cover_image_url: string | null;
+  attachments: Array<{
+    id: string;
+    path: string;
+    file_name: string;
+    mime_type: string;
+    kind: 'image' | 'video' | 'document';
+    size_bytes?: number | null;
+  }> | null;
   tags: string[] | null;
   attendee_count: number;
   interested_count: number;
   max_capacity: number | null;
+  waitlist_enabled: boolean;
+  require_approval: boolean;
+  is_free: boolean;
+  ticket_price: number | null;
+  visibility: 'public' | 'club_members_only';
+  contact_info: string | null;
   moderation_status: 'pending' | 'approved' | 'rejected';
   flagged_categories: Record<string, unknown> | null;
   created_at: string;
@@ -80,20 +100,40 @@ export interface MapEventSummary {
   club_id: string | null;
   created_by: string;
   organizer_name: string;
+  organizer_ids: string[];
+  co_host_club_ids: string[];
   category: string;
   starts_at: string;
   ends_at: string;
+  recurrence_frequency: 'weekly' | 'biweekly' | 'monthly' | null;
+  recurs_until: string | null;
+  series_root_id: string | null;
   status: 'upcoming' | 'live' | 'completed' | 'cancelled';
   moderation_status: 'pending' | 'approved' | 'rejected';
   location_name: string;
   location_id: string | null;
+  location_details: string | null;
   latitude: number;
   longitude: number;
   image_url: string | null;
+  attachments: Array<{
+    id: string;
+    path: string;
+    file_name: string;
+    mime_type: string;
+    kind: 'image' | 'video' | 'document';
+    size_bytes?: number | null;
+  }>;
   rsvp_count: number;
   attendee_count: number;
   interested_count: number;
   max_capacity: number | null;
+  waitlist_enabled: boolean;
+  require_approval: boolean;
+  is_free: boolean;
+  ticket_price: number | null;
+  visibility: 'public' | 'club_members_only';
+  contact_info: string | null;
   is_featured: boolean;
   tags: string[];
   location: string;
@@ -259,20 +299,33 @@ export function toMapEventSummary(
     club_id: event.club_id,
     created_by: event.organizer_id,
     organizer_name: event.organizer_name,
+    organizer_ids: event.organizer_ids ?? [],
+    co_host_club_ids: event.co_host_club_ids ?? [],
     category: event.category,
     starts_at: event.starts_at,
     ends_at: event.ends_at,
+    recurrence_frequency: event.recurrence_frequency,
+    recurs_until: event.recurs_until,
+    series_root_id: event.series_root_id,
     status: event.status,
     moderation_status: event.moderation_status,
     location_name: event.location_name,
     location_id: event.location_id,
+    location_details: event.location_details,
     latitude: event.latitude,
     longitude: event.longitude,
     image_url: options.signedCoverUrl ?? event.cover_image_url,
+    attachments: event.attachments ?? [],
     rsvp_count: event.attendee_count,
     attendee_count: event.attendee_count,
     interested_count: event.interested_count,
     max_capacity: event.max_capacity,
+    waitlist_enabled: event.waitlist_enabled,
+    require_approval: event.require_approval,
+    is_free: event.is_free,
+    ticket_price: event.ticket_price,
+    visibility: event.visibility,
+    contact_info: event.contact_info,
     is_featured: event.attendee_count >= 60 || event.interested_count >= 80,
     tags: event.tags ?? [],
     location: event.location_name,
@@ -347,6 +400,7 @@ export function sortEventsInMemory(events: EventRow[], filters: MapEventFilters)
 export async function buildMapEventsCacheKey(
   filters: MapEventFilters,
   redis: UpstashRedis | null,
+  viewerId?: string,
 ) {
   const version =
     redis ? String((await redis.command<string | null>('GET', MAP_CACHE_VERSION_KEY)) ?? '0') : '0';
@@ -358,6 +412,7 @@ export async function buildMapEventsCacheKey(
     searchQuery: normalizeSearchQuery(filters.searchQuery),
     customRange: filters.customRange ?? null,
     onlyFriendsAttending: Boolean(filters.onlyFriendsAttending),
+    viewerId: viewerId ?? null,
     latitude:
       typeof filters.latitude === 'number' ? Number(filters.latitude.toFixed(5)) : null,
     longitude:

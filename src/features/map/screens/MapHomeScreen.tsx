@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, Image, Keyboard, Linking, PanResponder, PixelRatio, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Keyboard, Linking, PanResponder, PixelRatio, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import NativeDateTimePickerModal from '../../../shared/components/NativeDateTimePickerModal';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -25,6 +25,7 @@ import { colors } from '../../../shared/theme/colors';
 import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { EventCategory, type Event, type EventSearchResult } from '../../../shared/types';
+import { shareContent } from '../../../shared/utils/shareContent';
 import { createEventUrl } from '../../../navigation/deepLinks';
 import type { MapStackParamList } from '../../../navigation/types';
 import { isSupabaseConfigured } from '../../../services/supabase';
@@ -40,6 +41,7 @@ import type { EventLocationGroup, MapCoordinate, MapFocusRequest, MapTimeFilter 
 import { buildActivityWeightMap, buildEventLocationGroups, filterAndSortEvents, getContextualTimeLabel, getLiveEventCounter, getNearestLiveEvent, getUpcomingTimeLabel, isEventLive } from '../utils/eventDiscovery';
 import { buildFocusRequestForCoordinate, getDistanceMeters } from '../utils/wayfinding';
 import { createMapEventRemote, reportMapEventRemote, submitEventRsvpRemote } from '../../../services/mapEvents';
+import { isUmdSportsEventId } from '../../../services/umdSports';
 
 type Props = NativeStackScreenProps<MapStackParamList, 'MapHome'>;
 type SheetMode = 'group' | 'event' | 'building' | 'create' | null;
@@ -70,6 +72,21 @@ const CATEGORY_CHIPS: Array<{ value: EventCategory; label: string; color: string
   { value: EventCategory.Social, label: 'Social', color: '#E21833' },
   { value: EventCategory.Sports, label: 'Sports', color: '#16A34A' },
 ];
+
+const webDateInputStyle = {
+  width: '100%',
+  minHeight: 48,
+  borderRadius: 12,
+  border: `1.5px solid ${colors.border.default}`,
+  backgroundColor: colors.background.secondary,
+  paddingLeft: 16,
+  paddingRight: 16,
+  fontSize: 16,
+  color: colors.text.primary,
+  fontFamily: 'inherit',
+  outline: 'none',
+  boxSizing: 'border-box' as const,
+};
 
 function makeNextDraft(): DraftEvent {
   const start = new Date(Date.now() + 60 * 60 * 1000);
@@ -333,7 +350,7 @@ export default function MapHomeScreen({ navigation }: Props) {
     toggleCategory,
     setShowActivityLayer,
   } = useMapFilterStore();
-  const { rawEvents, loading, refetch } = useMapData({ onlyFriendsAttending });
+  const { rawEvents, loading, refetch, source: mapDataSource } = useMapData({ onlyFriendsAttending });
   const { savedEventIds, goingEventIds, setEventRsvpStatus, confirmEventRsvpStatus } = useDemoAppStore();
   const upsertLocalEvent = useEventCatalogStore((state) => state.upsertEvent);
 
@@ -359,7 +376,11 @@ export default function MapHomeScreen({ navigation }: Props) {
 
   const currentViewerId = authUser?.id ?? profileUser.id;
   const currentViewerName = authUser?.display_name ?? profileUser.displayName ?? 'xUMD student';
-  const canSyncRsvpRemotely = isSupabaseConfigured && Boolean(authUser?.id);
+  const canSyncRsvpRemotely =
+    isSupabaseConfigured &&
+    Boolean(authUser?.id) &&
+    !mapDataSource.startsWith('mock') &&
+    !isUmdSportsEventId(selectedEventId);
   const viewerRsvpIds = useMemo(() => new Set([...goingEventIds, ...savedEventIds]), [goingEventIds, savedEventIds]);
   const filteredEvents = useMemo(
     () =>
@@ -640,10 +661,13 @@ export default function MapHomeScreen({ navigation }: Props) {
     setSelectedEventId(null);
     setSelectedGroupId(null);
     setSelectedBuildingId(null);
-    setCreateCoordinate(coordinate);
+    setCreateCoordinate(null);
     setDraftEvent(makeNextDraft());
     setActiveCreatePicker(null);
     setFocusRequest(createFocusRequest('create-event', coordinate, 16.45));
+    navigation.navigate('CreateEvent', {
+      initialCoordinate: coordinate,
+    });
   }
 
   async function openDirections(label: string, coordinate: MapCoordinate) {
@@ -723,12 +747,6 @@ export default function MapHomeScreen({ navigation }: Props) {
         confirmEventRsvpStatus(event.id, nextStatus);
       }
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['map-events'] }),
-        queryClient.invalidateQueries({ queryKey: ['map-event-detail', event.id] }),
-        queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
-      ]);
-
       if (nextStatus === 'going') {
         Alert.alert(
           'Added to your schedule',
@@ -752,13 +770,25 @@ export default function MapHomeScreen({ navigation }: Props) {
           ? `${error.message} Your RSVP still updated locally and will stay reflected across the app.`
           : 'Your RSVP updated locally and will stay reflected across the app.',
       );
+    } finally {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['map-events'] }),
+        queryClient.invalidateQueries({ queryKey: ['map-event-detail', event.id] }),
+        queryClient.invalidateQueries({ queryKey: ['calendar-data'] }),
+      ]);
     }
   }
 
   async function handleShareEvent(event: Event) {
-    await Share.share({
+    const result = await shareContent({
+      title: event.title,
       message: `${event.title}\n${getContextualTimeLabel(event)}\n${event.location_name}\n${createEventUrl(event.id)}`,
+      url: createEventUrl(event.id),
     });
+
+    if (result === 'copied') {
+      Alert.alert('Link copied', 'This event link is now in your clipboard.');
+    }
   }
 
   async function handleReportEvent(eventId: string) {
@@ -981,21 +1011,8 @@ export default function MapHomeScreen({ navigation }: Props) {
     });
   };
 
-  const openCreateAndroidPicker = (target: CreatePickerTarget) => {
-    const value =
-      target === 'startDate' || target === 'startTime'
-        ? createStartsAtValue
-        : createEndsAtValue;
-    DateTimePickerAndroid.open({
-      value,
-      mode: target === 'startDate' || target === 'endDate' ? 'date' : 'time',
-      display: target === 'startDate' || target === 'endDate' ? 'calendar' : 'clock',
-      is24Hour: false,
-      onValueChange: (_event, nextValue) => {
-        applyCreatePickerValue(target, nextValue);
-      },
-    });
-  };
+  const createPickerMode =
+    activeCreatePicker === 'startDate' || activeCreatePicker === 'endDate' ? 'date' as const : 'time' as const;
 
   return (
     <ScreenLayout
@@ -1652,105 +1669,68 @@ export default function MapHomeScreen({ navigation }: Props) {
                 <View style={styles.formGrid}>
                   <View style={styles.formGridColumn}>
                     <Text style={styles.formLabel}>Start date</Text>
-                    {Platform.OS === 'ios' ? (
-                      <Pressable onPress={() => setActiveCreatePicker('startDate')} style={styles.pickerField}>
-                        <Text style={styles.pickerFieldValue}>{format(createStartsAtValue, 'EEE, MMM d')}</Text>
-                        <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
-                      </Pressable>
-                    ) : (
-                      <Pressable onPress={() => openCreateAndroidPicker('startDate')} style={styles.pickerField}>
-                        <Text style={styles.pickerFieldValue}>{format(createStartsAtValue, 'EEE, MMM d')}</Text>
-                        <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
-                      </Pressable>
-                    )}
+                    <Pressable onPress={() => setActiveCreatePicker('startDate')} style={styles.pickerField}>
+                      <Text style={styles.pickerFieldValue}>{format(createStartsAtValue, 'EEE, MMM d')}</Text>
+                      <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
+                    </Pressable>
                   </View>
                   <View style={styles.formGridColumn}>
                     <Text style={styles.formLabel}>Start time</Text>
-                    {Platform.OS === 'ios' ? (
-                      <Pressable onPress={() => setActiveCreatePicker('startTime')} style={styles.pickerField}>
-                        <Text style={styles.pickerFieldValue}>{format(createStartsAtValue, 'h:mm a')}</Text>
-                        <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
-                      </Pressable>
-                    ) : (
-                      <Pressable onPress={() => openCreateAndroidPicker('startTime')} style={styles.pickerField}>
-                        <Text style={styles.pickerFieldValue}>{format(createStartsAtValue, 'h:mm a')}</Text>
-                        <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
-                      </Pressable>
-                    )}
+                    <Pressable onPress={() => setActiveCreatePicker('startTime')} style={styles.pickerField}>
+                      <Text style={styles.pickerFieldValue}>{format(createStartsAtValue, 'h:mm a')}</Text>
+                      <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
+                    </Pressable>
                   </View>
                 </View>
 
                 <View style={styles.formGrid}>
                   <View style={styles.formGridColumn}>
                     <Text style={styles.formLabel}>End date</Text>
-                    {Platform.OS === 'ios' ? (
-                      <Pressable onPress={() => setActiveCreatePicker('endDate')} style={styles.pickerField}>
-                        <Text style={styles.pickerFieldValue}>{format(createEndsAtValue, 'EEE, MMM d')}</Text>
-                        <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
-                      </Pressable>
-                    ) : (
-                      <Pressable onPress={() => openCreateAndroidPicker('endDate')} style={styles.pickerField}>
-                        <Text style={styles.pickerFieldValue}>{format(createEndsAtValue, 'EEE, MMM d')}</Text>
-                        <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
-                      </Pressable>
-                    )}
+                    <Pressable onPress={() => setActiveCreatePicker('endDate')} style={styles.pickerField}>
+                      <Text style={styles.pickerFieldValue}>{format(createEndsAtValue, 'EEE, MMM d')}</Text>
+                      <Ionicons name="calendar-outline" size={18} color={colors.text.secondary} />
+                    </Pressable>
                   </View>
                   <View style={styles.formGridColumn}>
                     <Text style={styles.formLabel}>End time</Text>
-                    {Platform.OS === 'ios' ? (
-                      <Pressable onPress={() => setActiveCreatePicker('endTime')} style={styles.pickerField}>
-                        <Text style={styles.pickerFieldValue}>{format(createEndsAtValue, 'h:mm a')}</Text>
-                        <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
-                      </Pressable>
-                    ) : (
-                      <Pressable onPress={() => openCreateAndroidPicker('endTime')} style={styles.pickerField}>
-                        <Text style={styles.pickerFieldValue}>{format(createEndsAtValue, 'h:mm a')}</Text>
-                        <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
-                      </Pressable>
-                    )}
+                    <Pressable onPress={() => setActiveCreatePicker('endTime')} style={styles.pickerField}>
+                      <Text style={styles.pickerFieldValue}>{format(createEndsAtValue, 'h:mm a')}</Text>
+                      <Ionicons name="time-outline" size={18} color={colors.text.secondary} />
+                    </Pressable>
                   </View>
                 </View>
 
-                {Platform.OS === 'ios' && activeCreatePicker ? (
-                  <Card style={styles.inlinePickerCard}>
-                    <View style={styles.inlinePickerHeader}>
-                      <Text style={styles.inlinePickerTitle}>{createPickerTitle}</Text>
-                      <Pressable onPress={() => setActiveCreatePicker(null)} hitSlop={8}>
-                        <Text style={styles.inlinePickerDone}>Done</Text>
-                      </Pressable>
-                    </View>
-                    <DateTimePicker
-                      value={createPickerValue}
-                      mode={activeCreatePicker === 'startDate' || activeCreatePicker === 'endDate' ? 'date' : 'time'}
-                      display={activeCreatePicker === 'startDate' || activeCreatePicker === 'endDate' ? 'inline' : 'spinner'}
-                      onValueChange={(_event, nextValue) => {
-                        applyCreatePickerValue(activeCreatePicker, nextValue);
-                      }}
-                    />
-                  </Card>
-                ) : null}
+                <NativeDateTimePickerModal
+                  visible={Boolean(activeCreatePicker)}
+                  title={createPickerTitle}
+                  value={createPickerValue}
+                  mode={createPickerMode}
+                  onConfirm={(nextValue) => {
+                    if (activeCreatePicker) applyCreatePickerValue(activeCreatePicker, nextValue);
+                  }}
+                  onClose={() => setActiveCreatePicker(null)}
+                />
               </>
             ) : (
               <View style={styles.formGrid}>
                 <View style={styles.formGridColumn}>
                   <Text style={styles.formLabel}>Starts</Text>
-                  <TextInput
-                    value={draftEvent.startsAt}
-                    onChangeText={(value) => setDraftEvent((current) => ({ ...current, startsAt: value }))}
-                    placeholder="2026-04-10T18:00"
-                    placeholderTextColor={colors.text.tertiary}
-                    style={styles.formInput}
-                  />
+                  {React.createElement('input', {
+                    type: 'datetime-local',
+                    value: draftEvent.startsAt,
+                    onChange: (e: any) => setDraftEvent((current: DraftEvent) => ({ ...current, startsAt: e.target.value })),
+                    style: webDateInputStyle,
+                  })}
                 </View>
                 <View style={styles.formGridColumn}>
                   <Text style={styles.formLabel}>Ends</Text>
-                  <TextInput
-                    value={draftEvent.endsAt}
-                    onChangeText={(value) => setDraftEvent((current) => ({ ...current, endsAt: value }))}
-                    placeholder="2026-04-10T19:30"
-                    placeholderTextColor={colors.text.tertiary}
-                    style={styles.formInput}
-                  />
+                  {React.createElement('input', {
+                    type: 'datetime-local',
+                    value: draftEvent.endsAt,
+                    min: draftEvent.startsAt,
+                    onChange: (e: any) => setDraftEvent((current: DraftEvent) => ({ ...current, endsAt: e.target.value })),
+                    style: webDateInputStyle,
+                  })}
                 </View>
               </View>
             )}
@@ -2482,47 +2462,9 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.text.primary,
   },
-  inlinePickerCard: {
-    gap: spacing.sm,
-  },
-  inlinePickerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  inlinePickerTitle: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  inlinePickerDone: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primary.main,
-  },
   formTextArea: {
     minHeight: 110,
     textAlignVertical: 'top',
-  },
-  pickerCard: {
-    gap: spacing.sm,
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  pickerTitle: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  pickerDone: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primary.main,
   },
   formChipRow: {
     gap: spacing.sm,

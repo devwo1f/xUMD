@@ -4,7 +4,6 @@ import {
   Linking,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -37,6 +36,8 @@ import { colors } from '../../../shared/theme/colors';
 import { borderRadius, shadows, spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { CalendarStackParamList } from '../../../navigation/types';
+import { shareContent } from '../../../shared/utils/shareContent';
+import { isUmdSportsEventId } from '../../../services/umdSports';
 import { useCalendarEntries } from '../hooks/useCalendarEntries';
 import type { CalendarEntry, CalendarViewMode } from '../types';
 import {
@@ -933,7 +934,9 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
     }
 
     if ((entry.type === 'event_going' || entry.type === 'event_interested') && entry.eventId) {
-      navigation.navigate('EventDetail', { eventId: entry.eventId });
+      navigation.navigate(isUmdSportsEventId(entry.eventId) ? 'SportsEventDetail' : 'EventDetail', {
+        eventId: entry.eventId,
+      });
       return;
     }
 
@@ -970,9 +973,15 @@ export default function CalendarHomeScreen({ navigation }: NativeStackScreenProp
         ? createClubUrl(selectedEntry.clubId)
         : null;
 
-    await Share.share({
+    const result = await shareContent({
+      title: selectedEntry.title,
       message: `${selectedEntry.title}\n${formatCalendarTime(selectedEntry)}\n${selectedEntry.locationName}${deepLink ? `\n${deepLink}` : ''}`,
+      url: deepLink ?? undefined,
     });
+
+    if (result === 'copied') {
+      Alert.alert('Link copied', 'This calendar item link is now in your clipboard.');
+    }
   };
 
   const monthConflictDates = new Set(conflicts.map((conflict) => conflict.date));

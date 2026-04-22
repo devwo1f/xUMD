@@ -1,0 +1,29 @@
+
+> xumd@1.0.0 start:tunnel
+> node scripts/start-campus-tunnel.cjs
+
+[fix-expo-tunnel] already patched: allow EXPO_USE_WS_TUNNEL override (node_modules/expo/node_modules/@expo/cli/build/src/start/server/BundlerDevServer.js)
+[fix-expo-tunnel] already patched: defensive ngrok error extraction helper (node_modules/@expo/ngrok/src/client.js)
+[fix-expo-tunnel] already patched: defensive request error handling (node_modules/@expo/ngrok/src/client.js)
+[fix-expo-tunnel] already patched: defensive booleanRequest error handling (node_modules/@expo/ngrok/src/client.js)
+[fix-expo-tunnel] already patched: retry local ngrok API startup race (node_modules/@expo/ngrok/src/utils.js)
+env: load .env.local
+env: export EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY EXPO_PUBLIC_SUPABASE_URL
+Starting project at D:\Projects\xUMD
+Starting Metro Bundler
+
+Error while reading cache, falling back to a full crawl:
+ Error: Unable to deserialize cloned data.
+    at deserialize (node:v8:436:14)
+    at DiskCacheManager.read (D:\Projects\xUMD\node_modules\metro-file-map\src\cache\DiskCacheManager.js:60:33)
+    at FileMap.read (D:\Projects\xUMD\node_modules\metro-file-map\src\index.js:284:14)
+    at D:\Projects\xUMD\node_modules\metro-file-map\src\index.js:202:25
+    at DependencyGraph.ready (D:\Projects\xUMD\node_modules\metro\src\node-haste\DependencyGraph.js:88:5)
+    at Bundler.ready (D:\Projects\xUMD\node_modules\metro\src\Bundler.js:62:5)
+    at IncrementalBundler.ready (D:\Projects\xUMD\node_modules\metro\src\IncrementalBundler.js:302:5)
+    at Server.ready (D:\Projects\xUMD\node_modules\metro\src\Server.js:1305:5)
+    at runMetro (D:\Projects\xUMD\node_modules\metro\src\index.flow.js:138:5)
+    at createConnectMiddleware (D:\Projects\xUMD\node_modules\metro\src\index.flow.js:143:23)
+Waiting on exp+xumd://6q70mw0a7vlfo38.boltexpo.dev
+Logs for your project will appear below.
+^C^C

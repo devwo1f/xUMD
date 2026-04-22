@@ -144,7 +144,7 @@ export const libraryProfiles: LibraryProfile[] = [
       'Hornbake is home to Special Collections, University Archives, exhibitions, and a quieter study environment for students who want space away from the main mall flow.',
     features: [
       { label: 'Special collections', icon: 'archive-outline' },
-      { label: 'University archives', icon: 'file-cabinet-outline' },
+      { label: 'University archives', icon: 'archive-outline' },
       { label: 'Exhibition gallery', icon: 'image-outline' },
       { label: 'Quiet study space', icon: 'book-outline' },
     ],

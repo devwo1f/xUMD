@@ -22,6 +22,8 @@ import MiniCalendarStrip from '../../calendar/components/MiniCalendarStrip';
 import { useCalendarEntries } from '../../calendar/hooks/useCalendarEntries';
 import type { CalendarEntry } from '../../calendar/types';
 import { useMapData } from '../../map/hooks/useMapData';
+import TodayNewsSection from '../components/TodayNewsSection';
+import { useTodayNews } from '../hooks/useTodayNews';
 
 type Props = NativeStackScreenProps<ExploreStackParamList, 'ExploreHome'>;
 
@@ -42,6 +44,7 @@ export default function ExploreHomeScreen({ navigation }: Props) {
   });
 
   const { events } = useMapData({ timeFilter: 'today' });
+  const { articles: newsArticles, loading: newsLoading } = useTodayNews(5);
 
   const featuredEvents = useMemo(() => {
     const source =
@@ -171,6 +174,13 @@ export default function ExploreHomeScreen({ navigation }: Props) {
             </Card>
           )}
         </View>
+
+        <TodayNewsSection
+          articles={newsArticles}
+          loading={newsLoading}
+          onPressArticle={(articleId) => navigation.navigate('ArticleDetail', { articleId })}
+          onPressExploreMore={() => navigation.navigate('NewsArchive')}
+        />
       </View>
 
 

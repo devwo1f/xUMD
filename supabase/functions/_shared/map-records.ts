@@ -10,6 +10,40 @@ import {
   type MapEventFilters,
 } from './map.ts';
 
+export async function fetchApprovedClubIdsForUser(adminClient: SupabaseClient, userId: string) {
+  const { data, error } = await adminClient
+    .from('club_members')
+    .select('club_id')
+    .eq('user_id', userId)
+    .eq('status', 'approved');
+
+  if (error) {
+    throw new HttpError(500, 'internal_error', 'Unable to load club memberships.', error);
+  }
+
+  return new Set((data ?? []).map((row: { club_id: string }) => row.club_id));
+}
+
+export function canUserAccessEvent(
+  event: Pick<EventRow, 'organizer_id' | 'organizer_ids' | 'visibility' | 'club_id'>,
+  userId: string,
+  approvedClubIds: Set<string>,
+) {
+  if (event.organizer_id === userId) {
+    return true;
+  }
+
+  if ((event.organizer_ids ?? []).includes(userId)) {
+    return true;
+  }
+
+  if (event.visibility !== 'club_members_only') {
+    return true;
+  }
+
+  return Boolean(event.club_id && approvedClubIds.has(event.club_id));
+}
+
 export async function fetchCampusLocations(adminClient: SupabaseClient) {
   const { data, error } = await adminClient
     .from('campus_locations')
@@ -23,14 +57,18 @@ export async function fetchCampusLocations(adminClient: SupabaseClient) {
   return (data ?? []) as CampusLocationRow[];
 }
 
-export async function fetchMapEventRows(adminClient: SupabaseClient, filters: MapEventFilters) {
+export async function fetchMapEventRows(
+  adminClient: SupabaseClient,
+  filters: MapEventFilters,
+  viewerId?: string,
+) {
   const { start, end } = buildTimeWindow(filters.timeFilter, filters.customRange);
   const queryText = normalizeSearchQuery(filters.searchQuery);
 
   let query = adminClient
     .from('events')
     .select(
-      'id, title, description, club_id, organizer_id, organizer_name, category, location_name, location_id, latitude, longitude, starts_at, ends_at, status, cover_image_url, tags, attendee_count, interested_count, max_capacity, moderation_status, flagged_categories, created_at, updated_at',
+      'id, title, description, club_id, organizer_id, organizer_name, organizer_ids, co_host_club_ids, category, location_name, location_id, location_details, latitude, longitude, starts_at, ends_at, recurrence_frequency, recurs_until, series_root_id, status, cover_image_url, attachments, tags, attendee_count, interested_count, max_capacity, waitlist_enabled, require_approval, is_free, ticket_price, visibility, contact_info, moderation_status, flagged_categories, created_at, updated_at',
     )
     .eq('moderation_status', 'approved')
     .neq('status', 'cancelled')
@@ -54,14 +92,20 @@ export async function fetchMapEventRows(adminClient: SupabaseClient, filters: Ma
     throw new HttpError(500, 'internal_error', 'Unable to load map events.', error);
   }
 
-  return (data ?? []) as EventRow[];
+  const rows = (data ?? []) as EventRow[];
+  if (!viewerId) {
+    return rows;
+  }
+
+  const approvedClubIds = await fetchApprovedClubIdsForUser(adminClient, viewerId);
+  return rows.filter((event) => canUserAccessEvent(event, viewerId, approvedClubIds));
 }
 
 export async function fetchEventById(adminClient: SupabaseClient, eventId: string) {
   const { data, error } = await adminClient
     .from('events')
     .select(
-      'id, title, description, club_id, organizer_id, organizer_name, category, location_name, location_id, latitude, longitude, starts_at, ends_at, status, cover_image_url, tags, attendee_count, interested_count, max_capacity, moderation_status, flagged_categories, created_at, updated_at',
+      'id, title, description, club_id, organizer_id, organizer_name, organizer_ids, co_host_club_ids, category, location_name, location_id, location_details, latitude, longitude, starts_at, ends_at, recurrence_frequency, recurs_until, series_root_id, status, cover_image_url, attachments, tags, attendee_count, interested_count, max_capacity, waitlist_enabled, require_approval, is_free, ticket_price, visibility, contact_info, moderation_status, flagged_categories, created_at, updated_at',
     )
     .eq('id', eventId)
     .single();
@@ -188,7 +232,7 @@ export async function fetchEventReportCount(adminClient: SupabaseClient, eventId
   return count ?? 0;
 }
 
-export async function searchCampusFallback(adminClient: SupabaseClient, query: string) {
+export async function searchCampusFallback(adminClient: SupabaseClient, query: string, viewerId?: string) {
   const normalized = normalizeSearchQuery(query);
   if (!normalized) {
     return [];
@@ -197,7 +241,7 @@ export async function searchCampusFallback(adminClient: SupabaseClient, query: s
   const [eventsResult, locationsResult] = await Promise.all([
     adminClient
       .from('events')
-      .select('id, title, location_name, latitude, longitude, starts_at')
+      .select('id, title, club_id, organizer_id, organizer_ids, visibility, location_name, latitude, longitude, starts_at')
       .eq('moderation_status', 'approved')
       .neq('status', 'cancelled')
       .or(`title.ilike.%${normalized}%,location_name.ilike.%${normalized}%`)
@@ -219,14 +263,25 @@ export async function searchCampusFallback(adminClient: SupabaseClient, query: s
     throw new HttpError(500, 'internal_error', 'Unable to search locations.', locationsResult.error);
   }
 
+  const approvedClubIds =
+    viewerId ? await fetchApprovedClubIdsForUser(adminClient, viewerId) : new Set<string>();
+
   const eventResults = ((eventsResult.data ?? []) as Array<{
     id: string;
     title: string;
+    club_id: string | null;
+    organizer_id: string;
+    organizer_ids: string[] | null;
+    visibility: 'public' | 'club_members_only';
     location_name: string;
     latitude: number;
     longitude: number;
     starts_at: string;
-  }>).map((event) => ({
+  }>)
+    .filter((event) =>
+      viewerId ? canUserAccessEvent(event, viewerId, approvedClubIds) : event.visibility !== 'club_members_only',
+    )
+    .map((event) => ({
     id: `event-${event.id}`,
     type: 'event' as const,
     title: event.title,
@@ -234,7 +289,7 @@ export async function searchCampusFallback(adminClient: SupabaseClient, query: s
     latitude: event.latitude,
     longitude: event.longitude,
     event_ids: [event.id],
-  }));
+    }));
 
   const locationResults = ((locationsResult.data ?? []) as Array<{
     id: string;

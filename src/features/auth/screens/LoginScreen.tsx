@@ -5,7 +5,6 @@ import {
   Linking,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
 import { useResponsive } from '../../../shared/hooks/useResponsive';

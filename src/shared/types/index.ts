@@ -22,6 +22,8 @@ export enum EventCategory {
   Club = 'club',
   Arts = 'arts',
   Food = 'food',
+  Tech = 'tech',
+  Talks = 'talks',
   Workshop = 'workshop',
   Party = 'party',
   Other = 'other',
@@ -170,6 +172,15 @@ export interface ClubMemberWithUser extends ClubMember {
   user: User;
 }
 
+export interface EventAttachment {
+  id: string;
+  path: string;
+  file_name: string;
+  mime_type: string;
+  kind: 'image' | 'video' | 'document';
+  size_bytes?: number | null;
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -177,23 +188,36 @@ export interface Event {
   club_id: string | null;
   created_by: string;
   organizer_name?: string;
+  organizer_ids?: string[];
+  co_host_club_ids?: string[];
   category: EventCategory;
   starts_at: string;
   ends_at: string;
+  recurrence_frequency?: 'weekly' | 'biweekly' | 'monthly' | null;
+  recurs_until?: string | null;
+  series_root_id?: string | null;
   status?: 'upcoming' | 'live' | 'completed' | 'cancelled';
   moderation_status?: 'pending' | 'approved' | 'rejected';
   /** Canonical display location for the event. Prefer this over the legacy `location` alias. */
   location_name: string;
   location_id?: string | null;
+  location_details?: string | null;
   latitude: number | null;
   longitude: number | null;
   image_url: string | null;
+  attachments?: EventAttachment[];
   /** @deprecated Legacy alias kept for older UI paths. Prefer `attendee_count` in new code. */
   rsvp_count: number;
   /** Canonical count of users marked as going. */
   attendee_count: number;
   interested_count?: number;
   max_capacity: number | null;
+  waitlist_enabled?: boolean;
+  require_approval?: boolean;
+  is_free?: boolean;
+  ticket_price?: number | null;
+  visibility?: 'public' | 'club_members_only';
+  contact_info?: string | null;
   is_featured: boolean;
   tags?: string[];
   /** @deprecated Legacy alias kept for older cards. Prefer `location_name` in new code. */
@@ -378,6 +402,32 @@ export interface Notification {
   created_at: string;
 }
 
+// ── UMD Today Articles ──────────────────────────────────────
 
+export type UmdArticleCategory =
+  | 'Research'
+  | 'Campus'
+  | 'Students'
+  | 'Athletics'
+  | 'Arts'
+  | 'Faculty/Staff'
+  | string;
+
+export interface UmdArticle {
+  id: string;
+  title: string;
+  summary: string | null;
+  body_html: string | null;
+  hero_image_url: string | null;
+  inline_images: Array<{ url: string; alt: string }>;
+  category: UmdArticleCategory;
+  author: string | null;
+  published_at: string | null;
+  source_url: string;
+  reading_time_min: number;
+  scraped_at: string;
+  created_at: string;
+  updated_at: string;
+}
 
 

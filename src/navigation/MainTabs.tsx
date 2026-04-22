@@ -8,7 +8,11 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ExploreHomeScreen from '../features/explore/screens/ExploreHomeScreen';
+import ArticleDetailScreen from '../features/explore/screens/ArticleDetailScreen';
+import NewsArchiveScreen from '../features/explore/screens/NewsArchiveScreen';
 import MapHomeScreen from '../features/map/screens/MapHomeScreen';
+import CreateEventScreen from '../features/map/screens/CreateEventScreen';
+import SelectEventLocationScreen from '../features/map/screens/SelectEventLocationScreen';
 import EventDetailScreen from '../features/explore/screens/EventDetailScreen';
 import FeedHomeScreen from '../features/feed/screens/FeedHomeScreen';
 import PostDetailScreen from '../features/feed/screens/PostDetailScreen';
@@ -21,6 +25,7 @@ import CalendarSyncSettingsScreen from '../features/calendar/screens/CalendarSyn
 import CampusHomeScreen from '../features/campus/screens/CampusHomeScreen';
 import { CampusFeatureScreen, CampusQuickLinkScreen } from '../features/campus/screens/CampusFeatureScreen';
 import LibrariesDirectoryScreen, { LibraryProfileScreen } from '../features/campus/screens/LibrariesScreen';
+import SportsEventDetailScreen from '../features/campus/screens/SportsEventDetailScreen';
 import ProfileHomeScreen from '../features/profile/screens/ProfileHomeScreen';
 import EditProfileScreen from '../features/profile/screens/EditProfileScreen';
 import SettingsScreen from '../features/profile/screens/SettingsScreen';
@@ -82,6 +87,8 @@ function ExploreNavigator() {
       <ExploreStack.Screen name="ExploreHome" component={ExploreHomeScreen} />
       <ExploreStack.Screen name="EventDetail" component={EventDetailScreen} />
       <ExploreStack.Screen name="ClubDetail" component={ClubDetailScreen} />
+      <ExploreStack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
+      <ExploreStack.Screen name="NewsArchive" component={NewsArchiveScreen} />
     </ExploreStack.Navigator>
   );
 }
@@ -90,6 +97,8 @@ function MapNavigator() {
   return (
     <MapStack.Navigator screenOptions={{ headerShown: false }}>
       <MapStack.Screen name="MapHome" component={MapHomeScreen} />
+      <MapStack.Screen name="CreateEvent" component={CreateEventScreen} />
+      <MapStack.Screen name="SelectEventLocation" component={SelectEventLocationScreen} />
       <MapStack.Screen name="EventDetail" component={EventDetailScreen} />
       <MapStack.Screen name="ClubDetail" component={ClubDetailScreen} />
     </MapStack.Navigator>
@@ -125,6 +134,7 @@ function CalendarNavigator() {
       <CalendarStack.Screen name="AddPersonalBlock" component={AddPersonalBlockScreen} />
       <CalendarStack.Screen name="CalendarSyncSettings" component={CalendarSyncSettingsScreen} />
       <CalendarStack.Screen name="EventDetail" component={EventDetailScreen} />
+      <CalendarStack.Screen name="SportsEventDetail" component={SportsEventDetailScreen} />
       <CalendarStack.Screen name="ClubDetail" component={ClubDetailScreen} />
     </CalendarStack.Navigator>
   );
@@ -137,6 +147,7 @@ function CampusNavigator() {
       <CampusStack.Screen name="ClubsHome" component={ClubsHomeScreen} />
       <CampusStack.Screen name="ClubDetail" component={ClubDetailScreen} />
       <CampusStack.Screen name="EventDetail" component={EventDetailScreen} />
+      <CampusStack.Screen name="SportsEventDetail" component={SportsEventDetailScreen} />
       <CampusStack.Screen name="PostDetail" component={PostDetailScreen} />
       <CampusStack.Screen name="UserProfile" component={UserProfileScreen} />
       <CampusStack.Screen name="LibrariesDirectory" component={LibrariesDirectoryScreen} />
@@ -158,6 +169,7 @@ function ProfileNavigator() {
       <ProfileStack.Screen name="Connections" component={ConnectionsScreen} />
       <ProfileStack.Screen name="ClubDetail" component={ClubDetailScreen} />
       <ProfileStack.Screen name="EventDetail" component={EventDetailScreen} />
+      <ProfileStack.Screen name="SportsEventDetail" component={SportsEventDetailScreen} />
       <ProfileStack.Screen name="PostDetail" component={PostDetailScreen} />
       <ProfileStack.Screen name="UserProfile" component={UserProfileScreen} />
     </ProfileStack.Navigator>

@@ -37,6 +37,7 @@ export interface CampusMapProps {
   onSelectBuilding: (building: Building) => void;
   onSelectRoute?: (route: CampusRoute) => void;
   onSelectDiningZone?: (zone: DiningZone) => void;
+  onPressCoordinate?: (coordinate: MapCoordinate) => void;
   onLongPressCoordinate?: (coordinate: MapCoordinate) => void;
 }
 

@@ -12,15 +12,19 @@ export const appPaths = {
   calendar: 'calendar',
   campus: 'campus',
   clubs: 'clubs',
+  news: 'explore/news',
   libraries: 'libraries',
   profile: 'profile',
   login: 'login',
   onboarding: 'onboarding',
   event: (eventId: string) => `events/${eventId}`,
+  article: (articleId: string) => `explore/articles/${articleId}`,
   club: (clubId: string) => `clubs/${clubId}`,
   person: (userId: string) => `people/${userId}`,
   post: (postId: string) => `posts/${postId}`,
   library: (libraryId: string) => `libraries/${libraryId}`,
+  createEvent: 'map/create',
+  selectEventLocation: 'map/create/location',
 };
 
 export function createAppUrl(path: string) {
@@ -29,6 +33,10 @@ export function createAppUrl(path: string) {
 
 export function createEventUrl(eventId: string) {
   return createAppUrl(appPaths.event(eventId));
+}
+
+export function createArticleUrl(articleId: string) {
+  return createAppUrl(appPaths.article(articleId));
 }
 
 export function createClubUrl(clubId: string) {

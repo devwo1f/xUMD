@@ -9,6 +9,7 @@ import { useDemoAppStore } from '../../../shared/stores/useDemoAppStore';
 import { colors } from '../../../shared/theme/colors';
 import { borderRadius } from '../../../shared/theme/spacing';
 import type { ProfileStackParamList } from '../../../navigation/types';
+import { isUmdSportsEventId } from '../../../services/umdSports';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'SavedEvents'>;
 
@@ -39,7 +40,11 @@ export default function SavedEventsScreen({ navigation }: Props) {
             time: new Date(event.starts_at).toLocaleString(),
             location: event.location_name,
           }}
-          onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
+          onPress={() =>
+            navigation.navigate(isUmdSportsEventId(event.id) ? 'SportsEventDetail' : 'EventDetail', {
+              eventId: event.id,
+            })
+          }
         />
       ))}
       {events.length === 0 ? <Text style={styles.emptyText}>Save or RSVP to an event from anywhere in xUMD to see it here.</Text> : null}

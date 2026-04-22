@@ -66,6 +66,7 @@ interface CampusMapProps {
   onSelectBuilding: (building: Building) => void;
   onSelectRoute?: () => void;
   onSelectDiningZone?: () => void;
+  onPressCoordinate?: (coordinate: MapCoordinate) => void;
   onLongPressCoordinate?: (coordinate: MapCoordinate) => void;
 }
 
@@ -319,6 +320,7 @@ export default function CampusMap({
   wayfindingJourney,
   onSelectEventGroup,
   onSelectBuilding,
+  onPressCoordinate,
   onLongPressCoordinate,
 }: CampusMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -332,6 +334,7 @@ export default function CampusMap({
     eventGroups,
     onSelectBuilding,
     onSelectEventGroup,
+    onPressCoordinate,
     onLongPressCoordinate,
   });
 
@@ -340,6 +343,7 @@ export default function CampusMap({
     eventGroups,
     onSelectBuilding,
     onSelectEventGroup,
+    onPressCoordinate,
     onLongPressCoordinate,
   };
 
@@ -882,6 +886,10 @@ export default function CampusMap({
 
         map.on('contextmenu', (event: { lngLat: { lng: number; lat: number } }) => {
           latestStateRef.current.onLongPressCoordinate?.([event.lngLat.lng, event.lngLat.lat]);
+        });
+
+        map.on('click', (event: { lngLat: { lng: number; lat: number } }) => {
+          latestStateRef.current.onPressCoordinate?.([event.lngLat.lng, event.lngLat.lat]);
         });
       });
 

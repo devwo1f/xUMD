@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
@@ -19,6 +19,7 @@ import { MemberRole } from '../../../shared/types';
 import { createClubUrl } from '../../../navigation/deepLinks';
 import type { ClubMemberWithUser, PostMediaItem } from '../../../shared/types';
 import type { CalendarStackParamList, CampusStackParamList, ClubsStackParamList, ExploreStackParamList, MapStackParamList, ProfileStackParamList } from '../../../navigation/types';
+import { shareContent } from '../../../shared/utils/shareContent';
 import PostMediaGallery from '../../feed/components/PostMediaGallery';
 import { useFeedStore } from '../../feed/hooks/useFeed';
 import { useMapData } from '../../map/hooks/useMapData';
@@ -314,9 +315,15 @@ export default function ClubDetailScreen({ navigation, route }: Props) {
   };
 
   const shareClub = async () => {
-    await Share.share({
+    const result = await shareContent({
+      title: club.name,
       message: `${club.name}\n${club.short_description}\n${createClubUrl(club.id)}`,
+      url: createClubUrl(club.id),
     });
+
+    if (result === 'copied') {
+      Alert.alert('Link copied', 'This club link is now in your clipboard.');
+    }
   };
 
   return (

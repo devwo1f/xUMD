@@ -12,18 +12,24 @@ const linkingConfig = {
         ExploreHome: '',
         EventDetail: 'explore/events/:eventId',
         ClubDetail: 'explore/clubs/:clubId',
+        ArticleDetail: 'explore/articles/:articleId',
+        NewsArchive: 'explore/news',
       },
     },
     Map: {
       screens: {
         MapHome: 'map',
         EventDetail: 'map/events/:eventId',
+        ClubDetail: 'map/clubs/:clubId',
+        CreateEvent: 'map/create',
+        SelectEventLocation: 'map/create/location',
       },
     },
     Feed: {
       screens: {
         FeedHome: 'feed',
         PostDetail: 'feed/posts/:postId',
+        EventDetail: 'feed/events/:eventId',
         UserProfile: 'feed/people/:userId',
       },
     },
@@ -49,6 +55,7 @@ const linkingConfig = {
         CampusHome: 'campus',
         ClubsHome: 'campus/clubs',
         ClubDetail: 'campus/clubs/:clubId',
+        EventDetail: 'campus/events/:eventId',
         LibrariesDirectory: 'campus/libraries',
         LibraryProfile: 'campus/libraries/:libraryId',
         CampusFeature: 'campus/features/:featureKey',
@@ -85,6 +92,23 @@ function normalizePath(path: string) {
   return path.split('?')[0]?.replace(/^\/+/, '').replace(/\/+$/, '') ?? '';
 }
 
+function buildStackStateFromRoutes(
+  tabName: string,
+  routes: Array<{ name: string; params?: Record<string, string> }>,
+) {
+  return {
+    routes: [
+      {
+        name: tabName,
+        state: {
+          index: routes.length - 1,
+          routes,
+        },
+      },
+    ],
+  };
+}
+
 function buildStackState(tabName: string, homeScreenName: string, screenName?: string, params?: Record<string, string>) {
   const stackRoutes = [{ name: homeScreenName } as { name: string; params?: Record<string, string> }];
 
@@ -92,17 +116,7 @@ function buildStackState(tabName: string, homeScreenName: string, screenName?: s
     stackRoutes.push({ name: screenName, params });
   }
 
-  return {
-    routes: [
-      {
-        name: tabName,
-        state: {
-          index: stackRoutes.length - 1,
-          routes: stackRoutes,
-        },
-      },
-    ],
-  };
+  return buildStackStateFromRoutes(tabName, stackRoutes);
 }
 
 function getActiveRoute(state: StateLike | undefined): ActiveRoute | null {
@@ -148,13 +162,34 @@ export const linking: LinkingOptions<Record<string, object | undefined>> = {
       return buildStackState('Campus', 'CampusHome', 'ClubsHome');
     }
 
+    if (normalized === appPaths.news) {
+      return buildStackState('Explore', 'ExploreHome', 'NewsArchive');
+    }
+
     if (normalized === appPaths.libraries) {
       return buildStackState('Campus', 'CampusHome', 'LibrariesDirectory');
+    }
+
+    if (normalized === appPaths.createEvent) {
+      return buildStackState('Map', 'MapHome', 'CreateEvent');
+    }
+
+    if (normalized === appPaths.selectEventLocation) {
+      return buildStackStateFromRoutes('Map', [
+        { name: 'MapHome' },
+        { name: 'CreateEvent' },
+        { name: 'SelectEventLocation' },
+      ]);
     }
 
     const eventMatch = normalized.match(/^events\/([^/]+)$/i);
     if (eventMatch) {
       return buildStackState('Map', 'MapHome', 'EventDetail', { eventId: decodeSegment(eventMatch[1]) });
+    }
+
+    const articleMatch = normalized.match(/^explore\/articles\/([^/]+)$/i);
+    if (articleMatch) {
+      return buildStackState('Explore', 'ExploreHome', 'ArticleDetail', { articleId: decodeSegment(articleMatch[1]) });
     }
 
     const clubMatch = normalized.match(/^clubs\/([^/]+)$/i);
@@ -186,12 +221,28 @@ export const linking: LinkingOptions<Record<string, object | undefined>> = {
       return appPaths.clubs;
     }
 
+    if (activeRoute?.name === 'NewsArchive') {
+      return appPaths.news;
+    }
+
     if (activeRoute?.name === 'LibrariesDirectory') {
       return appPaths.libraries;
     }
 
+    if (activeRoute?.name === 'CreateEvent') {
+      return appPaths.createEvent;
+    }
+
+    if (activeRoute?.name === 'SelectEventLocation') {
+      return appPaths.selectEventLocation;
+    }
+
     if (activeRoute?.name === 'EventDetail' && typeof activeRoute.params?.eventId === 'string') {
       return appPaths.event(activeRoute.params.eventId);
+    }
+
+    if (activeRoute?.name === 'ArticleDetail' && typeof activeRoute.params?.articleId === 'string') {
+      return appPaths.article(activeRoute.params.articleId);
     }
 
     if (activeRoute?.name === 'ClubDetail' && typeof activeRoute.params?.clubId === 'string') {

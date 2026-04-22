@@ -12,6 +12,8 @@ import {
 } from '../_shared/map.ts';
 import {
   fetchCampusLocations,
+  canUserAccessEvent,
+  fetchApprovedClubIdsForUser,
   fetchCurrentUserRsvp,
   fetchEventById,
   fetchEventReportCount,
@@ -43,19 +45,27 @@ Deno.serve(async (request) => {
       throw new HttpError(403, 'forbidden', 'This event is not available.');
     }
 
+    const visibleEvents = await fetchMapEventRows(adminClient, { timeFilter: 'all_today' }, userId);
+    const visibleEventIds = new Set(visibleEvents.map((item) => item.id));
+    if (!visibleEventIds.has(event.id)) {
+      const approvedClubIds = await fetchApprovedClubIdsForUser(adminClient, userId);
+      if (!canUserAccessEvent(event, userId, approvedClubIds)) {
+        throw new HttpError(403, 'forbidden', 'This event is not available.');
+      }
+    }
+
     const todayWindow = buildTimeWindow('all_today');
-    const [campusLocations, currentUserRsvp, rsvpStats, friendsAttending, reportCount, allTodayEvents] =
+    const [campusLocations, currentUserRsvp, rsvpStats, friendsAttending, reportCount] =
       await Promise.all([
         fetchCampusLocations(adminClient),
         fetchCurrentUserRsvp(adminClient, userId, body.eventId),
         fetchEventRsvpStats(adminClient, body.eventId),
         fetchFriendAttendingProfiles(adminClient, userId, body.eventId),
         fetchEventReportCount(adminClient, body.eventId),
-        fetchMapEventRows(adminClient, { timeFilter: 'all_today' }),
       ]);
 
-    const densityMap = computeEventDensityMap(allTodayEvents, todayWindow.start, todayWindow.end);
-    const locationCounts = computeEventsPerLocation(allTodayEvents);
+    const densityMap = computeEventDensityMap(visibleEvents, todayWindow.start, todayWindow.end);
+    const locationCounts = computeEventsPerLocation(visibleEvents);
     const location = campusLocations.find((item) => item.id === event.location_id) ?? null;
     const response = (await buildEventDetailResponse({
       adminClient,
